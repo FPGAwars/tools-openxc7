@@ -4,4 +4,4 @@
 sudo rm -rf dist/
 
 # -- Borrar el .tgz
-rm *.tgz
+rm -f *.tgz
