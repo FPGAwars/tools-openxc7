@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+release_bindir="$(dirname "${BASH_SOURCE[0]}")"
+release_bindir_abs="$(readlink -f "$release_bindir")"
+release_topdir_abs="$(readlink -f "$release_bindir/..")"
+export PATH="$release_bindir_abs:$PATH"
+export PYTHONEXECUTABLE="$release_topdir_abs/bin/tabbypy3"
+export PYTHONHOME="$release_topdir_abs"
+export PYTHONNOUSERSITE=1
+#export SSL_CERT_FILE="$release_topdir_abs"/etc/cacert.pem
+exec "$release_topdir_abs"/lib/ld-linux-x86-64.so.2 --inhibit-cache --inhibit-rpath "" --library-path "$release_topdir_abs"/lib "$release_topdir_abs"/libexec/python3.12 "$@"

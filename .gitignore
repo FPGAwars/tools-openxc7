@@ -1,0 +1,8 @@
+ledon.json
+*.fasm
+*.frames
+*.bit
+__pycache__/
+dist/
+*.tgz
+
