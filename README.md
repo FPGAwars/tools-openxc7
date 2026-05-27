@@ -21,6 +21,17 @@ Follow theses steps:
     * Next execution of `nix develop` will take seconds
 4. From the nix environment execute `./openxc7-pack.py`
 
+    It will collect all the necesary binaries an libraries and
+generate a tarball. This is what you should see initially:
+
+![Build screenshot 1](doc/build-toolchain-1.png)
+
+After some time, it will generate the `apio-openxc7-linux-x64-<version>.tgz` package
+
+![Build screenshot 2](doc/build-toolchain-2.png)
+
+5. You are done! You can use it locally or publish it as a new release
+
 ## License
 
 The Apio project itself is licensed under the GNU General Public License version 3.0 (GPL-3.0).
