@@ -1,0 +1,41 @@
+# -------- CONFIGURAR
+# -- Directorio donde estan instaladas las OSS-CAD-SUITE
+OSS_CAD_SUITE=$HOME/Apps/oss-cad-suite
+
+# -- Directiorio donde estas instaladas las TOOLS-OPENXC7
+TOOLS_OPENXC7=$HOME/Apps/openxc7
+
+#-- Colores
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+CYAN="\033[36m"
+MAG="\033[35m"
+RESET='\033[0m'  #-- Color por defecto
+
+# -- Asegurarse que este script solo se ejecuta con source
+if [ "${BASH_SOURCE-}" = "$0" ]; then
+    echo "You must source this script: \$ source $0" >&2
+    exit 1
+fi
+
+# -- Activar el entorno OSS_CAD_SUITE, para tener acceso a
+# -- Yosys y el openFPGAloader
+source $OSS_CAD_SUITE/environment
+
+# -- Cambiar el prompt
+PROMPT='\n[OSS-CAD-SUITE][TOOLS-OPENXC7] ───────────────────────'
+
+PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+PS1="\[\033[1;33m\]${PROMPT}\033[0m\]\n${PS1-}"
+
+PATH="$PATH:$TOOLS_OPENXC7/bin:"
+export PATH
+
+echo -e "${GREEN}───────────────────────────────"
+echo -e "Entorno TOOLS-OPENXC7${RESET}"
+echo -e "(c) OPENXC7 Project"
+echo -e "(c) Obijuan (FPGAwars, 2026)"
+echo -e "${GREEN}───────────────────────────────${RESET}"
+

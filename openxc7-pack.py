@@ -1015,13 +1015,13 @@ def construir_tarball(version: str):
     print()
 
     # -- Nombre del paquete
-    tarball_name = Path(f"tools-openxc7-linux-x64-{date}.tgz")
+    tarball_name = Path(f"apio-openxc7-linux-x64-{date}.tgz")
 
     # -- Comprimir llamando a tar en la shell
     print(f"➡️  {tarball_name}")
     print("⏳ Comprimiendo...")
     comando = ["tar", "-czf", f"{tarball_name}",
-               "--transform=s|^dist|tools-openxc7|", "dist/"]
+               "--transform=s|^dist|openxc7|", "dist/"]
     subprocess.run(comando,
                    check=True,
                    capture_output=True,
