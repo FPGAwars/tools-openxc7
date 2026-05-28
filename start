@@ -1,9 +1,13 @@
-# -------- CONFIGURAR
-# -- Directorio donde estan instaladas las OSS-CAD-SUITE
+# ----------------------------------------------
+# -- USER CONFIGURATION
+# ----------------------------------------------
+# -- Local path where openxc7 is installed
+TOOLS_OPENXC7=$HOME/.local/openxc7
 OSS_CAD_SUITE=$HOME/Apps/oss-cad-suite
 
-# -- Directiorio donde estas instaladas las TOOLS-OPENXC7
-TOOLS_OPENXC7=$HOME/Apps/openxc7
+# -----------------------------------------------
+# -- END OF USER CONFIGURATION
+# -----------------------------------------------
 
 #-- Colores
 GREEN='\033[0;32m'
@@ -32,6 +36,9 @@ PS1="\[\033[1;33m\]${PROMPT}\033[0m\]\n${PS1-}"
 
 PATH="$PATH:$TOOLS_OPENXC7/bin:"
 export PATH
+export TOOLS_OPENXC7
+export OSS_CAD_SUITE
+
 
 echo -e "${GREEN}───────────────────────────────"
 echo -e "Entorno TOOLS-OPENXC7${RESET}"

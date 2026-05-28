@@ -1,11 +1,10 @@
 
 
-# -- INSTALACION DE Tools-openxc7
-# -- Colocar en esta variable el path donde estan instaladas
-# -- las tools-openxc7 en el sistema
-# -- CAMBIA ESTO PARA ADAPTARLO A TU SISTEMA!!!!
-#TOOLS_OPENXC7 = ${HOME}/Develop/Learn-Basys-3-board-OpenFPGA/dist
-
+# -- Directorio donde encontrar los binarios de las herramientas
+# -- Se leen de la variable del sistema TOOLS_OPENXC7, que se
+# -- define al llamar a start  (. start)
+# -- Si no esta definida se lee de la propia distribucion
+# -- que se ha generado en dist al ejecutar openxc7-pack.py
 TOOLS_OPENXC7 ?= ${PWD}/../dist
 
 # -- Variable de makefile
