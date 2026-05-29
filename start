@@ -3,7 +3,7 @@
 # ----------------------------------------------
 # -- Local path where openxc7 is installed
 TOOLS_OPENXC7=$HOME/.local/openxc7
-OSS_CAD_SUITE=$HOME/Apps/oss-cad-suite
+OSS_CAD_SUITE=$HOME/.local/oss-cad-suite
 
 # -----------------------------------------------
 # -- END OF USER CONFIGURATION
