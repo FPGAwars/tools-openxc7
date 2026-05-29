@@ -48,27 +48,30 @@ printf "$YELLOW""  INSTALACION DE OPENXC7\n"
 printf "$YELLOW""────────────────────────────────\n"
 printf "$RESET"
 
-# -- Descargar el paquete tgz
-printf "\n"
-printf "🔵 Descargando paquete: $PKG_NAME\n\n"
-printf "  ➡️  URL: $PKG_URL\n\n"
-wget -c -q --show-progress $PKG_URL
-printf "\n"
+# -- Check if it has been already installed
+if [ -f "$CHECK_FILE" ]; then
+    printf "📌 Herramienta instalada previamente...\n"
+else
 
-# -- Crear directorio destino, si no exitiese
-mkdir -p $OPENXC7_INSTALL_PATH
+    # -- Descargar el paquete tgz
+    printf "\n"
+    printf "🔵 Descargando paquete: $PKG_NAME\n\n"
+    printf "  ➡️  URL: $PKG_URL\n\n"
+    wget -c -q --show-progress $PKG_URL
+    printf "\n"
 
-# -- Uncompress it
-printf "🔵 Instalando en $OPENXC7_INSTALL_PATH\n"
+    # -- Crear directorio destino, si no exitiese
+    mkdir -p $OPENXC7_INSTALL_PATH
 
-if [ ! -f "$CHECK_FILE" ]; then
+    # -- Uncompress it
+    printf "🔵 Instalando en $OPENXC7_INSTALL_PATH\n"
     printf "📦 Extrayendo..."
     printf "$PKG_NAME\n"
     tar zxf $PKG_NAME -C $OPENXC7_INSTALL_PATH
     printf "OK!\n"
-else
-    printf "📌 Herramienta instalada previamente... se omite\n"
+   
 fi
-
 printf "\n"
+
+
 
