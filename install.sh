@@ -21,8 +21,6 @@ DAY=29
 # -- Openxc7 repo
 REPO_URL="https://github.com/FPGAwars/tools-openxc7"
 
-
-
 # -- Version to download
 VERSION_ID=$YEAR$MONTH$DAY
 
@@ -34,6 +32,9 @@ PKG_NAME="apio-openxc7-linux-x86-64-"$VERSION_ID".tgz"
 
 # -- Package URL
 PKG_URL=$REPO_URL"/releases/download/"$DATE/$PKG_NAME
+
+# --- PRIMERO INSTALAR OSS-CAD-SUITE!
+bash ./install-oss-cad-suite.sh
 
 # -- Descargar el paquete tgz
 printf "\n"
