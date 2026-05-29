@@ -33,39 +33,39 @@ PKG_NAME="apio-openxc7-linux-x86-64-"$VERSION_ID".tgz"
 # -- Package URL
 PKG_URL=$REPO_URL"/releases/download/"$DATE/$PKG_NAME
 
-#-- Colores
+#-- ANSI colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 CYAN="\033[36m"
 MAG="\033[35m"
-RESET='\033[0m'  #-- Color por defecto
+RESET='\033[0m'  
 
 printf "\n"
 printf "$YELLOW""────────────────────────────────\n"
-printf "$YELLOW""  INSTALACION DE OPENXC7\n"
+printf "$YELLOW""  INSTALLING OPENXC7\n"
 printf "$YELLOW""────────────────────────────────\n"
 printf "$RESET"
 
 # -- Check if it has been already installed
 if [ -f "$CHECK_FILE" ]; then
-    printf "📌 Herramienta instalada previamente...\n"
+    printf "📌 Tool already installed...\n"
 else
 
-    # -- Descargar el paquete tgz
+    # -- Download the tarball
     printf "\n"
-    printf "🔵 Descargando paquete: $PKG_NAME\n\n"
+    printf "🔵 Downloading tarball: $PKG_NAME\n\n"
     printf "  ➡️  URL: $PKG_URL\n\n"
     wget -c -q --show-progress $PKG_URL
     printf "\n"
 
-    # -- Crear directorio destino, si no exitiese
+    # -- Create the installation folder, it is does not exist yet
     mkdir -p $OPENXC7_INSTALL_PATH
 
     # -- Uncompress it
-    printf "🔵 Instalando en $OPENXC7_INSTALL_PATH\n"
-    printf "📦 Extrayendo..."
+    printf "🔵 Installing in $OPENXC7_INSTALL_PATH\n"
+    printf "📦 Uncompressing..."
     printf "$PKG_NAME\n"
     tar zxf $PKG_NAME -C $OPENXC7_INSTALL_PATH
     printf "OK!\n"
