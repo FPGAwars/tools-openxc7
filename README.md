@@ -32,6 +32,43 @@ After some time, it will generate the `apio-openxc7-linux-x64-<version>.tgz` pac
 
 5. You are done! You can use it locally or publish it as a new release
 
+## Using the toolchain without APIO
+
+It is possible to use the complete toolchain directly, without apio. Follow this instructions: `./install.sh`
+
+1. Install the complete toolchain (oss-cad-suite + openxc7)
+
+```bash
+./install.sh
+```
+
+  It will download the corresponding .tgz packages and uncompressing them in the
+ user's folders: `~/.config/openxc7` and `~/.local/openxc7`
+
+2. Enter the new environment: `. start`
+
+```bash
+. start
+```
+  Inside this environment you have accesss to all the tools: yosys, nextpnr-xilinx,
+openFPGAloader and son on
+
+3. Test the "hello world": Turning the LED on
+
+```bash
+cd example
+make
+```
+
+It will generate the Bitstream
+
+4. Upload to the Basys3 board
+
+```bash
+make prog
+```
+
+
 ## License
 
 The Apio project itself is licensed under the GNU General Public License version 3.0 (GPL-3.0).
