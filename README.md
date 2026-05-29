@@ -80,7 +80,7 @@ Execute the command `make prog`
 
 ![Screenshot](doc/ledon-prog.png)
 
-The LED 15 of the Basys3 board will be ON
+The LED 15 of the Basys3 board is now on
 
 ![Picture of the Basys3 board with the LED15 ON](doc/Basys3-ledon.png)
 
