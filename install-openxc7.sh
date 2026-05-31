@@ -16,7 +16,7 @@ CHECK_FILE=$OPENXC7_INSTALL_PATH/VERSION
 # -- Date for the version to download
 YEAR=2026
 MONTH=05
-DAY=29
+DAY=31
 
 # -- Openxc7 repo
 REPO_URL="https://github.com/FPGAwars/tools-openxc7"
@@ -40,7 +40,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 CYAN="\033[36m"
 MAG="\033[35m"
-RESET='\033[0m'  
+RESET='\033[0m'
 
 printf "\n"
 printf "$YELLOW""────────────────────────────────\n"
@@ -69,7 +69,7 @@ else
     printf "$PKG_NAME\n"
     tar zxf $PKG_NAME -C $OPENXC7_INSTALL_PATH
     printf "OK!\n"
-   
+
 fi
 printf "\n"
 
