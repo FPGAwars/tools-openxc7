@@ -1017,6 +1017,15 @@ def construir_tarball(version: str):
     # -- Nombre del paquete
     tarball_name = Path(f"apio-openxc7-linux-x86-64-{date}.tgz")
 
+    # -- Antes de comprimir damos permisos de escritura a TODOs los
+    # -- ficheros y directorios
+    print("➡️  Dando permisos de escritura...")
+    comando = ["chmod", "-R", "+w", "dist"]
+    subprocess.run(comando,
+                   check=True,
+                   capture_output=True,
+                   text=True)
+
     # -- Comprimir llamando a tar en la shell
     print(f"➡️  {tarball_name}")
     print("⏳ Comprimiendo...")

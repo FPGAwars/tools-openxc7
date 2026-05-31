@@ -3,11 +3,11 @@
 > **Note:** Please **do not** open issues in this repository.
 > For any questions, discussions, or bug reports, use the [main Apio repository](https://github.com/FPGAwars/apio).
 
-Apio package with selected binaries from the [openXC7 project](https://github.com/openxc7)  
+Apio package with selected binaries from the [openXC7 project](https://github.com/openxc7)
 
 ## Building the toolchain (For developers)
 
-The current process for building the toolchain is manual, and only for 
+The current process for building the toolchain is manual, and only for
 Linux
 
 Follow theses steps:
