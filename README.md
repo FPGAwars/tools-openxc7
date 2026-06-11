@@ -36,7 +36,16 @@ After some time, it will generate the `apio-openxc7-linux-x64-<version>.tgz` pac
 
 It is possible to use the complete toolchain directly, without apio. Follow this instructions: 
 
-### 1. Install the complete toolchain (oss-cad-suite + openxc7)
+### 1. Clone this repository
+
+* Clone this repository and enter its home directory
+
+```bash
+git clone https://github.com/FPGAwars/tools-openxc7.git
+cd tools-openxc7
+```
+
+### 2. Install the complete toolchain (oss-cad-suite + openxc7)
 
 ```bash
 ./install.sh
@@ -47,7 +56,7 @@ It is possible to use the complete toolchain directly, without apio. Follow this
 
 ![Installation screenshot](doc/install-toolchain-1.png)
 
-### 2. Enter the new environment: `. start`
+### 3. Enter the new environment: `. start`
 
 ```bash
 . start
@@ -59,7 +68,7 @@ openFPGAloader and son on
 ![Screenshot](doc/start-env-1.png)
 
 
-### 3. Test the "hello world": Turning the LED on
+### 4. Test the "hello world": Turning the LED on
 
 ```bash
 cd example
@@ -74,7 +83,7 @@ It will generate the Bitstream
 ![Screenshot](doc/ledon-example-2.png)
 
 
-### 4. Upload to the Basys3 board
+### 5. Upload to the Basys3 board
 
 Execute the command `make prog`
 
