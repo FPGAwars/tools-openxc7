@@ -760,6 +760,13 @@ def run_fase3_fasm():
     msg = copy_file(src, dst)
     print(msg)
 
+    # -- libffi.so
+    dir = nix_locate("libffi-3.4.6")
+    src = dir / "lib" / "libffi.so.8.1.4"
+    dst = Path.cwd() / "dist" / "lib"
+    msg = copy_file(src, dst)
+    print(msg)
+
 
 def run_fase3_prjxray():
     print(ansi.YELLOW, end='')
