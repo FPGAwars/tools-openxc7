@@ -34,7 +34,7 @@ After some time, it will generate the `apio-openxc7-linux-x64-<version>.tgz` pac
 
 ## Using the toolchain without APIO
 
-It is possible to use the complete toolchain directly, without apio. Follow this instructions: `./install.sh`
+It is possible to use the complete toolchain directly, without apio. Follow this instructions: 
 
 ### 1. Install the complete toolchain (oss-cad-suite + openxc7)
 
