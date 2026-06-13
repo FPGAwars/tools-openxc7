@@ -316,7 +316,8 @@ def copy_python_dep(pyname: str, version: str, name: str = ""):
 
     # -- Dar permisos de escritura al directorio "site-packges"
     # -- de la distribucion
-    write_access(dst_site_pack)
+    if dst_site_pack.exists():
+        write_access(dst_site_pack)
 
     mark = ""
 
@@ -811,11 +812,8 @@ def run_fase3_prjxray():
     PATCH_DIR = "lib/python3.12/site-packages/prjxray"
     origen = Path.cwd() / "store" / "util.py"
     destino = Path.cwd() / DIST / PATCH_DIR / "util.py"
-    if destino.exists():
-        mark = "📌"
-    else:
-        shutil.copy(origen, destino)
-        mark = "✅"
+    shutil.copy(origen, destino)
+    mark = "✅"
     print(f"➡️  Dep: {mark}{PATCH_DIR}/util.py")
 
     # -- DEBUG

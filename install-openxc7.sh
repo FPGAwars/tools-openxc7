@@ -16,7 +16,7 @@ CHECK_FILE=$OPENXC7_INSTALL_PATH/VERSION
 # -- Date for the version to download
 YEAR=2026
 MONTH=06
-DAY=11
+DAY=13
 
 # -- Openxc7 repo
 REPO_URL="https://github.com/FPGAwars/tools-openxc7"
