@@ -799,6 +799,25 @@ def run_fase3_prjxray():
     copy_python_dep("intervaltree", "3.1.0")
     copy_python_dep("sortedcontainers", "2.4.0")
 
+    # -- PATCH!
+    # -- Use patch file: store/util.py
+    # -- Instead of dist/lib/python3.12/site_packages/prjxray/util.py
+    # -- class OpenSafeFile: no lock/unlock files
+    # -- For unknown reasons, it does not work on the computers
+    # -- from URJC when locking/undocking
+    # -- It gives the error: [Errno 9] Bad file descriptor
+
+    # --- Copiar el fichero parcheado
+    PATCH_DIR = "lib/python3.12/site-packages/prjxray"
+    origen = Path.cwd() / "store" / "util.py"
+    destino = Path.cwd() / DIST / PATCH_DIR / "util.py"
+    if destino.exists():
+        mark = "📌"
+    else:
+        shutil.copy(origen, destino)
+        mark = "✅"
+    print(f"➡️  Dep: {mark}{PATCH_DIR}/util.py")
+
     # -- DEBUG
     # dir = nix_locate("nextpnr-xilinx")
     # print(dir)
