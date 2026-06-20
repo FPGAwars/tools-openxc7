@@ -71,10 +71,14 @@
             };
           };
 
-          fpga-assembler = (builtins.getFlake "github:lromor/fpga-assembler/6ff89a2d53edc9d74a402c28096450473b67de13").packages.${system}.default;
-
           # disable yosys-synlig for now: synlig is not very good and it does not compile with recent yosys
           # yosys-synlig = callPackage ./nix/yosys-synlig.nix { };
+        } // lib.optionalAttrs stdenv.isLinux {
+          # fpga-assembler is gated to Linux: its pinned upstream flake input
+          # (github:lromor/fpga-assembler) does not evaluate on darwin and would
+          # otherwise abort `nix develop` / `nix flake show` on macOS. On macOS the
+          # openXC7 flow uses prjxray's xc7frames2bit instead.
+          fpga-assembler = (builtins.getFlake "github:lromor/fpga-assembler/6ff89a2d53edc9d74a402c28096450473b67de13").packages.${system}.default;
         });
 
       # contains a mutually consistent set of packages for a full toolchain using nextpnr-xilinx.
@@ -82,22 +86,25 @@
         nixpkgsFor.${system}.mkShell {
           buildInputs = (with self.packages.${system}; [
             fasm
-            fpga-assembler
             prjxray
             nextpnr-xilinx
             # disabled, see above
             # yosys-synlig
           ]) ++ (with nixpkgsFor.${system}; [
             yosys
-            ghdl
-            yosys-ghdl
             openfpgaloader
             pypy310
             python312Packages.pyyaml
             python312Packages.textx
             python312Packages.simplejson
             python312Packages.intervaltree
-          ]);
+          ])
+          # fpga-assembler (gated above), ghdl and yosys-ghdl are not available on
+          # aarch64-darwin; keep them Linux-only so the macOS devShell still resolves.
+          ++ nixpkgsFor.${system}.lib.optionals nixpkgsFor.${system}.stdenv.isLinux (
+            (with self.packages.${system}; [ fpga-assembler ])
+            ++ (with nixpkgsFor.${system}; [ ghdl yosys-ghdl ])
+          );
 
           shellHook =
             let mypkgs  = self.packages.${system};
@@ -122,7 +129,11 @@
         }
       );
 
-      dockerImage = forAllSystems (system:
+      # dockerTools.buildImage targets Linux container images; expose it only on
+      # Linux systems so the flake still evaluates (`nix flake show`) on macOS.
+      dockerImage = nixpkgs.lib.genAttrs
+        (builtins.filter (s: nixpkgs.lib.hasSuffix "-linux" s) supportedSystems)
+        (system:
         let
           pkgs = nixpkgsFor.${system};
           mypkgs = self.packages.${system};

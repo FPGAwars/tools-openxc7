@@ -1,0 +1,93 @@
+# F0 de-risking CI for macOS support.
+#
+# Two native jobs (no cross-compilation, which nixpkgs does not support
+# Linux -> macOS):
+#   - linux  : x86_64-linux  on ubuntu-latest  -> must stay green (regression guard)
+#   - macos  : aarch64-darwin on macos-14       -> GATE A, exploratory (continue-on-error)
+#
+# GATE A question: do nextpnr-xilinx / prjxray / fasm build under Apple clang on
+# Apple Silicon? Each package is its own step so a partial pass is visible.
+name: build
+
+on:
+  push:
+    branches: [ main, "feat/**" ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: linux (x86_64-linux) — regression guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Evaluate the flake (exercises the platform guards)
+        run: nix flake show --all-systems
+
+      - name: Build nextpnr-xilinx
+        run: nix build -L .#nextpnr-xilinx
+
+      - name: Build prjxray
+        run: nix build -L .#prjxray
+
+      - name: Build fasm
+        run: nix build -L .#fasm
+
+  macos:
+    name: macos (aarch64-darwin) — GATE A
+    runs-on: macos-14            # Apple Silicon runner => aarch64-darwin
+    continue-on-error: true      # GATE A is exploratory; do not fail the workflow yet
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show host platform
+        run: |
+          uname -s; uname -m
+          echo "Expecting: Darwin / arm64 (aarch64-darwin)"
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      # GATE A.0 — the flake must at least EVALUATE on darwin. This is what the
+      # flake.nix guards (fpga-assembler / ghdl / yosys-ghdl / dockerImage) unblock.
+      - name: GATE A.0 — flake evaluates on darwin
+        run: nix flake show
+
+      # GATE A.1..A.3 — does each derivation actually COMPILE under Apple clang?
+      # Each step is independent (continue-on-error) so we learn exactly which
+      # of the three pass. nextpnr-xilinx passing alone already de-risks the core.
+      - name: GATE A.1 — build nextpnr-xilinx
+        id: build_nextpnr
+        continue-on-error: true
+        run: nix build -L .#nextpnr-xilinx
+
+      - name: GATE A.2 — build prjxray
+        id: build_prjxray
+        continue-on-error: true
+        run: nix build -L .#prjxray
+
+      - name: GATE A.3 — build fasm
+        id: build_fasm
+        continue-on-error: true
+        run: nix build -L .#fasm
+
+      - name: GATE A — summary
+        if: always()
+        run: |
+          {
+            echo "## GATE A — aarch64-darwin build results"
+            echo ""
+            echo "| derivation | outcome |"
+            echo "|---|---|"
+            echo "| nextpnr-xilinx | ${{ steps.build_nextpnr.outcome }} |"
+            echo "| prjxray        | ${{ steps.build_prjxray.outcome }} |"
+            echo "| fasm           | ${{ steps.build_fasm.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
