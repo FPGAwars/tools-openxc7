@@ -3,12 +3,42 @@
 import subprocess
 import shutil
 import re
+import os
 import stat
+import platform
 # import tarfile
 from pathlib import Path
 from datetime import datetime
 
 import ansi
+
+
+# -- Plataforma actual. El empaquetado para macOS (binarios Mach-O) es
+# -- distinto del de Linux (ELF) y vive en el modulo `macpack`, que solo
+# -- se importa en Darwin. La ruta de Linux queda intacta.
+IS_DARWIN = platform.system() == "Darwin"
+if IS_DARWIN:
+    import macpack
+
+
+def plat_token() -> str:
+    """Token <os>-<arch> para el nombre del paquete.
+
+    En Linux x86_64 devuelve 'linux-x86-64' (identico a los nombres
+    historicos -> no-op para los usuarios Linux). En macOS Apple Silicon,
+    'darwin-arm64'. Alineado con los tokens de FPGAwars/tools-oss-cad-suite.
+    """
+    sysname = platform.system()
+    machine = platform.machine()
+    if sysname == "Linux":
+        arch = "x86-64" if machine in ("x86_64", "amd64") else \
+               ("aarch64" if machine in ("aarch64", "arm64") else machine)
+        return f"linux-{arch}"
+    if sysname == "Darwin":
+        arch = "arm64" if machine in ("arm64", "aarch64") else \
+               ("x86-64" if machine == "x86_64" else machine)
+        return f"darwin-{arch}"
+    raise SystemExit(f"❌ Plataforma no soportada: {sysname} {machine}")
 
 
 # ------ Nombre relativos de los directorios
@@ -35,13 +65,23 @@ release_topdir_abs="$(readlink -f "$release_bindir/..")"
 export PATH="$release_bindir_abs:$PATH"
 """
 
+    # -- Cabecera para macOS: 'readlink -f' no es portable en BSD; se usa
+    # -- 'cd ... && pwd', que resuelve la ruta absoluta sin depender de GNU
+    # -- coreutils ni de DYLD_* (que SIP elimina).
+    MAC_WRAPPER = """\
+#!/usr/bin/env bash\n
+release_bindir_abs="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+release_topdir_abs="$(cd "$release_bindir_abs/.." && pwd)"
+export PATH="$release_bindir_abs:$PATH"
+"""
+
     def __init__(self, bin_name: str):
 
         # -- Guardar el nombre del binario
         self.bin = bin_name
 
-        # -- Shell: contenido del wrapper
-        self.shell = self.BIN_WRAPPER
+        # -- Shell: contenido del wrapper (cabecera segun plataforma)
+        self.shell = self.MAC_WRAPPER if IS_DARWIN else self.BIN_WRAPPER
 
         # -- Guardar el path completo
         self.path = Path.cwd() / DIST / BIN / self.bin
@@ -53,12 +93,26 @@ export PATH="$release_bindir_abs:$PATH"
         self.shell += 'echo Topdir_abs: ${release_topdir_abs}\n'
 
     def add_exec_python(self):
+        if IS_DARWIN:
+            # -- macOS: ejecutar el python3.12 empaquetado directamente.
+            # -- tabbypy3 hardcodea el cargador ld-linux y no sirve aqui.
+            self.shell += 'export PYTHONHOME="$release_topdir_abs"\n'\
+                          'exec "$release_topdir_abs"/libexec/python3.12 '\
+                          f'"$release_topdir_abs"/libexec/{self.bin} "$@"\n'
+            return
         self.shell += 'export PYTHONEXECUTABLE='\
                       '"$release_bindir_abs/tabbypy3"\n'\
                       'exec "$release_bindir_abs/tabbypy3" '\
                       f'"$release_topdir_abs"/libexec/{self.bin} "$@"\n'
 
     def add_exec(self):
+        if IS_DARWIN:
+            # -- macOS: las @rpath/@loader_path estan horneadas en el Mach-O
+            # -- (macpack.relocate_dist), asi que basta con ejecutarlo. No se
+            # -- usa el cargador dinamico ni DYLD_* (SIP los elimina).
+            self.shell += 'exec "$release_topdir_abs"/libexec/'\
+                          f'{self.bin} "$@"\n'
+            return
         self.shell += 'exec "$release_topdir_abs"/lib/ld-linux-x86-64.so.2 '\
                       '--inhibit-cache '\
                       '--inhibit-rpath "" '\
@@ -185,6 +239,13 @@ def copy_exec(binary: str, target_dir: str = LIBEXEC):
 # ------------------------------------------------------
 def copy_with_deps(binary: str):
 
+    # -- En macOS no se usa ldd: se copia solo el ejecutable y el cierre de
+    # -- dylibs + relocalizacion @rpath se resuelve globalmente al final con
+    # -- macpack.relocate_dist().
+    if IS_DARWIN:
+        copy_exec(binary)
+        return
+
     # -- Copiar primero el ejecutable
     copy_exec(binary)
 
@@ -231,14 +292,17 @@ def copy_with_deps(binary: str):
 def copy_python():
 
     # --- Copiar el wrapper (tabbypy3)
-    origen = Path.cwd() / "store" / "tabbypy3"
-    destino = Path.cwd() / DIST / BIN / "tabbypy3"
-    if destino.exists():
-        mark = "📌"
-    else:
-        shutil.copy(origen, destino)
-        mark = "✅"
-    print(f"➡️  Dep: {mark}bin/tabbypy3")
+    # -- Solo en Linux: tabbypy3 hardcodea el cargador ld-linux-x86-64. En
+    # -- macOS el wrapper de python ejecuta el python3.12 empaquetado.
+    if not IS_DARWIN:
+        origen = Path.cwd() / "store" / "tabbypy3"
+        destino = Path.cwd() / DIST / BIN / "tabbypy3"
+        if destino.exists():
+            mark = "📌"
+        else:
+            shutil.copy(origen, destino)
+            mark = "✅"
+        print(f"➡️  Dep: {mark}bin/tabbypy3")
 
     # -- Copiar el ejecutable de python
     origen = Path(str(shutil.which("python3.12")))
@@ -278,8 +342,14 @@ def nix_locate(text: str) -> Path:
     # -- Patron de busqueda
     patron = f"*{text}*"
 
+    # -- Se descartan los outputs auxiliares de nix que no contienen los
+    # -- ficheros buscados: "-dev" (cabeceras) y "-dist" (sdist/wheel). En
+    # -- macOS el output "-dist" suele aparecer primero en el glob y rompia
+    # -- la copia de los paquetes python (no tiene site-packages/<pkg>).
     paths = [dir for dir in nix_store.glob(patron)
-             if dir.is_dir() and not str(dir).endswith("-dev")]
+             if dir.is_dir()
+             and not str(dir).endswith("-dev")
+             and not str(dir).endswith("-dist")]
 
     # -- Devolver la primera coincidencia
     return paths[0]
@@ -365,6 +435,10 @@ def is_elf(fich: Path) -> bool:
     # -- Ejecutar comando "file -b fich"
     # -- Para saber el tipo de fichero
     output = cmd_file(fich)
+
+    # -- En macOS el ejecutable nativo es Mach-O (no ELF)
+    if IS_DARWIN:
+        return ("mach-o" in output) and ("executable" in output)
 
     # -- Detectar el patron "elf"
     return "elf " in output
@@ -744,29 +818,45 @@ def run_fase3_fasm():
     copy_python_dep("fasm", "")
     copy_python_dep("textx", "4.0.1")
 
-    # -- libantlr4
-    dir = nix_locate("antl")
-    src = dir / "lib"
+    # -- Librerias nativas que se cargan en RUNTIME via ctypes/dlopen (no son
+    # -- dependencias LC_LOAD_DYLIB/DT_NEEDED de los ejecutables), por lo que
+    # -- hay que copiarlas explicitamente. En Linux: .so (antlr/libuuid/libffi).
+    # -- En macOS: solo .dylib de libffi (para _ctypes) y libantlr (para
+    # -- libparse_fasm.dylib del parser rapido); libuuid lo provee libSystem.
     dst = Path.cwd() / "dist" / "lib"
-    patron = "libantlr4-runtime.so.*"
-    files = list(src.glob(patron))
-    for file in files:
-        msg = copy_file(file, dst)
+    if not IS_DARWIN:
+        # -- libantlr4
+        dir = nix_locate("antl")
+        src = dir / "lib"
+        patron = "libantlr4-runtime.so.*"
+        files = list(src.glob(patron))
+        for file in files:
+            msg = copy_file(file, dst)
+            print(msg)
+
+        # -- libuuid.so.1
+        dir = nix_locate("linux-minimal-2.40.4-lib")
+        src = dir / "lib" / "libuuid.so.1"
+        msg = copy_file(src, dst)
         print(msg)
 
-    # -- libuuid.so.1
-    dir = nix_locate("linux-minimal-2.40.4-lib")
-    src = dir / "lib" / "libuuid.so.1"
-    dst = Path.cwd() / "dist" / "lib"
-    msg = copy_file(src, dst)
-    print(msg)
+        # -- libffi.so
+        dir = nix_locate("libffi-3.4.6")
+        src = dir / "lib" / "libffi.so.8"
+        msg = copy_file(src, dst)
+        print(msg)
+    else:
+        # -- libffi.*.dylib (lo busca _ctypes por @rpath -> dist/lib)
+        ffi_dir = nix_locate("libffi-3.4.6")
+        for f in (ffi_dir / "lib").glob("libffi.*.dylib"):
+            if not f.is_symlink():
+                print(copy_file(f, dst))
 
-    # -- libffi.so
-    dir = nix_locate("libffi-3.4.6")
-    src = dir / "lib" / "libffi.so.8"
-    dst = Path.cwd() / "dist" / "lib"
-    msg = copy_file(src, dst)
-    print(msg)
+        # -- libantlr4-runtime.*.dylib (lo busca libparse_fasm.dylib por @rpath)
+        antlr_dir = nix_locate("antlr-runtime-cpp")
+        for f in (antlr_dir / "lib").glob("libantlr4-runtime.*.dylib"):
+            if not f.is_symlink():
+                print(copy_file(f, dst))
 
 
 def run_fase3_prjxray():
@@ -812,6 +902,11 @@ def run_fase3_prjxray():
     PATCH_DIR = "lib/python3.12/site-packages/prjxray"
     origen = Path.cwd() / "store" / "util.py"
     destino = Path.cwd() / DIST / PATCH_DIR / "util.py"
+    # -- El fichero copiado del store de nix es de solo-lectura; en macOS
+    # -- hay que habilitar escritura antes de sobreescribirlo con el parche
+    # -- (no-op si ya era escribible).
+    if destino.exists():
+        write_access(destino)
     shutil.copy(origen, destino)
     mark = "✅"
     print(f"➡️  Dep: {mark}{PATCH_DIR}/util.py")
@@ -1038,8 +1133,9 @@ def construir_tarball(version: str):
     print(ansi.DEFAULT, end='', flush=True)
     print()
 
-    # -- Nombre del paquete
-    tarball_name = Path(f"apio-openxc7-linux-x86-64-{date}.tgz")
+    # -- Nombre del paquete (por SO/arch; en Linux x86_64 -> identico al
+    # -- historico 'apio-openxc7-linux-x86-64-<fecha>.tgz')
+    tarball_name = Path(f"apio-openxc7-{plat_token()}-{date}.tgz")
 
     # -- Antes de comprimir damos permisos de escritura a TODOs los
     # -- ficheros y directorios
@@ -1050,7 +1146,9 @@ def construir_tarball(version: str):
                    capture_output=True,
                    text=True)
 
-    # -- Comprimir llamando a tar en la shell
+    # -- Comprimir llamando a tar en la shell.
+    # -- COPYFILE_DISABLE=1 evita que el tar de macOS incluya ficheros
+    # -- AppleDouble '._*' con los metadatos/xattr (inocuo en Linux).
     print(f"➡️  {tarball_name}")
     print("⏳ Comprimiendo...")
     # comando = ["tar", "-czf", f"{tarball_name}",
@@ -1060,7 +1158,8 @@ def construir_tarball(version: str):
     subprocess.run(comando,
                    check=True,
                    capture_output=True,
-                   text=True)
+                   text=True,
+                   env=dict(os.environ, COPYFILE_DISABLE="1"))
 
     # -- Mostrar nombre del tarball al usuario
     print(f"🔵 ✅{tarball_name}")
@@ -1084,6 +1183,12 @@ distribution_init()
 
 # -- Obtener binarios, bibliotecas y datos necesarios
 generar_binarios()
+
+# -- En macOS: recolectar el cierre de dylibs en dist/lib, relocalizar las
+# -- install names a @rpath/@loader_path y firmar (ad-hoc). En Linux no se
+# -- hace nada: los wrappers usan el cargador dinamico con --library-path.
+if IS_DARWIN:
+    macpack.relocate_dist(Path.cwd() / DIST)
 
 # --- Generacion de la base de datos
 # --- xc7a35tcpg236.bin
