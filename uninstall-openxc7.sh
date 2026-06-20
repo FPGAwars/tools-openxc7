@@ -1,20 +1,10 @@
 #!/usr/bin/env bash
 
-# ----------------------------------------------
-# -- USER CONFIGURATION
-# ----------------------------------------------
-# -- Local path where to store the tools-openxc7 package
-OPENXC7_INSTALL_PATH=$HOME/.local/openxc7
+# -- Load common helpers (install paths -> single source of truth)
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$HERE/lib/common.sh"
 
-# -----------------------------------------------
-# -- END OF USER CONFIGURATION
-# -----------------------------------------------
-
-OPENXC7=$OPENXC7_INSTALL_PATH
-
-printf "🔵 Borrando carpeta: $OPENXC7\n"
-chmod -Rf +w $OPENXC7
-rm -rf $OPENXC7
+printf "🔵 Borrando carpeta: $OPENXC7_INSTALL_PATH\n"
+chmod -Rf +w "$OPENXC7_INSTALL_PATH"
+rm -rf "$OPENXC7_INSTALL_PATH"
 printf "\n"
-
-

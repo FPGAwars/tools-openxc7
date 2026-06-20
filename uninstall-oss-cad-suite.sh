@@ -1,18 +1,10 @@
 #!/usr/bin/env bash
 
-# ----------------------------------------------
-# -- USER CONFIGURATION
-# ----------------------------------------------
-# -- Local path where to store the tool
-OSS_CAD_SUITE_PATH=$HOME/.local/oss-cad-suite
-
-# -----------------------------------------------
-# -- END OF USER CONFIGURATION
-# -----------------------------------------------
+# -- Load common helpers (install paths -> single source of truth)
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$HERE/lib/common.sh"
 
 printf "🔵 Borrando carpeta: $OSS_CAD_SUITE_PATH\n"
-chmod -Rf +w $OSS_CAD_SUITE_PATH
-rm -rf $OSS_CAD_SUITE_PATH
+chmod -Rf +w "$OSS_CAD_SUITE_PATH"
+rm -rf "$OSS_CAD_SUITE_PATH"
 printf "\n"
-
-
