@@ -1085,6 +1085,13 @@ def generar_env():
 # ------------------------------------
 def get_date() -> str:
 
+    # -- Permitir fijar la fecha desde fuera (CI) para que el nombre del
+    # -- paquete y la VERSION coincidan con el tag del release en todos los
+    # -- runners. Acepta YYYYMMDD o YYYY-MM-DD. Sin la variable -> fecha de hoy.
+    override = os.environ.get("OPENXC7_PACK_DATE")
+    if override:
+        return override.replace("-", "")
+
     now = datetime.now()
 
     # -- Formato a utilizar

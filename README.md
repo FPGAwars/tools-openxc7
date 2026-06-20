@@ -5,10 +5,23 @@
 
 Apio package with selected binaries from the [openXC7 project](https://github.com/openxc7)
 
+## Supported platforms
+
+| OS      | Arch            | Package token   | Status |
+|---------|-----------------|-----------------|--------|
+| Linux   | x86_64          | `linux-x86-64`  | ✅ supported |
+| macOS   | Apple Silicon   | `darwin-arm64`  | ✅ supported |
+| macOS   | Intel (x86_64)  | `darwin-x86-64` | ⚠️ best effort |
+| Linux   | aarch64         | `linux-aarch64` | ⚠️ best effort |
+
+Packages are published per OS/arch and coexist in the same dated release:
+`apio-openxc7-<os>-<arch>-<date>.tgz`. The installer auto-detects the platform.
+
 ## Building the toolchain (For developers)
 
-The current process for building the toolchain is manual, and only for
-Linux
+The build is reproducible with Nix and runs natively on **Linux** and
+**macOS (Apple Silicon)**. There is no cross-compilation: each package is built
+on its own machine (CI uses an `ubuntu-latest` + `macos-14` matrix).
 
 Follow theses steps:
 
@@ -26,7 +39,9 @@ generate a tarball. This is what you should see initially:
 
 ![Build screenshot 1](doc/build-toolchain-1.png)
 
-After some time, it will generate the `apio-openxc7-linux-x64-<version>.tgz` package
+After some time, it will generate the `apio-openxc7-<os>-<arch>-<version>.tgz`
+package for the host platform (e.g. `apio-openxc7-linux-x86-64-<version>.tgz` on
+Linux, `apio-openxc7-darwin-arm64-<version>.tgz` on Apple Silicon)
 
 ![Build screenshot 2](doc/build-toolchain-2.png)
 
@@ -51,8 +66,10 @@ cd tools-openxc7
 ./install.sh
 ```
 
-  It will download the corresponding .tgz packages and uncompressing them in the
- user's folders: `~/.config/openxc7` and `~/.local/openxc7`
+  It auto-detects your OS/arch (Linux or macOS), downloads the matching .tgz
+packages and uncompresses them into the user's folders: `~/.local/oss-cad-suite`
+and `~/.local/openxc7`. On macOS the quarantine attribute is stripped so the
+binaries run.
 
 ![Installation screenshot](doc/install-toolchain-1.png)
 

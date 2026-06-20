@@ -1,0 +1,48 @@
+# F6 / GATE C — end-to-end smoke test on macOS (Apple Silicon).
+# Builds the darwin-arm64 openXC7 package, installs it AND the upstream
+# oss-cad-suite darwin tarball exactly as a user would, then runs the LED
+# example (yosys synth -> nextpnr-xilinx -> fasm2frames -> xc7frames2bit) and
+# checks a real bitstream is produced. This proves the relocated Mach-O
+# toolchain runs outside /nix/store end to end.
+name: smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'openxc7-pack.py'
+      - 'macpack.py'
+      - 'flake.nix'
+      - 'nix/**'
+      - 'example/**'
+      - 'config/**'
+      - 'lib/**'
+      - 'install*.sh'
+      - 'start'
+
+jobs:
+  macos-e2e:
+    name: macOS LED example end-to-end
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Build the darwin-arm64 package
+        run: nix develop --command bash -c 'python3.12 openxc7-pack.py'
+
+      - name: Install openxc7 (as a user would)
+        run: |
+          mkdir -p "$HOME/.local/openxc7"
+          tar xzf apio-openxc7-darwin-arm64-*.tgz -C "$HOME/.local/openxc7"
+          xattr -dr com.apple.quarantine "$HOME/.local/openxc7" 2>/dev/null || true
+
+      - name: Install oss-cad-suite (darwin tarball)
+        run: bash ./install-oss-cad-suite.sh
+
+      - name: Build the LED example (synth -> pnr -> fasm -> bit)
+        run: |
+          source ./start
+          cd example
+          make
+          test -f ledon.bit && echo "✅ bitstream produced: $(ls -l ledon.bit)"
