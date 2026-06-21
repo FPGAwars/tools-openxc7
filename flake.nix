@@ -79,6 +79,16 @@
           # otherwise abort `nix develop` / `nix flake show` on macOS. On macOS the
           # openXC7 flow uses prjxray's xc7frames2bit instead.
           fpga-assembler = (builtins.getFlake "github:lromor/fpga-assembler/6ff89a2d53edc9d74a402c28096450473b67de13").packages.${system}.default;
+        } // lib.optionalAttrs (system == "x86_64-linux") {
+          # Native Windows package, cross-compiled from x86_64-linux with
+          # pkgsCross.mingwW64. Build: nix build .#openxc7-windows-amd64
+          # (CI tars the result with the date). See nix/windows/.
+          openxc7-windows-amd64 = import ./nix/windows {
+            inherit pkgs lib;
+            inherit (self.packages.${system})
+              nextpnr-xilinx prjxray fasm nextpnr-xilinx-chipdb;
+            utilPatch = ./store/util.py;
+          };
         });
 
       # contains a mutually consistent set of packages for a full toolchain using nextpnr-xilinx.
