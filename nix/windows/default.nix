@@ -2,16 +2,17 @@
 # from x86_64-linux with pkgsCross.mingwW64. Build with:
 #   nix build .#packages.x86_64-linux.openxc7-windows-amd64
 #
-# The result ($out) is the package TREE; the dated .tgz is produced by CI
-# (.github/workflows/windows-package.yml) so the date stays out of the pure
-# nix build.
+# Full feature parity with Linux/macOS: nextpnr-xilinx.exe embeds a Python
+# interpreter (boost::python), so apio's `--post-route` report (apio report)
+# works on Windows too.
 #
-# Reuses the flake's native derivations for the platform-independent parts
-# (chipdb .bin, prjxray-db data, nextpnr python, fasm/prjxray python). Only the
-# native .exe come from the mingw cross build here.
+# The result ($out) is the package TREE; the dated .tgz is produced by CI
+# (.github/workflows/windows-package.yml). Reuses the flake's native
+# derivations for the platform-independent parts (chipdb .bin, prjxray-db data,
+# fasm/prjxray python). Only the native .exe come from the mingw cross here.
 { pkgs
 , lib
-, nextpnr-xilinx           # native: provides share/ data + python
+, nextpnr-xilinx           # native: provides share/ data
 , prjxray                  # native: provides prjxray python + fasm2frames/bit2fasm
 , fasm                     # native python package (pulls textx -> arpeggio)
 , nextpnr-xilinx-chipdb    # native: artix7 chipdb has xc7a35tcpg236.bin
@@ -19,15 +20,19 @@
 }:
 
 let
-  # mingw cross package set, re-imported with allowUnsupportedSystem so the
-  # conservative meta.platforms of header-only deps (eigen) don't block the
-  # cross eval (they cross-compile fine). Equivalent to pkgs.pkgsCross.mingwW64.
+  # mingw cross set, re-imported with allowUnsupportedSystem so the conservative
+  # meta.platforms of header-only deps (eigen) don't block the cross eval.
   cross = import pkgs.path {
     localSystem = pkgs.system;
     crossSystem = pkgs.lib.systems.examples.mingwW64;
     config.allowUnsupportedSystem = true;
   };
-  python = pkgs.python3;
+  python      = pkgs.python3;       # native interpreter, runs build-time scripts
+  # Python EMBEDDED in nextpnr-xilinx.exe. 3.11, not 3.12: the mingw cross of
+  # cpython 3.12 is broken in this nixpkgs (its patch targets distutils, removed
+  # in 3.12). This interpreter is independent of the fasm tools' python and only
+  # needs the stdlib (json/os/pathlib) for the report script.
+  mingwPython = cross.python311;
 
   # -- pinned sources (same revs/hashes as nix/nextpnr-xilinx.nix, nix/prjxray.nix)
   nextpnrSrc = pkgs.fetchFromGitHub {
@@ -44,16 +49,20 @@ let
   };
 
   commonFlags = [
-    "-DARCH=xilinx" "-DBUILD_GUI=OFF" "-DBUILD_TESTS=OFF" "-DBUILD_PYTHON=OFF"
-    "-DUSE_OPENMP=OFF" "-Wno-deprecated" "-DCURRENT_GIT_VERSION=3374e5a"
+    "-DARCH=xilinx" "-DBUILD_GUI=OFF" "-DBUILD_TESTS=OFF" "-DUSE_OPENMP=OFF"
+    "-Wno-deprecated" "-DCURRENT_GIT_VERSION=3374e5a"
     "-DPython3_EXECUTABLE=${python.interpreter}"
   ];
 
-  # boost without zstd: zstd(mingw) -> gnugrep(mingw) -> bash(mingw) doesn't cross
-  boostNoZstd = cross.boost.overrideAttrs (o: {
-    buildInputs = builtins.filter
-      (p: !(lib.hasInfix "zstd" (p.name or ""))) (o.buildInputs or []);
-  });
+  # boost WITH python (nextpnr's embedded interpreter) + mingw pthreads (boost::
+  # python's headers include <pthread.h>) + without zstd (zstd-mingw -> gnugrep
+  # -> bash-mingw doesn't cross). Used by both nextpnr and prjxray (one build).
+  boostPy = (cross.boost.override { enablePython = true; python = mingwPython; })
+    .overrideAttrs (o: {
+      buildInputs =
+        (builtins.filter (x: !(lib.hasInfix "zstd" (x.name or ""))) (o.buildInputs or []))
+        ++ [ cross.windows.mingw_w64_pthreads ];
+    });
 
   # nextpnr two-stage cross: native bbasm -> ImportExecutables.cmake -> cross import
   bba = pkgs.stdenv.mkDerivation {
@@ -61,7 +70,7 @@ let
     src = nextpnrSrc;
     nativeBuildInputs = [ pkgs.cmake pkgs.git python ];
     buildInputs = [ pkgs.boost pkgs.eigen ];
-    cmakeFlags = commonFlags;
+    cmakeFlags = commonFlags ++ [ "-DBUILD_PYTHON=OFF" ];
     buildFlags = [ "bbasm" ];
     installPhase = ''
       mkdir -p $out/bin
@@ -75,16 +84,28 @@ let
     pname = "nextpnr-xilinx-win"; version = "0.8.2";
     src = nextpnrSrc;
     nativeBuildInputs = [ pkgs.cmake pkgs.git python ];
-    buildInputs = [ boostNoZstd cross.eigen cross.windows.mingw_w64_pthreads ];
+    buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads mingwPython ];
     enableParallelBuilding = true;
-    # router2: boost::container::flat_map's sorted invariant breaks on mingw
-    # (count() true but at() throws) -> std::map. No change on Linux. Upstream PR.
     postPatch = ''
+      # router2: boost::container::flat_map's sorted invariant breaks on mingw
+      # (count() true but at() throws) -> std::map. No change on Linux. Upstream PR.
       sed -i 's|boost::container::flat_map<int, std::pair<int, PipId>> bound_nets;|std::map<int, std::pair<int, PipId>> bound_nets;|' common/router2.cc
       grep -q '#include <map>' common/router2.cc || \
         sed -i 's|#include <boost/container/flat_map.hpp>|#include <boost/container/flat_map.hpp>\n#include <map>|' common/router2.cc
+      # nixpkgs names the boost python lib 'python' (no version suffix); add "" to
+      # the version search list so find_package(Boost COMPONENTS python) matches.
+      sed -i 's|foreach (PyVer 3 36 37 38 39 310 311 312)|foreach (PyVer "" 3 36 37 38 39 310 311 312)|' CMakeLists.txt
+      # boost::python is a static .a here (not a DLL) -> define BOOST_PYTHON_STATIC_LIB
+      # so the headers don't use dllimport (__imp_ undefined references at link).
+      sed -i 's|    # Find Boost::Python of a suitable version in a cross-platform way|    add_definitions(-DBOOST_PYTHON_STATIC_LIB)\n    # Find Boost::Python of a suitable version in a cross-platform way|' CMakeLists.txt
     '';
-    cmakeFlags = commonFlags ++ [ "-DIMPORT_EXECUTABLES=${bba}/ImportExecutables.cmake" ];
+    cmakeFlags = commonFlags ++ [
+      "-DBUILD_PYTHON=ON"
+      "-DIMPORT_EXECUTABLES=${bba}/ImportExecutables.cmake"
+      # cross find_package(Python3 Development): point at the target (mingw) python
+      "-DPython3_INCLUDE_DIR=${mingwPython}/include/python3.11"
+      "-DPython3_LIBRARY=${mingwPython}/lib/python3.11/config-3.11/libpython3.11.dll.a"
+    ];
     installPhase = ''
       mkdir -p $out/bin
       cp *.exe $out/bin/
@@ -97,7 +118,7 @@ let
     pname = "prjxray-win"; version = "bdbc665";
     src = prjxraySrc;
     nativeBuildInputs = [ pkgs.cmake pkgs.git python ];
-    buildInputs = [ boostNoZstd cross.eigen cross.windows.mingw_w64_pthreads ];
+    buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads ];
     enableParallelBuilding = true;
     # POSIX -> Win32 ports (#ifdef _WIN32; Linux path unchanged) + the deprecated
     # warning suppression from nix/prjxray.nix.
@@ -123,9 +144,11 @@ let
   };
 
   chipdb = nextpnr-xilinx-chipdb.artix7;   # contains xc7a35tcpg236.bin
+  gccLib = "${cross.stdenv.cc.cc.lib}/x86_64-w64-mingw32/lib";
 
   # pure-python tool env (fasm pulls textx -> arpeggio; + prjxray's python deps).
   # withPackages keeps the *.dist-info metadata (textX needs version("textx")).
+  # This is the TOOLS python (3.12), separate from nextpnr's embedded 3.11.
   pyEnv = python.withPackages (ps: [
     fasm ps.simplejson ps.intervaltree ps.sortedcontainers ps.pyyaml
   ]);
@@ -138,12 +161,29 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
   mkdir -p $out/bin $out/chipdb $out/libexec
   mkdir -p $out/share/nextpnr/external/prjxray-db $out/lib/python3.12/site-packages
 
-  # -- native Windows executables + runtime DLLs (next to the exes)
+  # -- native Windows executables
   cp -L ${nextpnrWin}/bin/*.exe $out/bin/
   cp -L ${prjxrayWin}/bin/*.exe $out/bin/
-  for d in ${nextpnrWin}/bin/*.dll ${prjxrayWin}/bin/*.dll; do
-    [ -e "$d" ] && cp -Lf "$d" $out/bin/ || true
-  done
+
+  # -- runtime DLLs next to the exes (Windows searches the app dir first).
+  # libpython + winpthread/mcfgthread/gcc_s sit in the mingw python's bin/;
+  # libstdc++ comes from the gcc lib output.
+  cp -L ${mingwPython}/bin/libpython3.11.dll ${mingwPython}/bin/libwinpthread-1.dll \
+        ${mingwPython}/bin/libmcfgthread-1.dll ${mingwPython}/bin/libgcc_s_seh-1.dll $out/bin/
+  cp -L ${gccLib}/libstdc++-6.dll $out/bin/
+
+  # -- nextpnr's embedded-python stdlib at lib/python3.11 (parent of bin/). The
+  # interpreter finds it via getpath relative to the exe -> no PYTHONHOME, so it
+  # never clashes with the oss-cad-suite python that runs fasm2frames.
+  mkdir -p $out/lib/python3.11
+  cp -r ${mingwPython}/lib/python3.11/. $out/lib/python3.11/
+  chmod -R u+w $out/lib/python3.11
+  # the report script only needs json/os/pathlib + interpreter startup; drop the
+  # big unused parts to keep the package smaller.
+  rm -rf $out/lib/python3.11/test $out/lib/python3.11/idlelib \
+         $out/lib/python3.11/tkinter $out/lib/python3.11/turtledemo \
+         $out/lib/python3.11/lib2to3 $out/lib/python3.11/ensurepip
+  find $out/lib/python3.11 -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
   # -- chipdb (single part, like openxc7-pack.py) + data
   cp ${chipdb}/xc7a35tcpg236.bin $out/chipdb/

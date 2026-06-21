@@ -58,8 +58,20 @@ jobs:
             DB=$PKG/share/nextpnr/external/prjxray-db/artix7
             mkdir -p run && cd run
             yosys -q -p "synth_xilinx -arch xc7 -top ledon; write_json ledon.json" ../example/ledon.v
+            # report script exercising nextpnr's embedded python (apio passes this
+            # via --post-route; proves apio report works on Windows).
+            printf "%s\n" "import json, os" "from pathlib import Path" \
+              "rep = {\"utilization\": {}}" \
+              "for b in ctx.getBels():" \
+              "    t = ctx.getBelType(b); rep[\"utilization\"][t] = rep[\"utilization\"].get(t, 0) + 1" \
+              "Path(os.environ[\"ENV_BUILD_PATH\"], \"hardware.pnr\").write_text(json.dumps(rep))" \
+              "print(\"POST_ROUTE_OK types=\", len(rep[\"utilization\"]))" > report.py
+            export ENV_BUILD_PATH="$PWD"
             wine64 ../$PKG/bin/nextpnr-xilinx.exe --chipdb ../$PKG/chipdb/xc7a35tcpg236.bin \
-              --xdc ../config/basys3.xdc --json ledon.json --fasm ledon.fasm --router router2
+              --xdc ../config/basys3.xdc --json ledon.json --fasm ledon.fasm \
+              --post-route report.py --router router2
+            test -f hardware.pnr \
+              && echo "✅ parity: embedded python ran --post-route -> apio report works"
             PYTHONPATH=../$PKG/lib/python3.12/site-packages \
               python3 ../$PKG/libexec/fasm2frames --part xc7a35tcpg236-1 --db-root ../$DB \
               ledon.fasm > ledon.frames
