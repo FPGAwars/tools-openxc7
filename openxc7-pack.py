@@ -836,9 +836,18 @@ def run_fase3_fasm():
             msg = copy_file(file, dst)
             print(msg)
 
-        # -- libuuid.so.1
-        dir = nix_locate("linux-minimal-2.40.4-lib")
-        src = dir / "lib" / "libuuid.so.1"
+        # -- libuuid.so.1 (util-linux-minimal). La version la fija el
+        # -- nixpkgs pinneado -> no hardcodearla: buscar el output *-lib
+        # -- que realmente contiene la biblioteca. (El hardcode 2.40.4
+        # -- funcionaba de rebote: lo aportaba el propio instalador de nix
+        # -- de CI, no el devShell.)
+        candidatos = sorted(
+            d for d in Path("/nix/store").glob("*util-linux-minimal-*-lib")
+            if (d / "lib" / "libuuid.so.1").exists())
+        if not candidatos:
+            raise SystemExit(
+                "❌ libuuid: ningun util-linux-minimal-*-lib en /nix/store")
+        src = candidatos[0] / "lib" / "libuuid.so.1"
         msg = copy_file(src, dst)
         print(msg)
 
