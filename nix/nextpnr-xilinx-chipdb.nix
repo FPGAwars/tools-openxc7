@@ -1,10 +1,13 @@
 { stdenv, nixpkgs, backend, nextpnr-xilinx, prjxray, pypy310, coreutils
-, findutils, gnused, gnugrep, ... }:
+, findutils, gnused, gnugrep
+, parts ? null   # optional footprint whitelist; null = every one in the db
+, ... }:
 
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx-chipdb";
   version = nextpnr-xilinx.version;
   inherit backend;
+  partsFilter = if parts == null then "" else builtins.concatStringsSep " " parts;
 
   src = "${nextpnr-xilinx.outPath}/share/nextpnr/external/prjxray-db";
   # Don't try to unpack src, it already exists
@@ -35,6 +38,14 @@ stdenv.mkDerivation rec {
 
         if [[ $ARCH != "${backend}" ]]; then
           continue
+        fi
+
+        # optional whitelist (parts): skip footprints not requested
+        if [[ -n "$partsFilter" ]]; then
+          case " $partsFilter " in
+            *" $i "*) ;;
+            *) continue ;;
+          esac
         fi
 
         FIRST_SPEEDGRADE_DIR=`ls -d ${src}/$ARCH/$i-* | sort -n | head -1`

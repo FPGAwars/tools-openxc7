@@ -6,7 +6,9 @@ import re
 import os
 import stat
 import platform
+import json
 # import tarfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from datetime import datetime
 
@@ -998,9 +1000,110 @@ def generar_binarios():
 
 # --------------------------------------------
 # -- Generar la base de datos
-# -- Se genera el fichero:
-# --- dist/chipdb/xc7a35tcpg236.bin
+# -- Se genera un fichero dist/chipdb/<part>.bin por cada part
+# -- del manifest chipdb-parts.json (fuente unica de partes,
+# -- compartida con nix/windows/default.nix)
 # --------------------------------------------
+
+# -- Manifest con la lista de parts a empaquetar
+CHIPDB_PARTS_FILE = "chipdb-parts.json"
+
+
+def chipdb_parts() -> list:
+    """Lista [(familia, part), ...] leida del manifest."""
+    manifest = Path.cwd() / CHIPDB_PARTS_FILE
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    return [(familia, part)
+            for familia, parts in data.items()
+            for part in parts]
+
+
+def primer_speedgrade(familia: str, part: str) -> str:
+    """Primer device <part>-<sg> disponible en la prjxray-db empaquetada.
+
+    El chipdb .bin no depende del speedgrade (mismo criterio que
+    nix/nextpnr-xilinx-chipdb.nix: primer directorio ordenado).
+    """
+    db_dir = Path.cwd() / f"dist/share/nextpnr/external/prjxray-db/{familia}"
+    devices = sorted(d.name for d in db_dir.glob(f"{part}-*") if d.is_dir())
+    if not devices:
+        raise SystemExit(
+            f"❌ No existe ningun {part}-<speedgrade> en {db_dir}")
+    return devices[0]
+
+
+def sembrar_chipdb():
+    """Copiar .bin precompilados desde $OPENXC7_CHIPDB_SEED (opcional).
+
+    El chipdb .bin es identico entre plataformas,
+    asi que un directorio con bins ya generados en otra maquina (p.ej. el
+    build server Linux) evita regenerarlos aqui (util en macOS y en CI).
+    """
+    seed = os.environ.get("OPENXC7_CHIPDB_SEED")
+    if not seed:
+        return
+    seed_dir = Path(seed)
+    for _, part in chipdb_parts():
+        src = seed_dir / f"{part}.bin"
+        dst = Path.cwd() / f"dist/chipdb/{part}.bin"
+        if src.exists() and not dst.exists():
+            print(f"🌱 Sembrando {part}.bin desde {seed_dir}")
+            shutil.copy2(src, dst)
+
+
+def generar_db_part(familia: str, part: str) -> str:
+    """Generar (o reutilizar) dist/chipdb/<part>.bin. Devuelve el log.
+
+    Ambos pasos escriben a un .tmp y renombran al terminar: un proceso
+    interrumpido (OOM, Ctrl-C, disco lleno) nunca deja un .bba/.bin
+    truncado que un rerun pudiera dar por bueno y empaquetar.
+    """
+    log = []
+    fich_bin = Path.cwd() / f"dist/chipdb/{part}.bin"
+    fich_bba = Path.cwd() / f"dist/chipdb/{part}.bba"
+
+    # ------ Comando 1: bbaexport (part -> .bba)
+    if not fich_bin.exists() and not fich_bba.exists():
+        device = primer_speedgrade(familia, part)
+        bbaexport_cmd = Path.cwd() / "dist/share/nextpnr/python/bbaexport.py"
+        tmp_bba = fich_bba.with_suffix(".bba.tmp")
+        tmp_bba.unlink(missing_ok=True)
+        cmd = ["pypy3", str(bbaexport_cmd),
+               "--device", device, "--bba", str(tmp_bba)]
+        log.append(f"➡️  Generando {fich_bba.name} (device {device})")
+        log.append(f"  ⚙️  {' '.join(cmd)}")
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError as exc:
+            tmp_bba.unlink(missing_ok=True)
+            print(f"❌ bbaexport {part}:\n{exc.stderr}")
+            raise
+        os.replace(tmp_bba, fich_bba)
+        log.append(f"🔵 ✅{fich_bba.name}")
+
+    # ------ Comando 2: bbasm (.bba -> .bin)
+    if not fich_bin.exists():
+        tmp_bin = fich_bin.with_suffix(".bin.tmp")
+        tmp_bin.unlink(missing_ok=True)
+        cmd = ["bbasm", "-l", str(fich_bba), str(tmp_bin)]
+        log.append(f"➡️  Generando {fich_bin.name}")
+        log.append(f"  ⚙️  {' '.join(cmd)}")
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError as exc:
+            tmp_bin.unlink(missing_ok=True)
+            print(f"❌ bbasm {part}:\n{exc.stderr}")
+            raise
+        os.replace(tmp_bin, fich_bin)
+        log.append(f"🔵 ✅{fich_bin.name}")
+    else:
+        log.append(f"🔵 📌{fich_bin.name}")
+
+    # --- Eliminar fichero temporal .bba
+    fich_bba.unlink(missing_ok=True)
+    return "\n".join(log)
+
+
 def generar_db():
     print()
     print(f"{ansi.GREEN}──────────────────────────────────")
@@ -1009,48 +1112,28 @@ def generar_db():
     print(ansi.DEFAULT, end='', flush=True)
     print()
 
-    # ------ Ejecutar comando 1
-    bbaexport_cmd = Path.cwd() / "dist/share/nextpnr/python/bbaexport.py"
-    part = "xc7a35tcpg236"
-    fich_bba = Path.cwd() / f"dist/chipdb/{part}.bba"
-    cmd = ["pypy3", str(bbaexport_cmd),
-           "--device", f"{part}-1", "--bba", str(fich_bba)]
-    cmd_str = " ".join(cmd)
+    # -- Reutilizar bins precompilados si se ha indicado un seed
+    sembrar_chipdb()
 
-    if not fich_bba.exists():
-        print(f"➡️  Generando {fich_bba.name}")
-        print(f"  ⚙️  {cmd_str}")
-        bbaexport_raw = subprocess.run(cmd,
-                                       capture_output=True,
-                                       text=True,
-                                       check=True)
-        print(bbaexport_raw.stdout)
-        print(f"🔵 ✅{fich_bba.name}")
-    else:
-        print(f"🔵 📌{fich_bba.name}")
+    # -- Generar cada part del manifest. bbaexport es independiente por
+    # -- part -> paralelizable con $OPENXC7_CHIPDB_JOBS (por defecto 1;
+    # -- cada job consume varios GB de RAM con los parts grandes).
+    try:
+        jobs = int(os.environ.get("OPENXC7_CHIPDB_JOBS") or "1")
+    except ValueError:
+        print("⚠️  OPENXC7_CHIPDB_JOBS no numerico; usando 1")
+        jobs = 1
+    parts = chipdb_parts()
+    with ThreadPoolExecutor(max_workers=max(jobs, 1)) as pool:
+        for resultado in pool.map(lambda fp: generar_db_part(*fp), parts):
+            print(resultado)
 
-    # ------ Comando 2
-    fich_bin = Path.cwd() / f"dist/chipdb/{part}.bin"
-    cmd = ["bbasm", "-l", str(fich_bba), str(fich_bin)]
-    cmd_str = " ".join(cmd)
-
-    if not fich_bin.exists():
-        print()
-        print(f"➡️  Generando {fich_bin.name}")
-        print(f"  ⚙️  {cmd_str}")
-        bbasm_raw = subprocess.run(cmd,
-                                   capture_output=True,
-                                   text=True,
-                                   check=True)
-        print(bbasm_raw.stdout)
-        print(f"🔵 ✅{fich_bin.name}")
-    else:
-        print(f"🔵 📌{fich_bin.name}")
-
-    # --- Eliminar fichero temporal .bba
-    subprocess.run(["rm", fich_bba])
-    # print(f"{ansi.GREEN}OK!")
-    # print(f"{ansi.DEFAULT}")
+    # -- Resumen de tamaños
+    print()
+    for _, part in parts:
+        fich_bin = Path.cwd() / f"dist/chipdb/{part}.bin"
+        mb = fich_bin.stat().st_size / (1024 * 1024)
+        print(f"📦 {part}.bin: {mb:.0f} MB")
     print()
 
 
@@ -1198,7 +1281,7 @@ if IS_DARWIN:
     macpack.relocate_dist(Path.cwd() / DIST)
 
 # --- Generacion de la base de datos
-# --- xc7a35tcpg236.bin
+# --- Un <part>.bin por cada part de chipdb-parts.json
 generar_db()
 
 # -- Configuraciones finales

@@ -10,9 +10,10 @@ on:
   push:
     branches: [ main, "feat/**" ]
     paths:
-      - 'nix/windows/**'
+      - 'nix/**'
       - 'flake.nix'
       - 'flake.lock'
+      - 'chipdb-parts.json'
 
 jobs:
   build:
@@ -29,6 +30,16 @@ jobs:
           echo "=== tree ==="; find result-win/ -maxdepth 2 | sort
           echo "=== bin ==="; ls -la result-win/bin
           echo "=== site-packages ==="; ls result-win/lib/python3.12/site-packages
+          echo "=== chipdb (every artix7 part of chipdb-parts.json must ship) ==="
+          # the windows package ships the artix7 family only (its prjxray-db
+          # is the only one packaged); a separate step so a jq failure cannot
+          # pass vacuously
+          jq -r '.artix7[]' chipdb-parts.json > /tmp/chipdb-parts.txt
+          test -s /tmp/chipdb-parts.txt
+          while read -r p; do
+            test -f "result-win/chipdb/$p.bin" || { echo "MISSING $p.bin"; exit 1; }
+            ls -la "result-win/chipdb/$p.bin"
+          done < /tmp/chipdb-parts.txt
 
       - name: Tar with date
         id: tar

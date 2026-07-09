@@ -15,7 +15,7 @@
 , nextpnr-xilinx           # native: provides share/ data
 , prjxray                  # native: provides prjxray python + fasm2frames/bit2fasm
 , fasm                     # native python package (pulls textx -> arpeggio)
-, nextpnr-xilinx-chipdb    # native: artix7 chipdb has xc7a35tcpg236.bin
+, nextpnr-xilinx-chipdb    # native: artix7 chipdb (every footprint's .bin)
 , utilPatch ? null         # store/util.py (prjxray flock workaround), optional
 }:
 
@@ -143,7 +143,12 @@ let
     dontStrip = true;
   };
 
-  chipdb = nextpnr-xilinx-chipdb.artix7;   # contains xc7a35tcpg236.bin
+  # parts to ship, from the shared manifest (same list as openxc7-pack.py)
+  chipdbParts = (builtins.fromJSON (builtins.readFile ../../chipdb-parts.json)).artix7;
+
+  # build only the manifest parts (the full artix7 family would also build
+  # seven more GB-class xc7a200t package variants we don't ship)
+  chipdb = nextpnr-xilinx-chipdb.artix7.override { parts = chipdbParts; };
   gccLib = "${cross.stdenv.cc.cc.lib}/x86_64-w64-mingw32/lib";
 
   # pure-python tool env (fasm pulls textx -> arpeggio; + prjxray's python deps).
@@ -185,8 +190,8 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
          $out/lib/python3.11/lib2to3 $out/lib/python3.11/ensurepip
   find $out/lib/python3.11 -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
-  # -- chipdb (single part, like openxc7-pack.py) + data
-  cp ${chipdb}/xc7a35tcpg236.bin $out/chipdb/
+  # -- chipdb (the parts from chipdb-parts.json, like openxc7-pack.py) + data
+  ${lib.concatMapStringsSep "\n  " (p: "cp ${chipdb}/${p}.bin $out/chipdb/") chipdbParts}
   cp -r ${nextpnr-xilinx}/share/nextpnr/external/prjxray-db/artix7 \
         $out/share/nextpnr/external/prjxray-db/
   cp -r ${nextpnr-xilinx}/share/nextpnr/python/. $out/share/nextpnr/python/ 2>/dev/null || \

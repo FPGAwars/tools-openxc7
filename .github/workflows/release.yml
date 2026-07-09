@@ -44,17 +44,12 @@ jobs:
             gh release create "$DATE" --repo "$GITHUB_REPOSITORY" \
               --title "$DATE" --notes "openXC7 toolchain — $DATE"
 
-  build:
+  # Linux first: it generates every chipdb .bin of chipdb-parts.json and
+  # shares them as an artifact. The .bin is platform-independent, and the
+  # macos-14 runner (7 GB RAM) cannot regenerate the big parts (xc7a200t).
+  build-linux:
     needs: prepare
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-latest
-            token: linux-x86-64
-          - runner: macos-14            # Apple Silicon => darwin-arm64
-            token: darwin-arm64
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
@@ -63,13 +58,50 @@ jobs:
         env:
           OPENXC7_PACK_DATE: ${{ needs.prepare.outputs.date }}
         run: |
-          nix develop --command bash -c 'python3.12 openxc7-pack.py'
-          ls -la apio-openxc7-${{ matrix.token }}-*.tgz
+          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
+          ls -la apio-openxc7-linux-x86-64-*.tgz
 
-      - name: Publish the ${{ matrix.token }} asset to the dated release
+      - name: Publish the linux-x86-64 asset to the dated release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ needs.prepare.outputs.date }}" \
-            apio-openxc7-${{ matrix.token }}-*.tgz \
+            apio-openxc7-linux-x86-64-*.tgz \
+            --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Share the chipdb bins with the darwin job
+        uses: actions/upload-artifact@v4
+        with:
+          name: chipdb-bins
+          path: dist/chipdb/*.bin
+          compression-level: 1     # already dense binary data
+          retention-days: 7        # allow re-running build-darwin days later
+
+  build-darwin:
+    needs: [prepare, build-linux]
+    runs-on: macos-14              # Apple Silicon => darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Reuse the linux-built chipdb bins
+        uses: actions/download-artifact@v4
+        with:
+          name: chipdb-bins
+          path: chipdb-seed
+
+      - name: Build the openXC7 package
+        env:
+          OPENXC7_PACK_DATE: ${{ needs.prepare.outputs.date }}
+          OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-seed
+        run: |
+          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
+          ls -la apio-openxc7-darwin-arm64-*.tgz
+
+      - name: Publish the darwin-arm64 asset to the dated release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.prepare.outputs.date }}" \
+            apio-openxc7-darwin-arm64-*.tgz \
             --repo "$GITHUB_REPOSITORY" --clobber

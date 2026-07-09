@@ -24,6 +24,58 @@
 
       # Nixpkgs instantiated for supported system types.
       nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; });
+
+      # Toolchain shell, parameterized: `withFpgaAssembler = false` is the
+      # packaging profile (devShells.<system>.pack) — openxc7-pack.py never
+      # uses fpga-assembler, and skipping it avoids evaluating its flake
+      # (builtins.getFlake github:lromor/...) on hosts whose GitHub egress is
+      # unreliable (e.g. the build server) and shortens CI.
+      mkToolShell = system: withFpgaAssembler:
+        nixpkgsFor.${system}.mkShell {
+          buildInputs = (with self.packages.${system}; [
+            fasm
+            prjxray
+            nextpnr-xilinx
+            # disabled, see above
+            # yosys-synlig
+          ]) ++ (with nixpkgsFor.${system}; [
+            yosys
+            openfpgaloader
+            pypy310
+            python312Packages.pyyaml
+            python312Packages.textx
+            python312Packages.simplejson
+            python312Packages.intervaltree
+          ])
+          # fpga-assembler (gated above), ghdl and yosys-ghdl are not available on
+          # aarch64-darwin; keep them Linux-only so the macOS devShell still resolves.
+          ++ nixpkgsFor.${system}.lib.optionals nixpkgsFor.${system}.stdenv.isLinux (
+            (nixpkgsFor.${system}.lib.optionals withFpgaAssembler
+              (with self.packages.${system}; [ fpga-assembler ]))
+            ++ (with nixpkgsFor.${system}; [ ghdl yosys-ghdl ])
+          );
+
+          shellHook =
+            let mypkgs  = self.packages.${system};
+                nixpkgs = nixpkgsFor.${system};
+                pyPkgPath = "/lib/python3.12/site-packages/:";
+            in nixpkgs.lib.concatStrings [
+              "export NEXTPNR_XILINX_DIR=" mypkgs.nextpnr-xilinx.outPath "\n"
+              "export NEXTPNR_XILINX_PYTHON_DIR=" mypkgs.nextpnr-xilinx.outPath "/share/nextpnr/python/\n"
+              "export PRJXRAY_DB_DIR=" mypkgs.nextpnr-xilinx.outPath "/share/nextpnr/external/prjxray-db\n"
+              "export PRJXRAY_PYTHON_DIR=" mypkgs.prjxray.outPath "/usr/share/python3/\n"
+              ''export PYTHONPATH=''$PYTHONPATH:''$PRJXRAY_PYTHON_DIR:''
+                mypkgs.fasm.outPath pyPkgPath
+                nixpkgs.python312Packages.textx.outPath pyPkgPath
+                nixpkgs.python312Packages.arpeggio.outPath pyPkgPath
+                nixpkgs.python312Packages.pyyaml.outPath pyPkgPath
+                nixpkgs.python312Packages.simplejson.outPath pyPkgPath
+                nixpkgs.python312Packages.intervaltree.outPath pyPkgPath
+                nixpkgs.python312Packages.sortedcontainers.outPath pyPkgPath
+                "\n"
+              "export PYPY3=" nixpkgs.pypy310.outPath "/bin/pypy3.10"
+            ];
+        };
     in {
       # Provide some binary packages for selected system types.
       packages = forAllSystems (system:
@@ -92,52 +144,12 @@
         });
 
       # contains a mutually consistent set of packages for a full toolchain using nextpnr-xilinx.
-      devShell = forAllSystems (system:
-        nixpkgsFor.${system}.mkShell {
-          buildInputs = (with self.packages.${system}; [
-            fasm
-            prjxray
-            nextpnr-xilinx
-            # disabled, see above
-            # yosys-synlig
-          ]) ++ (with nixpkgsFor.${system}; [
-            yosys
-            openfpgaloader
-            pypy310
-            python312Packages.pyyaml
-            python312Packages.textx
-            python312Packages.simplejson
-            python312Packages.intervaltree
-          ])
-          # fpga-assembler (gated above), ghdl and yosys-ghdl are not available on
-          # aarch64-darwin; keep them Linux-only so the macOS devShell still resolves.
-          ++ nixpkgsFor.${system}.lib.optionals nixpkgsFor.${system}.stdenv.isLinux (
-            (with self.packages.${system}; [ fpga-assembler ])
-            ++ (with nixpkgsFor.${system}; [ ghdl yosys-ghdl ])
-          );
+      devShell = forAllSystems (system: mkToolShell system true);
 
-          shellHook =
-            let mypkgs  = self.packages.${system};
-                nixpkgs = nixpkgsFor.${system};
-                pyPkgPath = "/lib/python3.12/site-packages/:";
-            in nixpkgs.lib.concatStrings [
-              "export NEXTPNR_XILINX_DIR=" mypkgs.nextpnr-xilinx.outPath "\n"
-              "export NEXTPNR_XILINX_PYTHON_DIR=" mypkgs.nextpnr-xilinx.outPath "/share/nextpnr/python/\n"
-              "export PRJXRAY_DB_DIR=" mypkgs.nextpnr-xilinx.outPath "/share/nextpnr/external/prjxray-db\n"
-              "export PRJXRAY_PYTHON_DIR=" mypkgs.prjxray.outPath "/usr/share/python3/\n"
-              ''export PYTHONPATH=''$PYTHONPATH:''$PRJXRAY_PYTHON_DIR:'' 
-                mypkgs.fasm.outPath pyPkgPath
-                nixpkgs.python312Packages.textx.outPath pyPkgPath
-                nixpkgs.python312Packages.arpeggio.outPath pyPkgPath
-                nixpkgs.python312Packages.pyyaml.outPath pyPkgPath
-                nixpkgs.python312Packages.simplejson.outPath pyPkgPath
-                nixpkgs.python312Packages.intervaltree.outPath pyPkgPath
-                nixpkgs.python312Packages.sortedcontainers.outPath pyPkgPath
-                "\n"
-              "export PYPY3=" nixpkgs.pypy310.outPath "/bin/pypy3.10"
-            ];
-        }
-      );
+      # `nix develop .#pack` — same shell without fpga-assembler (packaging).
+      devShells = forAllSystems (system: {
+        pack = mkToolShell system false;
+      });
 
       # dockerTools.buildImage targets Linux container images; expose it only on
       # Linux systems so the flake still evaluates (`nix flake show`) on macOS.
