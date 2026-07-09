@@ -92,6 +92,16 @@ let
       sed -i 's|boost::container::flat_map<int, std::pair<int, PipId>> bound_nets;|std::map<int, std::pair<int, PipId>> bound_nets;|' common/router2.cc
       grep -q '#include <map>' common/router2.cc || \
         sed -i 's|#include <boost/container/flat_map.hpp>|#include <boost/container/flat_map.hpp>\n#include <map>|' common/router2.cc
+      # getPipName/getWireName copy whole chipdb PODs by value; the last record
+      # of the file then reads a few bytes past the mapping end -> page fault
+      # under the Windows file mapping (benign-but-UB on Linux, found by
+      # ASan/UBSan with a clocked design). const refs only read real fields.
+      # Upstream PR material.
+      sed -i 's|auto loc_info  = locInfo(pip);|const auto \&loc_info  = locInfo(pip);|' xilinx/arch.cc
+      sed -i 's|auto pip_data  = loc_info.pip_data\[pip.index\];|const auto \&pip_data  = loc_info.pip_data[pip.index];|' xilinx/arch.cc
+      sed -i 's|auto tile_inst = chip_info->tile_insts\[pip.tile\];|const auto \&tile_inst = chip_info->tile_insts[pip.tile];|' xilinx/arch.cc
+      sed -i 's|auto wire_data = locInfo(w).wire_data\[w.index\];|const auto \&wire_data = locInfo(w).wire_data[w.index];|' xilinx/arch.cc
+      grep -q "const auto &pip_data" xilinx/arch.cc || { echo "POD-ref patch failed"; exit 1; }
       # nixpkgs names the boost python lib 'python' (no version suffix); add "" to
       # the version search list so find_package(Boost COMPONENTS python) matches.
       sed -i 's|foreach (PyVer 3 36 37 38 39 310 311 312)|foreach (PyVer "" 3 36 37 38 39 310 311 312)|' CMakeLists.txt

@@ -29,7 +29,10 @@ PARTS=${E2E_PARTS:-$(python3 -c "import json;print(' '.join(json.load(open('$REP
 run_tool() {  # run_tool <exe-basename> <args...>
   local tool="$1"; shift
   if [ "$MODE" = wine ]; then
-    wine64 "$PKG/bin/$tool.exe" "$@"
+    # nextpnr's embedded python dies at init_sys_streams (WinError 6) under
+    # wine when stdout is a redirected FILE; a pipe works, and stdin must be
+    # a valid handle too (nohup/ssh detach) -> pipe through cat, /dev/null in
+    wine64 "$PKG/bin/$tool.exe" "$@" </dev/null 2>&1 | cat
   elif [ -x "$PKG/bin/$tool" ]; then
     "$PKG/bin/$tool" "$@"
   else
@@ -48,9 +51,16 @@ with open("hardware.pnr", "w") as f:
     json.dump({"bound_bels": bels}, f)
 EOF
 
-echo "== synth (host yosys, part-agnostic) =="
-yosys -q -p "synth_xilinx -arch xc7 -top blinky; write_json blinky.json" \
-      "$REPO/e2e/blinky.v"
+if [ -n "${E2E_JSON:-}" ]; then
+  # imported netlist: yosys/abc are not bit-deterministic across platforms,
+  # so cross-platform fasm comparison must start from the same json
+  echo "== synth skipped (using $E2E_JSON) =="
+  cp "$E2E_JSON" blinky.json
+else
+  echo "== synth (host yosys, part-agnostic) =="
+  yosys -q -p "synth_xilinx -arch xc7 -top blinky; write_json blinky.json" \
+        "$REPO/e2e/blinky.v"
+fi
 
 fail=0
 for part in $PARTS; do
