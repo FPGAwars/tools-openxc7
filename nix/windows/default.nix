@@ -198,14 +198,18 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
     mkdir -p $out/share/nextpnr/python
 
   # -- pure-python tools (strip native extensions -> Windows uses textX fallback)
+  # dirs/files copied from the store come read-only -> chmod like the
+  # python3.11 stdlib above, or the find -delete and the util.py replace fail
   cp -r ${pyEnv}/lib/python3.12/site-packages/. $out/lib/python3.12/site-packages/
+  chmod -R u+w $out/lib/python3.12/site-packages
   find $out/lib/python3.12/site-packages \
        \( -name '*.so' -o -name '*.dylib' -o -name '*.pyd' -o -name 'libparse_fasm*' \) -delete
   # prjxray python module + the python tool scripts
   cp -r ${prjxray}/usr/share/python3/prjxray $out/lib/python3.12/site-packages/
+  chmod -R u+w $out/lib/python3.12/site-packages/prjxray
   cp ${prjxray}/bin/fasm2frames ${prjxray}/bin/bit2fasm $out/libexec/
   ${lib.optionalString (utilPatch != null)
-    "cp ${utilPatch} $out/lib/python3.12/site-packages/prjxray/util.py"}
+    "install -m 644 ${utilPatch} $out/lib/python3.12/site-packages/prjxray/util.py"}
 
   # -- Windows launchers (apio/oss-cad-suite provides the Windows python)
   ${cmdLauncher "fasm2frames"}
