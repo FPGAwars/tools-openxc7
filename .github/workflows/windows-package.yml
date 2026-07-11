@@ -62,6 +62,17 @@ jobs:
             echo "=== import fasm (pure-python textX fallback) ==="
             PYTHONPATH=result-win/lib/python3.12/site-packages \
               python3 -c "import fasm, prjxray; print(\"fasm/prjxray import OK\")"
+            echo "=== same imports under a WINDOWS python (the real apio path) ==="
+            # on real Windows fasm2frames runs with oss-cad-suite's Windows
+            # python, not a POSIX one: catch POSIX-only imports (e.g. fcntl)
+            WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)
+            [ -z "$WINPY" ] && WINPY=$(nix build --print-out-paths --no-link \
+              --impure --expr '(import <nixpkgs> {}).pkgsCross.mingwW64.python311' 2>/dev/null | head -1 || true)
+            if [ -n "$WINPY" ] && [ -x "$WINPY/bin/python3.exe" ]; then
+              wine64 "$WINPY/bin/python3.exe" -c "import sys; sys.path.insert(0, r'result-win/lib/python3.12/site-packages'); import prjxray.util, prjxray.fasm_assembler, fasm; print('windows-python imports OK')"
+            else
+              echo "WARNING: mingw python not found; windows-python import check skipped"
+            fi
           '
 
       - name: E2E — synth (yosys) -> nextpnr.exe -> fasm2frames -> xc7frames2bit.exe

@@ -8,7 +8,12 @@
 # https://opensource.org/licenses/ISC
 #
 # SPDX-License-Identifier: ISC
-import fcntl
+# -- PATCH: fcntl is POSIX-only (no Windows); it is only needed by the
+# -- flock calls below, which this patch disables anyway.
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 import math
 import os
 import random
