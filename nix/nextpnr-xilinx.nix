@@ -12,6 +12,13 @@ stdenv.mkDerivation rec {
     fetchSubmodules = true;
   };
 
+  # The global const node in the chipdb only included the GLBL wires of
+  # column x=0, but pseudo const driver bels exist in every tile: a driver
+  # placed elsewhere could only feed its own row -> router error "Invalid
+  # global constant node" on VCC/GND-to-pad and PLL designs (openXC7 #38/#41,
+  # gatecat#54). Root-caused 2026-07-12; upstream PR material.
+  patches = [ ./patches/bbaexport-global-const-node.patch ];
+
   nativeBuildInputs = [ cmake git ];
   buildInputs = [ python312Packages.boost python312 eigen ]
     ++ (lib.optionals stdenv.cc.isClang [ llvmPackages.openmp ]);
