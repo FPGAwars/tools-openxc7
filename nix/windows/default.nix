@@ -218,6 +218,20 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
   cp -r ${prjxray}/usr/share/python3/prjxray $out/lib/python3.12/site-packages/
   chmod -R u+w $out/lib/python3.12/site-packages/prjxray
   cp ${prjxray}/bin/fasm2frames ${prjxray}/bin/bit2fasm $out/libexec/
+  chmod u+w $out/libexec/fasm2frames $out/libexec/bit2fasm
+  # -- POSIX-ism fixes (systematic audit 2026-07-12): these scripts run under
+  # -- oss-cad-suite's WINDOWS python in apio. Guards fail the build if the
+  # -- upstream text drifts. Upstream PR material (f4pga/prjxray).
+  # fasm2frames: the '/dev/stdout' default does not exist on Windows; apio
+  # invokes it with a shell redirect, so default to sys.stdout instead
+  sed -i "s|^import argparse$|import argparse\nimport sys|" $out/libexec/fasm2frames
+  sed -i "s|default='/dev/stdout',|default=None,|" $out/libexec/fasm2frames
+  sed -i "s|f_out=open(args.fn_out, 'w'),|f_out=(open(args.fn_out, 'w') if args.fn_out else sys.stdout),|" $out/libexec/fasm2frames
+  grep -q "args.fn_out else sys.stdout" $out/libexec/fasm2frames || { echo "fasm2frames patch failed"; exit 1; }
+  # bit2fasm: a NamedTemporaryFile kept open cannot be written by the
+  # bitread.exe subprocess on Windows (sharing violation) -> close it first
+  sed -i "s|bits_file = stack.enter_context(tempfile.NamedTemporaryFile())|bits_file = stack.enter_context(tempfile.NamedTemporaryFile(delete=False)); bits_file.close(); stack.callback(os.unlink, bits_file.name)|" $out/libexec/bit2fasm
+  grep -q "delete=False" $out/libexec/bit2fasm || { echo "bit2fasm patch failed"; exit 1; }
   ${lib.optionalString (utilPatch != null)
     "install -m 644 ${utilPatch} $out/lib/python3.12/site-packages/prjxray/util.py"}
 
