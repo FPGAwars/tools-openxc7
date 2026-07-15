@@ -23,6 +23,11 @@ stdenv.mkDerivation rec {
     # common in Vivado XDCs for I/O timing) crashed with an uncaught
     # std::out_of_range; ignore it with a warning instead. Upstream PR material.
     ./patches/xdc-virtual-clock-crash.patch
+    # The fork lacks mainline's --report; expose per-clock fmax/target to the
+    # embedded Python (ctx.reportClockFmaxJson(), computed on demand on the
+    # routed design) so --post-route scripts (apio report) can emit the clock
+    # table. Upstream PR material.
+    ./patches/timing-fmax-python.patch
   ];
 
   nativeBuildInputs = [ cmake git ];

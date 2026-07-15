@@ -1,0 +1,87 @@
+--- a/common/nextpnr.h	2026-07-15 22:17:24
++++ b/common/nextpnr.h	2026-07-15 22:17:55
+@@ -877,6 +877,11 @@
+     // provided by sdf.cc
+     void writeSDF(std::ostream &out, bool cvc_mode = false) const;
+ 
++    // provided by timing.cc; computes timing on the current (routed) design
++    // and returns per-clock fmax/target as a JSON string. Exposed to Python
++    // for --post-route report scripts (the fork lacks mainline's --report).
++    std::string reportClockFmaxJson();
++
+     // --------------------------------------------------------------
+ 
+     uint32_t checksum() const;
+--- a/common/timing.cc	2026-07-15 22:17:24
++++ b/common/timing.cc	2026-07-15 22:17:55
+@@ -20,6 +20,7 @@
+ 
+ #include "timing.h"
+ #include <algorithm>
++#include <cstdio>
+ #include <boost/range/adaptor/reversed.hpp>
+ #include <deque>
+ #include <map>
+@@ -715,6 +716,50 @@
+ 
+     if (!quiet)
+         log_info("Checksum: 0x%08x\n", ctx->checksum());
++}
++
++std::string Context::reportClockFmaxJson()
++{
++    Context *ctx = this;
++    CriticalPathMap crit_paths;
++    Timing timing(ctx, true /* net_delays */, false /* update */, &crit_paths, nullptr);
++    timing.walk_paths();
++
++    std::map<IdString, double> clock_fmax;
++    for (auto &path : crit_paths) {
++        const ClockEvent &a = path.first.start;
++        const ClockEvent &b = path.first.end;
++        if (a.clock != b.clock || a.clock == ctx->id("$async$"))
++            continue;
++        double Fmax;
++        if (a.edge == b.edge)
++            Fmax = 1000 / ctx->getDelayNS(path.second.path_delay);
++        else
++            Fmax = 500 / ctx->getDelayNS(path.second.path_delay);
++        if (!clock_fmax.count(a.clock) || Fmax < clock_fmax.at(a.clock))
++            clock_fmax[a.clock] = Fmax;
++    }
++
++    std::string json = "{";
++    bool first = true;
++    for (auto &clock : clock_fmax) {
++        float target = ctx->setting<float>("target_freq") / 1e6;
++        auto ni = ctx->nets.find(clock.first);
++        if (ni != ctx->nets.end() && ni->second->clkconstr)
++            target = 1000 / ctx->getDelayNS(ni->second->clkconstr->period.minDelay());
++        json += first ? "\"" : ", \"";
++        for (char c : clock.first.str(ctx)) {
++            if (c == '"' || c == '\\')
++                json += '\\';
++            json += c;
++        }
++        char buf[80];
++        snprintf(buf, sizeof(buf), "\": {\"achieved\": %.2f, \"constraint\": %.2f}", clock.second, target);
++        json += buf;
++        first = false;
++    }
++    json += "}";
++    return json;
+ }
+ 
+ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool print_path, bool warn_on_failure)
+--- a/xilinx/arch_pybindings.cc	2026-07-15 22:17:24
++++ b/xilinx/arch_pybindings.cc	2026-07-15 22:17:55
+@@ -43,7 +43,8 @@
+                            .def("checksum", &Context::checksum)
+                            .def("pack", &Context::pack)
+                            .def("place", &Context::place)
+-                           .def("route", &Context::route);
++                           .def("route", &Context::route)
++                           .def("reportClockFmaxJson", &Context::reportClockFmaxJson);
+ 
+     fn_wrapper_2a<Context, decltype(&Context::isValidBelForCell), &Context::isValidBelForCell, pass_through<bool>,
+                   addr_and_unwrap<CellInfo>, conv_from_str<BelId>>::def_wrap(ctx_cls, "isValidBelForCell");
