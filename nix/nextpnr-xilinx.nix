@@ -17,7 +17,13 @@ stdenv.mkDerivation rec {
   # placed elsewhere could only feed its own row -> router error "Invalid
   # global constant node" on VCC/GND-to-pad and PLL designs (openXC7 #38/#41,
   # gatecat#54). Root-caused 2026-07-12; upstream PR material.
-  patches = [ ./patches/bbaexport-global-const-node.patch ];
+  patches = [
+    ./patches/bbaexport-global-const-node.patch
+    # XDC parser: a "virtual clock" (create_clock without target ports/nets,
+    # common in Vivado XDCs for I/O timing) crashed with an uncaught
+    # std::out_of_range; ignore it with a warning instead. Upstream PR material.
+    ./patches/xdc-virtual-clock-crash.patch
+  ];
 
   nativeBuildInputs = [ cmake git ];
   buildInputs = [ python312Packages.boost python312 eigen ]
