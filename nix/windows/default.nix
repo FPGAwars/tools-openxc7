@@ -83,6 +83,17 @@ let
   nextpnrWin = cross.stdenv.mkDerivation {
     pname = "nextpnr-xilinx-win"; version = "0.8.2";
     src = nextpnrSrc;
+    # The SAME nextpnr patch list as nix/nextpnr-xilinx.nix: the .exe must
+    # behave like the native binaries. (The chipdb .bin are NOT built here —
+    # they come prebuilt from the native chipdb derivation — so the bbaexport
+    # patch is inert here; it is included to keep one canonical list.)
+    # Gap found 2026-07-15: the 20260716 windows exe shipped without
+    # xdc-virtual-clock-crash.patch because this list was missing.
+    patches = [
+      ../patches/bbaexport-global-const-node.patch
+      ../patches/xdc-virtual-clock-crash.patch
+      ../patches/timing-fmax-python.patch
+    ];
     nativeBuildInputs = [ pkgs.cmake pkgs.git python ];
     buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads mingwPython ];
     enableParallelBuilding = true;
