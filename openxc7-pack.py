@@ -959,6 +959,25 @@ def distribution_init():
     # -- Directorio base de la distribucion
     base_dir = Path.cwd() / "dist"
 
+    # -- Un dist/ de una ejecucion anterior NO es reutilizable: las fases de
+    # -- copia saltan los ficheros ya existentes, asi que un dist/ viejo
+    # -- congela binarios de builds anteriores dentro del paquete (la release
+    # -- 2026-07-16 salio con nextpnr sin parchear en las 3 plataformas por
+    # -- esto). Se borra todo MENOS dist/chipdb: los .bin son caros de
+    # -- regenerar, son independientes de plataforma y tienen su propio
+    # -- mecanismo de refresco (borrado explicito + OPENXC7_CHIPDB_SEED).
+    if base_dir.exists():
+        print("➡️  Limpiando dist/ anterior (se conserva dist/chipdb)...")
+        subprocess.run(["chmod", "-R", "+w", str(base_dir)],
+                       check=True, capture_output=True, text=True)
+        for entry in base_dir.iterdir():
+            if entry.name == "chipdb":
+                continue
+            if entry.is_dir() and not entry.is_symlink():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+
     # -- Crear la estructura
     (base_dir / "bin").mkdir(parents=True, exist_ok=True)
     (base_dir / "lib").mkdir(parents=True, exist_ok=True)
