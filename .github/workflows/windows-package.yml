@@ -136,6 +136,20 @@ jobs:
               && echo "✅ exe parity: virtual clock warned (no crash)"
             grep -q "FMAX_JSON: {\"" vclk.log \
               && echo "✅ exe parity: per-clock fmax getter exposed"
+            # Hierarchical import (synth_xilinx does NOT flatten): submodule
+            # port passthroughs trigger the frontend merge_nets path that
+            # crashed with std::out_of_range (frontend-hier-merge-nets patch).
+            printf "%s\n" \
+              "module blinky2(input wire clk, output wire led);" \
+              "  wire l; sub s(.clk(clk), .led(l)); assign led = l; endmodule" \
+              "module sub(input wire clk, output wire led);" \
+              "  wire c; assign c = clk; reg [23:0] n;" \
+              "  always @(posedge c) n <= n + 1; assign led = n[23]; endmodule" > hier.v
+            yosys -q -p "synth_xilinx -arch xc7 -top blinky2; write_json hier.json" hier.v
+            wine64 ../$PKG/bin/nextpnr-xilinx.exe --chipdb ../$PKG/chipdb/xc7a35tcpg236.bin \
+              --xdc vclk.xdc --json hier.json --fasm hier.fasm --router router2 \
+              --freq 50 </dev/null 2>&1 | cat
+            test -s hier.fasm && echo "✅ exe parity: hierarchical import (merge_nets) OK"
           '
 
       - uses: actions/upload-artifact@v4
