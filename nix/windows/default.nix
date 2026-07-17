@@ -93,6 +93,7 @@ let
       ../patches/bbaexport-global-const-node.patch
       ../patches/xdc-virtual-clock-crash.patch
       ../patches/timing-fmax-python.patch
+      ../patches/frontend-hier-merge-nets.patch
     ];
     nativeBuildInputs = [ pkgs.cmake pkgs.git python ];
     buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads mingwPython ];

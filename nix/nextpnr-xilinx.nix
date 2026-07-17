@@ -28,6 +28,12 @@ stdenv.mkDerivation rec {
     # routed design) so --post-route scripts (apio report) can emit the clock
     # table. Upstream PR material.
     ./patches/timing-fmax-python.patch
+    # Backport from mainline nextpnr: the JSON frontend never grew
+    # net_old_indices, so the FIRST merge_nets() during hierarchical import
+    # (any non-flattened multi-module design where a submodule net maps to
+    # two parent nets) died with std::out_of_range. Found with an Icestudio
+    # VGA design (yosys synth_xilinx does not flatten by default).
+    ./patches/frontend-hier-merge-nets.patch
   ];
 
   nativeBuildInputs = [ cmake git ];
