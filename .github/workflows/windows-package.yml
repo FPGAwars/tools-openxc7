@@ -150,6 +150,21 @@ jobs:
               --xdc vclk.xdc --json hier.json --fasm hier.fasm --router router2 \
               --freq 50 </dev/null 2>&1 | cat
             test -s hier.fasm && echo "✅ exe parity: hierarchical import (merge_nets) OK"
+            # Wide mux (F7/F8 + fractured-LUT shared pins): the post-route pin
+            # fixup used to create false timing loops that aborted the report
+            # walk and emptied the clock table (timing-selfloop-arcs and
+            # timing-lut-shared-pins patches).
+            printf "%s\n" \
+              "module blinky3(input wire clk, output wire led);" \
+              "  reg [15:0] r; reg [3:0] s; reg o;" \
+              "  always @(posedge clk) begin r <= r + 1; s <= s + r[0]; o <= r[s]; end" \
+              "  assign led = o; endmodule" > wmux.v
+            yosys -q -p "synth_xilinx -arch xc7 -top blinky3; write_json wmux.json" wmux.v
+            wine64 ../$PKG/bin/nextpnr-xilinx.exe --chipdb ../$PKG/chipdb/xc7a35tcpg236.bin \
+              --xdc vclk.xdc --json wmux.json --fasm wmux.fasm --router router2 \
+              --post-route fmax.py --freq 50 </dev/null 2>&1 | cat > wmux.log
+            grep -q "FMAX_JSON: {\"" wmux.log \
+              && echo "✅ exe parity: wide-mux clock table present (no false timing loops)"
           '
 
       - uses: actions/upload-artifact@v4
