@@ -34,6 +34,16 @@ stdenv.mkDerivation rec {
     # two parent nets) died with std::out_of_range. Found with an Icestudio
     # VGA design (yosys synth_xilinx does not flatten by default).
     ./patches/frontend-hier-merge-nets.patch
+    # The xc7 post-route LUT pin fixup can bind a cell input pin to the
+    # cell's own output net (router feeding the output back through an
+    # unused input pin of the site); the timing walk then saw a false
+    # combinational loop and aborted post-route analysis for the WHOLE
+    # design ("timing analysis failed due to presence of combinatorial
+    # loops...", empty apio report table). Filter self-net arcs on both
+    # sides of the fanin bookkeeping. Found with an Icestudio VGA design
+    # with F7 muxes (wide-LUT clusters). Upstream PR material.
+    ./patches/timing-selfloop-arcs.patch
+    ./patches/timing-lut-shared-pins.patch
   ];
 
   nativeBuildInputs = [ cmake git ];
