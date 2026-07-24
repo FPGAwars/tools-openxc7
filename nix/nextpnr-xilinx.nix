@@ -44,6 +44,7 @@ stdenv.mkDerivation rec {
     # with F7 muxes (wide-LUT clusters). Upstream PR material.
     ./patches/timing-selfloop-arcs.patch
     ./patches/timing-lut-shared-pins.patch
+    ./patches/timing-dsp48-comb.patch
   ];
 
   nativeBuildInputs = [ cmake git ];
