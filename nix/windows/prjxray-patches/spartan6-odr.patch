@@ -1,0 +1,49 @@
+diff --git a/lib/include/prjxray/xilinx/configuration.h b/lib/include/prjxray/xilinx/configuration.h
+index 0a883547..4721f8db 100644
+--- a/lib/include/prjxray/xilinx/configuration.h
++++ b/lib/include/prjxray/xilinx/configuration.h
+@@ -75,6 +75,44 @@ class Configuration {
+ 	FrameMap frames_;
+ };
+ 
++// The explicit specializations below are defined in configuration.cc.
++// They must be declared before use in every translation unit
++// ([temp.expl.spec]): without these declarations, a TU that calls
++// createType2ConfigurationPacketData<Spartan6> instantiates the primary
++// template defined further down in this header, and that COMDAT copy
++// collides with the strong definition from configuration.cc when linking
++// with mingw-w64 ld ("multiple definition"); ELF linkers silently
++// resolve the collision in favour of the strong symbol.
++template <>
++Configuration<Spartan6>::PacketData
++Configuration<Spartan6>::createType2ConfigurationPacketData(
++    const Frames<Spartan6>::Frames2Data& frames,
++    absl::optional<Spartan6::Part>& part);
++
++template <>
++void Configuration<Spartan6>::createConfigurationPackage(
++    Spartan6::ConfigurationPackage& out_packets,
++    const PacketData& packet_data,
++    absl::optional<Spartan6::Part>& part);
++
++template <>
++void Configuration<Series7>::createConfigurationPackage(
++    Series7::ConfigurationPackage& out_packets,
++    const PacketData& packet_data,
++    absl::optional<Series7::Part>& part);
++
++template <>
++void Configuration<UltraScale>::createConfigurationPackage(
++    UltraScale::ConfigurationPackage& out_packets,
++    const PacketData& packet_data,
++    absl::optional<UltraScale::Part>& part);
++
++template <>
++void Configuration<UltraScalePlus>::createConfigurationPackage(
++    UltraScalePlus::ConfigurationPackage& out_packets,
++    const PacketData& packet_data,
++    absl::optional<UltraScalePlus::Part>& part);
++
+ template <typename ArchType>
+ typename Configuration<ArchType>::PacketData
+ Configuration<ArchType>::createType2ConfigurationPacketData(

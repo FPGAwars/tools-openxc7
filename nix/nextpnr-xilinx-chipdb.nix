@@ -27,13 +27,15 @@ stdenv.mkDerivation rec {
 
     for i in `cat $out/footprints.txt`
     do
-        if   [[ $i = xc7a* ]]; then ARCH=artix7 
+        if   [[ $i = xc7a* ]]; then ARCH=artix7
         elif [[ $i = xc7k* ]]; then ARCH=kintex7
         elif [[ $i = xc7s* ]]; then ARCH=spartan7
         elif [[ $i = xc7z* ]]; then ARCH=zynq7
-        else 
-          echo "unsupported architecture for footprint $i"
-          exit 1
+        elif [[ $i = xc7v* ]]; then ARCH=virtex7
+        else
+          # families the 0.9.x db may grow that we don't package: skip, don't die
+          echo "skipping unsupported architecture for footprint $i"
+          continue
         fi
 
         if [[ $ARCH != "${backend}" ]]; then

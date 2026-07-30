@@ -37,20 +37,21 @@ let
   # -- pinned sources (same revs/hashes as nix/nextpnr-xilinx.nix, nix/prjxray.nix)
   nextpnrSrc = pkgs.fetchFromGitHub {
     owner = "openXC7"; repo = "nextpnr-xilinx";
-    rev = "3374e5a62b54dc346fd5f85188ed24075ddfd5fb";
-    hash = "sha256-gW3Z3Cd5/gfX7k/ekRHtPVlbhKszWah1L+HggMFKakA=";
+    # pre-0.9.x-regression pin — see nix/nextpnr-xilinx.nix for the rationale
+    rev = "27727428c13f60849fef9f85a814793db06390bb";
+    hash = "sha256-zzBk04/KDwCR3CjHmejAJG/fL5I3YpEj8SZKajVZ+64=";
     fetchSubmodules = true;
   };
   prjxraySrc = pkgs.fetchFromGitHub {
-    owner = "f4pga"; repo = "prjxray";
-    rev = "bdbc665852b82f589ff775a8f6498542dbec0a07";
-    hash = "sha256-lV4o62lS7CMG0EYPhp9bTB4fg0hOixy8CC8yGxKhGQE=";
+    owner = "jrrk2"; repo = "prjxray";
+    rev = "132342f7a27c650a7cbedda663e2f33bc4a582f5";
+    hash = "sha256-b/UQAu4hvAJ5Jng6z1XmlVpRUN1mb1igefcy9/c2HbM=";
     fetchSubmodules = true;
   };
 
   commonFlags = [
     "-DARCH=xilinx" "-DBUILD_GUI=OFF" "-DBUILD_TESTS=OFF" "-DUSE_OPENMP=OFF"
-    "-Wno-deprecated" "-DCURRENT_GIT_VERSION=3374e5a"
+    "-Wno-deprecated" "-DCURRENT_GIT_VERSION=2772742"
     "-DPython3_EXECUTABLE=${python.interpreter}"
   ];
 
@@ -66,9 +67,9 @@ let
 
   # nextpnr two-stage cross: native bbasm -> ImportExecutables.cmake -> cross import
   bba = pkgs.stdenv.mkDerivation {
-    pname = "nextpnr-xilinx-bbasm-native"; version = "0.8.2";
+    pname = "nextpnr-xilinx-bbasm-native"; version = "unstable-2026-07-13";
     src = nextpnrSrc;
-    nativeBuildInputs = [ pkgs.cmake pkgs.git python ];
+    nativeBuildInputs = [ pkgs.cmake pkgs.git pkgs.pkg-config python ];
     buildInputs = [ pkgs.boost pkgs.eigen ];
     cmakeFlags = commonFlags ++ [ "-DBUILD_PYTHON=OFF" ];
     buildFlags = [ "bbasm" ];
@@ -81,7 +82,7 @@ let
   };
 
   nextpnrWin = cross.stdenv.mkDerivation {
-    pname = "nextpnr-xilinx-win"; version = "0.8.2";
+    pname = "nextpnr-xilinx-win"; version = "unstable-2026-07-13";
     src = nextpnrSrc;
     # The SAME nextpnr patch list as nix/nextpnr-xilinx.nix: the .exe must
     # behave like the native binaries. (The chipdb .bin are NOT built here —
@@ -93,12 +94,11 @@ let
       ../patches/bbaexport-global-const-node.patch
       ../patches/xdc-virtual-clock-crash.patch
       ../patches/timing-fmax-python.patch
-      ../patches/frontend-hier-merge-nets.patch
       ../patches/timing-selfloop-arcs.patch
       ../patches/timing-lut-shared-pins.patch
       ../patches/timing-dsp48-comb.patch
     ];
-    nativeBuildInputs = [ pkgs.cmake pkgs.git python ];
+    nativeBuildInputs = [ pkgs.cmake pkgs.git pkgs.pkg-config python ];
     buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads mingwPython ];
     enableParallelBuilding = true;
     postPatch = ''
@@ -119,10 +119,12 @@ let
       grep -q "const auto &pip_data" xilinx/arch.cc || { echo "POD-ref patch failed"; exit 1; }
       # nixpkgs names the boost python lib 'python' (no version suffix); add "" to
       # the version search list so find_package(Boost COMPONENTS python) matches.
-      sed -i 's|foreach (PyVer 3 36 37 38 39 310 311 312)|foreach (PyVer "" 3 36 37 38 39 310 311 312)|' CMakeLists.txt
+      sed -i 's|foreach (PyVer 3 36 37 38 39 310 311 312 313 314)|foreach (PyVer "" 3 36 37 38 39 310 311 312 313 314)|' CMakeLists.txt
+      grep -q 'foreach (PyVer "" 3' CMakeLists.txt || { echo "PyVer sed failed (CMakeLists drifted)"; exit 1; }
       # boost::python is a static .a here (not a DLL) -> define BOOST_PYTHON_STATIC_LIB
       # so the headers don't use dllimport (__imp_ undefined references at link).
       sed -i 's|    # Find Boost::Python of a suitable version in a cross-platform way|    add_definitions(-DBOOST_PYTHON_STATIC_LIB)\n    # Find Boost::Python of a suitable version in a cross-platform way|' CMakeLists.txt
+      grep -q 'BOOST_PYTHON_STATIC_LIB' CMakeLists.txt || { echo "static-lib sed failed (CMakeLists drifted)"; exit 1; }
     '';
     cmakeFlags = commonFlags ++ [
       "-DBUILD_PYTHON=ON"
@@ -140,9 +142,9 @@ let
   };
 
   prjxrayWin = cross.stdenv.mkDerivation {
-    pname = "prjxray-win"; version = "bdbc665";
+    pname = "prjxray-win"; version = "132342f7";
     src = prjxraySrc;
-    nativeBuildInputs = [ pkgs.cmake pkgs.git python ];
+    nativeBuildInputs = [ pkgs.cmake pkgs.git pkgs.pkg-config python ];
     buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads ];
     enableParallelBuilding = true;
     # POSIX -> Win32 ports (#ifdef _WIN32; Linux path unchanged) + the deprecated
@@ -150,13 +152,18 @@ let
     postPatch = ''
       cp ${./prjxray-patches/memory_mapped_file.cc} lib/memory_mapped_file.cc
       cp ${./prjxray-patches/database.cc} lib/database.cc
+      # ODR fix (upstream PR material): declare the Configuration explicit
+      # specializations in configuration.h. Without it, tool TUs instantiate
+      # the header-defined primary of createType2ConfigurationPacketData and
+      # mingw ld fails with duplicate symbols (previously worked around with
+      # a permissive linker flag). Verified 2026-07-30 on bit0.
+      patch -p1 < ${./prjxray-patches/spartan6-odr.patch}
+      grep -q 'Configuration<Spartan6>::createType2ConfigurationPacketData(' lib/include/prjxray/xilinx/configuration.h || { echo "ODR patch failed"; exit 1; }
       sed -i '29 itarget_compile_options(libprjxray PUBLIC "-Wno-deprecated")' lib/CMakeLists.txt || true
     '';
     cmakeFlags = [
       "-DCMAKE_BUILD_TYPE=Release" "-Wno-deprecated"
       "-DPython3_EXECUTABLE=${python.interpreter}"
-      # mingw explicit-template-instantiation duplicate (Configuration<Spartan6>)
-      "-DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-multiple-definition"
     ];
     installPhase = ''
       mkdir -p $out/bin

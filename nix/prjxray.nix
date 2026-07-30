@@ -2,14 +2,16 @@
 , ... }:
 stdenv.mkDerivation rec {
   pname = "prjxray";
-  version = "bdbc665852b82f589ff775a8f6498542dbec0a07";
+  version = "132342f7a27c650a7cbedda663e2f33bc4a582f5";
 
+  # jrrk2/prjxray is the openXC7 ecosystem's active tree (f4pga merged in,
+  # plus modern-gcc build fixes, gflags bump and the openxc7 fasm submodule).
   src = fetchFromGitHub {
-    owner = "f4pga";
+    owner = "jrrk2";
     repo = "prjxray";
-    rev = "bdbc665852b82f589ff775a8f6498542dbec0a07";
+    rev = "132342f7a27c650a7cbedda663e2f33bc4a582f5";
     fetchSubmodules = true;
-    hash = "sha256-lV4o62lS7CMG0EYPhp9bTB4fg0hOixy8CC8yGxKhGQE=";
+    hash = "sha256-b/UQAu4hvAJ5Jng6z1XmlVpRUN1mb1igefcy9/c2HbM=";
   };
 
   nativeBuildInputs = [ cmake git ];
@@ -35,7 +37,7 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     description = "Xilinx series 7 FPGA bitstream documentation";
-    homepage = "https://github.com/f4pga/prjxray";
+    homepage = "https://github.com/jrrk2/prjxray";
     license = licenses.isc;
     platforms = platforms.all;
   };

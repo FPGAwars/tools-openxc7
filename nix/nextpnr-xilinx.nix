@@ -1,14 +1,18 @@
 { stdenv, cmake, git, lib, fetchFromGitHub, python312Packages, python312, eigen
-, llvmPackages, ... }:
+, pkg-config, llvmPackages, ... }:
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
-  version = "0.8.2";
+  version = "unstable-2026-07-13";
 
+  # Last commit BEFORE the 0.9.x routing regression (same-slice FF->LUT
+  # feedback arc unroutable since 6b46121f; bisected 2026-07-30). Re-pin to
+  # the 0.9.x tag once upstream fixes it — everything else here already
+  # builds 0.9.1.
   src = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr-xilinx";
-    rev = "3374e5a62b54dc346fd5f85188ed24075ddfd5fb";
-    hash = "sha256-gW3Z3Cd5/gfX7k/ekRHtPVlbhKszWah1L+HggMFKakA=";
+    rev = "27727428c13f60849fef9f85a814793db06390bb";
+    hash = "sha256-zzBk04/KDwCR3CjHmejAJG/fL5I3YpEj8SZKajVZ+64=";
     fetchSubmodules = true;
   };
 
@@ -28,12 +32,8 @@ stdenv.mkDerivation rec {
     # routed design) so --post-route scripts (apio report) can emit the clock
     # table. Upstream PR material.
     ./patches/timing-fmax-python.patch
-    # Backport from mainline nextpnr: the JSON frontend never grew
-    # net_old_indices, so the FIRST merge_nets() during hierarchical import
-    # (any non-flattened multi-module design where a submodule net maps to
-    # two parent nets) died with std::out_of_range. Found with an Icestudio
-    # VGA design (yosys synth_xilinx does not flatten by default).
-    ./patches/frontend-hier-merge-nets.patch
+    # (frontend-hier-merge-nets.patch retired 2026-07-30: 0.9.x already
+    # carries the fix as upstream commit c7c655d5.)
     # The xc7 post-route LUT pin fixup can bind a cell input pin to the
     # cell's own output net (router feeding the output back through an
     # unused input pin of the site); the timing walk then saw a false
@@ -47,7 +47,8 @@ stdenv.mkDerivation rec {
     ./patches/timing-dsp48-comb.patch
   ];
 
-  nativeBuildInputs = [ cmake git ];
+  # 0.9.x detects eigen via pkg-config (upstream 77911357)
+  nativeBuildInputs = [ cmake git pkg-config ];
   buildInputs = [ python312Packages.boost python312 eigen ]
     ++ (lib.optionals stdenv.cc.isClang [ llvmPackages.openmp ]);
 
