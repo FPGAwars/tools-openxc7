@@ -6,17 +6,19 @@
 # ---------------------------------------------------------------------------
 # Version pins: date of the GitHub release to download, one per toolchain.
 # Keep these in ONE place to avoid drift between the installer scripts.
+# Overridable via environment (CI/validation use disposable prefixes and may
+# pin a different oss-cad-suite date); defaults preserve the user behavior.
 # ---------------------------------------------------------------------------
-OSS_CAD_SUITE_DATE="2026-03-24"
-OPENXC7_DATE="2026-05-29"
+OSS_CAD_SUITE_DATE="${OSS_CAD_SUITE_DATE:-2026-03-24}"
+OPENXC7_DATE="${OPENXC7_DATE:-2026-05-29}"
 
 # -- Upstream repos
 OSS_CAD_SUITE_REPO="https://github.com/FPGAwars/tools-oss-cad-suite"
 OPENXC7_REPO="https://github.com/FPGAwars/tools-openxc7"
 
-# -- Local install destinations
-OSS_CAD_SUITE_PATH="$HOME/.local/oss-cad-suite"
-OPENXC7_INSTALL_PATH="$HOME/.local/openxc7"
+# -- Local install destinations (overridable via environment)
+OSS_CAD_SUITE_PATH="${OSS_CAD_SUITE_PATH:-$HOME/.local/oss-cad-suite}"
+OPENXC7_INSTALL_PATH="${OPENXC7_INSTALL_PATH:-$HOME/.local/openxc7}"
 
 # -- ANSI colors
 GREEN='\033[0;32m'

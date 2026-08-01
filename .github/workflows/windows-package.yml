@@ -7,6 +7,12 @@ name: windows-package
 
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      date:
+        description: "Package date YYYYMMDD (default: today, UTC)"
+        required: false
+        type: string
   push:
     branches: [ main, "feat/**" ]
     paths:
@@ -44,7 +50,8 @@ jobs:
       - name: Tar with date
         id: tar
         run: |
-          DATE=$(date -u +%Y%m%d)
+          DATE="${{ inputs.date }}"
+          [ -n "$DATE" ] || DATE=$(date -u +%Y%m%d)
           NAME="apio-openxc7-windows-amd64-$DATE.tgz"
           # --mode=u+w: the nix store tree is read-only; without it Windows
           # extracts the files with the READONLY attribute and apio cannot
@@ -55,7 +62,7 @@ jobs:
 
       - name: Smoke — run the .exe under wine + import the python tools
         run: |
-          nix shell nixpkgs#wine64 nixpkgs#python312 -c bash -euo pipefail -c '
+          nix shell --inputs-from . nixpkgs#wine64 nixpkgs#python312 -c bash -euo pipefail -c '
             export WINEPREFIX="$PWD/.wine" WINEDEBUG=-all
             wine64 result-win/bin/nextpnr-xilinx.exe --help | head -3
             wine64 result-win/bin/xc7frames2bit.exe --help 2>&1 | head -2 || true
@@ -77,7 +84,7 @@ jobs:
 
       - name: E2E — synth (yosys) -> nextpnr.exe -> fasm2frames -> xc7frames2bit.exe
         run: |
-          nix shell nixpkgs#wine64 nixpkgs#yosys nixpkgs#python312 -c bash -euo pipefail -c '
+          nix shell --inputs-from . nixpkgs#wine64 nixpkgs#yosys nixpkgs#python312 -c bash -euo pipefail -c '
             export WINEPREFIX="$PWD/.wine" WINEDEBUG=-all
             PKG=result-win
             DB=$PKG/share/nextpnr/external/prjxray-db/artix7
