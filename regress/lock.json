@@ -1,0 +1,29 @@
+{
+  "//": "Pinned external inputs of the regression suite. Baselines are only comparable when these match: a different yosys places different logic, so an unpinned synthesiser silently invalidates every recorded number.",
+
+  "oss-cad-suite": {
+    "tag": "2026-03-24",
+    "provides": "yosys",
+    "why": "the exact synthesiser apio installs for users, so our measurements describe what they will get; must equal the pin in lib/common.sh (scripts/check-pins.sh asserts it)"
+  },
+
+  "demo-projects": {
+    "repository": "openXC7/demo-projects",
+    "rev": "2189fd4cf96a6e1ed459bbedf90c21fcbbc76703",
+    "status": "pinned, not wired yet",
+    "usable_today": {
+      "blinky-digilent-arty": "xc7a35tcsg324",
+      "blinky-digilent-basys-3": "xc7a35tcpg236"
+    },
+    "excluded": {
+      "vexriscv, vexriscv_smp": "generators (sbt/SpinalHDL, litex), not runnable designs — vendor their output instead",
+      "blinky-qmtech and the kintex7/zynq/spartan7 demos": "their parts are not in chipdb-parts.json yet",
+      "litex-*": "heavy python environment; tier 3, never a gate"
+    }
+  },
+
+  "apio": {
+    "status": "not wired yet",
+    "why": "scripts/apio-check.sh will drive real apio against a published prerelease; pin the version here when it lands"
+  }
+}

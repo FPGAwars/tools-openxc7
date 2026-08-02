@@ -1,0 +1,6 @@
+{
+  "top": "widemux",
+  "description": "32:1 multiplexer driven by an LFSR (F7/F8 mux tree)",
+  "exercises": ["wide mux F7/F8", "fractured-LUT shared pins", "timing walk"],
+  "parts": ["xc7a35tcpg236"]
+}
