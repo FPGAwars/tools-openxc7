@@ -1,15 +1,22 @@
-# Release pipeline v2 — build the 3 platform packages, validate each one
-# INSIDE its tarball (scripts/validate-package.sh, the L1 gate), and only if
-# EVERYTHING is green create the dated release as a PRERELEASE (never
-# latest) with the 3 assets + SHA256SUMS. Any red aborts with no release;
-# the build artifacts remain downloadable for debugging. Promotion to a real
-# (latest) release is a manual, human step.
+# Release pipeline v2 — thin orchestrator.
 #
-# Native build only for linux/darwin (nixpkgs does not cross Linux<->macOS);
-# windows is cross-built from linux by the reusable windows-package workflow,
-# which carries its own wine E2E gate. The package date is forced via
-# OPENXC7_PACK_DATE so tarball names/VERSION match the release tag (apio
-# derives the asset date from the TAG).
+# Every platform is built and validated by its OWN reusable workflow, on its
+# own native runner (windows is cross-built from linux; nixpkgs cannot cross
+# Linux<->macOS, and Nix does not run on Windows):
+#
+#   linux-package.yml    ubuntu-latest   native   (also owns the chipdb)
+#   darwin-package.yml   macos-14        native   (seeded from linux)
+#   windows-package.yml  ubuntu-latest   cross    (validated under wine)
+#
+# Each carries its own gate, so the exact same build+validation runs whether
+# you dispatch it standalone or through a release. This workflow only picks
+# the date, wires the chipdb seed, and — if EVERYTHING is green — publishes.
+#
+# The release is created at the END, as an idempotent dated PRERELEASE
+# (never latest). Any red aborts with no release; the build artifacts stay
+# downloadable for debugging. Promotion to a real (latest) release is a
+# manual, human step:
+#   gh release edit <date> --prerelease=false --latest
 name: release
 
 on:
@@ -30,11 +37,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The date is resolved ONCE here and passed down: apio derives the asset
+  # date from the release TAG, so tag and every asset name must match.
   prepare:
     runs-on: ubuntu-latest
     outputs:
       date: ${{ steps.d.outputs.date }}
-      dateid: ${{ steps.d.outputs.dateid }}
     steps:
       - id: d
         run: |
@@ -46,135 +54,38 @@ jobs:
             DATE="$(date -u +%Y-%m-%d)"
           fi
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
-          echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Release date: $DATE"
 
-  # Linux generates (or reuses from cache) every chipdb .bin of
-  # chipdb-parts.json. The bins are platform-independent and byte-identical
-  # per (nextpnr, prjxray, manifest) — safe to cache on exactly that key.
-  # The macos-14 runner (7 GB RAM) always seeds, never generates.
-  build-linux:
+  linux:
     needs: prepare
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
+    uses: ./.github/workflows/linux-package.yml
+    with:
+      date: ${{ needs.prepare.outputs.date }}
 
-      - name: Restore the chipdb cache (keyed by pins + manifest)
-        uses: actions/cache@v4
-        with:
-          path: chipdb-cache
-          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
+  # After linux: it publishes the chipdb-bins artifact this job seeds from.
+  darwin:
+    needs: [prepare, linux]
+    uses: ./.github/workflows/darwin-package.yml
+    with:
+      date: ${{ needs.prepare.outputs.date }}
+      seed_from_artifact: true
 
-      - name: Build the openXC7 package
-        env:
-          OPENXC7_PACK_DATE: ${{ needs.prepare.outputs.date }}
-        run: |
-          rm -rf dist   # stale-dist guard: only the pin-keyed cache may seed
-          if [ -n "$(ls -A chipdb-cache 2>/dev/null || true)" ]; then
-            export OPENXC7_CHIPDB_SEED="$PWD/chipdb-cache"
-            echo "chipdb: seeding from cache ($(ls chipdb-cache | wc -l) bins)"
-          fi
-          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
-          ls -la apio-openxc7-linux-x86-64-*.tgz
-          mkdir -p chipdb-cache
-          cp dist/chipdb/*.bin chipdb-cache/
-
-      - name: Cache the oss-cad-suite validation env
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
-
-      - name: Install oss-cad-suite (the user env, via our own installer)
-        run: |
-          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash ./install-oss-cad-suite.sh
-
-      - name: Validate the package inside the tarball (L1 gate)
-        run: |
-          export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
-          bash scripts/validate-package.sh apio-openxc7-linux-x86-64-*.tgz \
-            --expect-date "${{ needs.prepare.outputs.dateid }}"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: apio-openxc7-linux-x86-64
-          path: apio-openxc7-linux-x86-64-*.tgz
-          if-no-files-found: error
-
-      - name: Share the chipdb bins with the darwin job
-        uses: actions/upload-artifact@v4
-        with:
-          name: chipdb-bins
-          path: dist/chipdb/*.bin
-          compression-level: 1     # already dense binary data
-          retention-days: 7
-
-  # Cross-built and wine-validated by the reusable workflow (its own gate:
-  # smoke + full E2E + patch-parity assertions on the .exe).
-  build-windows:
+  windows:
     needs: prepare
     uses: ./.github/workflows/windows-package.yml
     with:
-      date: ${{ needs.prepare.outputs.dateid }}
+      date: ${{ needs.prepare.outputs.date }}
 
-  build-darwin:
-    needs: [prepare, build-linux]
-    runs-on: macos-14              # Apple Silicon => darwin-arm64
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-
-      - name: Reuse the linux-built chipdb bins
-        uses: actions/download-artifact@v4
-        with:
-          name: chipdb-bins
-          path: chipdb-seed
-
-      - name: Build the openXC7 package
-        env:
-          OPENXC7_PACK_DATE: ${{ needs.prepare.outputs.date }}
-          OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-seed
-        run: |
-          rm -rf dist
-          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
-          ls -la apio-openxc7-darwin-arm64-*.tgz
-
-      - name: Cache the oss-cad-suite validation env
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
-
-      - name: Install oss-cad-suite (the user env, via our own installer)
-        run: |
-          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash ./install-oss-cad-suite.sh
-
-      - name: Validate the package inside the tarball (L1 gate)
-        run: |
-          export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
-          bash scripts/validate-package.sh apio-openxc7-darwin-arm64-*.tgz \
-            --expect-date "${{ needs.prepare.outputs.dateid }}"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: apio-openxc7-darwin-arm64
-          path: apio-openxc7-darwin-arm64-*.tgz
-          if-no-files-found: error
-
-  # The release is created ONLY here, after every platform passed its gate.
   publish:
-    needs: [prepare, build-linux, build-windows, build-darwin]
+    needs: [prepare, linux, darwin, windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
-          pattern: apio-openxc7-*
+          pattern: apio-openxc7-*     # the 3 package artifacts (not chipdb-bins)
           merge-multiple: true
 
-      - name: Assert chipdb byte-identical linux<->windows
+      - name: Assert the chipdb is byte-identical linux<->windows
         run: |
           mkdir lin win
           tar xzf apio-openxc7-linux-x86-64-*.tgz -C lin
@@ -193,6 +104,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           DATE: ${{ needs.prepare.outputs.date }}
         run: |
+          ls -la apio-openxc7-*.tgz
+          # every asset must carry the tag's date, or apio 404s at install
+          for f in apio-openxc7-*.tgz; do
+            case "$f" in
+              *"-${DATE//-/}.tgz") ;;
+              *) echo "::error::asset $f is not dated ${DATE//-/}"; exit 1 ;;
+            esac
+          done
           sha256sum apio-openxc7-*.tgz > SHA256SUMS
           cat SHA256SUMS
           gh release view "$DATE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \

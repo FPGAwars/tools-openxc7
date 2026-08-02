@@ -1,0 +1,114 @@
+# Build + validate the darwin-arm64 package on its native runner (macos-14,
+# Apple Silicon). nixpkgs does not cross Linux<->macOS, so this is always a
+# native build.
+#
+# Reusable (workflow_call) and standalone (workflow_dispatch), like
+# linux-package.yml. No push trigger on purpose (packing is a deliverable,
+# not a guard; smoke.yml is the macOS push guard).
+#
+# The chipdb is NEVER generated here: this runner has 7 GB of RAM and cannot
+# build the big parts (xc7a200t). It is seeded either from the linux job of
+# the same release run (artifact) or, standalone, from the shared pin-keyed
+# cache that linux-package populates.
+name: darwin-package
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Package date YYYY-MM-DD (default: today, UTC)"
+        required: false
+  workflow_call:
+    inputs:
+      date:
+        description: "Package date YYYY-MM-DD (default: today, UTC)"
+        required: false
+        type: string
+      seed_from_artifact:
+        description: "Take the chipdb from the chipdb-bins artifact of this run (release flow)"
+        required: false
+        default: false
+        type: boolean
+    outputs:
+      tarball:
+        description: "Name of the built tarball"
+        value: ${{ jobs.build.outputs.tarball }}
+
+jobs:
+  build:
+    name: build + validate darwin-arm64 (native)
+    runs-on: macos-14              # Apple Silicon => darwin-arm64
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Resolve the package date
+        id: d
+        run: |
+          DATE="${{ inputs.date }}"
+          [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
+          echo "Package date: $DATE"
+
+      - name: Seed the chipdb from the linux job of this run
+        if: inputs.seed_from_artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: chipdb-bins
+          path: chipdb-cache
+
+      # Standalone runs reuse the cache linux-package populated (caches are
+      # shared across workflows of the repo). KEEP THE FILE LIST IN SYNC
+      # with linux-package.yml.
+      - name: Seed the chipdb from the shared cache (standalone)
+        if: ${{ !inputs.seed_from_artifact }}
+        uses: actions/cache/restore@v4
+        with:
+          path: chipdb-cache
+          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
+
+      - name: Assert a chipdb seed is available
+        run: |
+          n=$(ls chipdb-cache/*.bin 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$n" = "0" ]; then
+            echo "::error::No chipdb seed. This runner cannot regenerate the big parts (7 GB RAM). Run linux-package first (it populates the shared chipdb cache for these pins), or launch the release workflow, which wires the seed automatically."
+            exit 1
+          fi
+          echo "chipdb seed: $n bins"
+
+      - name: Build the openXC7 package
+        id: pack
+        env:
+          OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
+          OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-cache
+        run: |
+          rm -rf dist   # stale-dist guard (see linux-package.yml)
+          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
+          TGZ=$(ls apio-openxc7-darwin-arm64-*.tgz)
+          echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
+          ls -la "$TGZ"
+
+      - name: Cache the oss-cad-suite validation env
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/oss-cad-suite
+          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
+
+      - name: Install oss-cad-suite (the user env, via our own installer)
+        run: |
+          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash ./install-oss-cad-suite.sh
+
+      - name: Validate the package inside the tarball (L1 gate)
+        run: |
+          export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
+          bash scripts/validate-package.sh "${{ steps.pack.outputs.tarball }}" \
+            --expect-date "${{ steps.d.outputs.dateid }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apio-openxc7-darwin-arm64
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error

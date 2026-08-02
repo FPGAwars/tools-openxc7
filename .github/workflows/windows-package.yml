@@ -10,7 +10,7 @@ on:
   workflow_call:
     inputs:
       date:
-        description: "Package date YYYYMMDD (default: today, UTC)"
+        description: "Package date YYYY-MM-DD (default: today, UTC)"
         required: false
         type: string
   push:
@@ -50,9 +50,11 @@ jobs:
       - name: Tar with date
         id: tar
         run: |
+          # same convention as linux-package/darwin-package: YYYY-MM-DD in,
+          # YYYYMMDD in the asset name (what apio derives from the tag)
           DATE="${{ inputs.date }}"
-          [ -n "$DATE" ] || DATE=$(date -u +%Y%m%d)
-          NAME="apio-openxc7-windows-amd64-$DATE.tgz"
+          [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
+          NAME="apio-openxc7-windows-amd64-${DATE//-/}.tgz"
           # --mode=u+w: the nix store tree is read-only; without it Windows
           # extracts the files with the READONLY attribute and apio cannot
           # delete/reinstall the package (PermissionError on --force/upgrade)

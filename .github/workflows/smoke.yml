@@ -4,6 +4,13 @@
 # example (yosys synth -> nextpnr-xilinx -> fasm2frames -> xc7frames2bit) and
 # checks a real bitstream is produced. This proves the relocated Mach-O
 # toolchain runs outside /nix/store end to end.
+#
+# Complementary to the L1 gate (scripts/validate-package.sh, run by
+# darwin-package.yml): this one is the cheap PR guard for the "installs and
+# runs like a user does" property, so it keeps a single LED example instead
+# of the full multi-part E2E. It never GENERATES the chipdb — this runner
+# has 7 GB of RAM and cannot build the big parts; it seeds from the shared
+# pin-keyed cache that linux-package.yml populates.
 name: smoke
 
 on:
@@ -28,8 +35,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
 
+      # KEEP THE FILE LIST IN SYNC with linux-package.yml / darwin-package.yml
+      - name: Seed the chipdb from the shared cache
+        uses: actions/cache/restore@v4
+        with:
+          path: chipdb-cache
+          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
+
       - name: Build the darwin-arm64 package
-        run: nix develop --command bash -c 'python3.12 openxc7-pack.py'
+        env:
+          OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-cache
+        run: |
+          n=$(ls chipdb-cache/*.bin 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$n" = "0" ]; then
+            echo "::error::No chipdb seed for these pins. This runner cannot regenerate the big parts (7 GB RAM). Run linux-package (or release) on this branch first to populate the shared cache."
+            exit 1
+          fi
+          echo "chipdb seed: $n bins"
+          rm -rf dist   # stale-dist guard: the seed must win
+          # .#pack: the packaging shell, without the fpga-assembler getFlake
+          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
 
       - name: Install openxc7 (as a user would)
         run: |

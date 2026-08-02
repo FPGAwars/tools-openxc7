@@ -1,0 +1,109 @@
+# Build + validate the linux-x86-64 package on its native runner.
+#
+# Reusable (workflow_call) and standalone (workflow_dispatch): release.yml
+# calls it; a developer can also dispatch it to get a validated package of
+# any branch without running the whole release. No push trigger on purpose —
+# packing is expensive (it is a deliverable, not a guard); the push guards
+# are build.yml / smoke.yml / windows-package.yml.
+#
+# This is also the job that OWNS the chipdb: it generates every .bin of
+# chipdb-parts.json (or restores them from the pin-keyed cache) and shares
+# them with the darwin job, whose runner cannot regenerate the big parts.
+name: linux-package
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Package date YYYY-MM-DD (default: today, UTC)"
+        required: false
+  workflow_call:
+    inputs:
+      date:
+        description: "Package date YYYY-MM-DD (default: today, UTC)"
+        required: false
+        type: string
+    outputs:
+      tarball:
+        description: "Name of the built tarball"
+        value: ${{ jobs.build.outputs.tarball }}
+
+jobs:
+  build:
+    name: build + validate linux-x86-64 (native)
+    runs-on: ubuntu-latest
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Resolve the package date
+        id: d
+        run: |
+          DATE="${{ inputs.date }}"
+          [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
+          echo "Package date: $DATE"
+
+      # The .bin are platform-independent and byte-identical per
+      # (nextpnr, prjxray, manifest) -> that tuple IS the cache key.
+      # KEEP THE FILE LIST IN SYNC with darwin-package.yml.
+      - name: Restore the chipdb cache (keyed by pins + manifest)
+        uses: actions/cache@v4
+        with:
+          path: chipdb-cache
+          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
+
+      - name: Build the openXC7 package
+        id: pack
+        env:
+          OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
+        run: |
+          # stale-dist guard: only the pin-keyed cache may seed the chipdb
+          # (a dist/ from another pin ships bins with mismatched constids)
+          rm -rf dist
+          if [ -n "$(ls -A chipdb-cache 2>/dev/null || true)" ]; then
+            export OPENXC7_CHIPDB_SEED="$PWD/chipdb-cache"
+            echo "chipdb: seeding from cache ($(ls chipdb-cache/*.bin | wc -l) bins)"
+          else
+            echo "chipdb: cache miss, generating from scratch (slow)"
+          fi
+          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
+          TGZ=$(ls apio-openxc7-linux-x86-64-*.tgz)
+          echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
+          ls -la "$TGZ"
+          mkdir -p chipdb-cache
+          cp dist/chipdb/*.bin chipdb-cache/
+
+      - name: Cache the oss-cad-suite validation env
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/oss-cad-suite
+          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
+
+      - name: Install oss-cad-suite (the user env, via our own installer)
+        run: |
+          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash ./install-oss-cad-suite.sh
+
+      - name: Validate the package inside the tarball (L1 gate)
+        run: |
+          export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
+          bash scripts/validate-package.sh "${{ steps.pack.outputs.tarball }}" \
+            --expect-date "${{ steps.d.outputs.dateid }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apio-openxc7-linux-x86-64
+          path: ${{ steps.pack.outputs.tarball }}
+          if-no-files-found: error
+
+      # Consumed by darwin-package.yml when orchestrated from release.yml.
+      - name: Share the chipdb bins with the darwin job
+        uses: actions/upload-artifact@v4
+        with:
+          name: chipdb-bins
+          path: dist/chipdb/*.bin
+          compression-level: 1     # already dense binary data
+          retention-days: 7
