@@ -120,3 +120,22 @@ jobs:
               --notes "openXC7 toolchain — $DATE (release candidate: validated by CI, pending manual promotion)"
           gh release upload "$DATE" apio-openxc7-*.tgz SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" --clobber
+
+      # Promotion stays a human decision; these are the steps it involves,
+      # including the pin bumps that keep installers and apio aligned with
+      # what is actually published (scripts/check-pins.sh asserts it).
+      - name: Promotion checklist
+        env:
+          DATE: ${{ needs.prepare.outputs.date }}
+        run: |
+          {
+            echo "## Release candidate \`$DATE\` published (prerelease, not latest)"
+            echo
+            echo "To promote it:"
+            echo
+            echo "1. Try it for real (\`apio\` install from the tag, board test if it applies)."
+            echo "2. \`gh release edit $DATE --prerelease=false --latest\`"
+            echo "3. Bump \`OPENXC7_DATE\` in \`lib/common.sh\` to \`$DATE\`."
+            echo "4. Bump the \`openxc7\` tag in apio's \`remote-config/apio-1.5.x.jsonc\`."
+            echo "5. \`scripts/check-pins.sh\` must come back green."
+          } >> "$GITHUB_STEP_SUMMARY"

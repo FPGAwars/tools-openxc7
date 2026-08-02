@@ -92,7 +92,10 @@ Both tools can be installed separately (`./install-oss-cad-suite.sh`,
 `./install-openxc7.sh`) and removed with the matching `uninstall*.sh` scripts.
 
 The release each installer downloads, and where it installs, are pinned in
-`lib/common.sh` and can be overridden from the environment:
+`lib/common.sh`. Those pins track the latest **promoted** release of each
+tool — nightly prereleases are excluded on purpose — and match what apio
+installs for its users; `scripts/check-pins.sh` asserts the three agree.
+They can be overridden from the environment:
 
 | Variable | Meaning |
 |---|---|
@@ -209,6 +212,12 @@ That last step is also available on its own:
 
 ```bash
 e2e/run-parts.sh <extracted-package-dir> <workdir> [wine]
+```
+
+A second check keeps the installers honest about what is actually published:
+
+```bash
+scripts/check-pins.sh            # installer pins vs promoted releases vs apio
 ```
 
 ## Releases and CI
