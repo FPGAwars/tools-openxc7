@@ -1,0 +1,6 @@
+{
+  "top": "constant",
+  "description": "Constant driving a pad directly (VCC -> IOB)",
+  "exercises": ["global constant node", "chipdb pseudo-driver placement"],
+  "parts": ["xc7a35tcpg236"]
+}

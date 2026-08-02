@@ -21,6 +21,25 @@ scripts/regress.sh <package> --update-baseline           # record a new baseline
 | `lock.json` | Pinned external inputs (oss-cad-suite, demo-projects, apio) |
 | `harness.py` | The runner: flow, metric extraction, comparison |
 
+## What the catalogue covers, and why it is built this way
+
+Designs are chosen by the **property** they exercise, not by size. That is not
+a preference, it is what our own bug history says: every regression this
+toolchain has actually suffered was caught by a small, targeted design — the
+most valuable one of all (the global constant node, which closed three
+upstream issues) reproduced with `assign led = 1'b1`. The single coverage gap
+we did suffer, a crash in the hierarchical frontend, happened because every
+test we had was *flat*: a missing structural property, not a missing large
+design. So a big opaque design would buy realism at the cost of diagnosis —
+when "fmax dropped 8%" comes out of a CPU, you are left bisecting it.
+
+| Group | Designs |
+|---|---|
+| Primitives | `carry64`, `bram`, `dsp48`, `widemux` |
+| Structural properties | `hier` (never flattened), `constant` (constant straight to a pad) |
+| Scale | *(pending)* parametrised designs that push utilisation into the congested regime, where routing behaves differently |
+| Third-party sanity | *(pending)* the Artix-7 blinkies from openXC7/demo-projects, pinned in `lock.json` |
+
 ## Two rules that shape everything here
 
 **1. Every design has the same interface: `(input clk, output led)`.**
