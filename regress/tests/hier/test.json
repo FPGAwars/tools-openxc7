@@ -1,0 +1,9 @@
+{
+  "description": "Two submodules with port passthroughs, left unflattened",
+  "exercises": ["hierarchical JSON frontend", "merge_nets", "non-flat netlists"],
+  "why": "the frontend merge_nets crash slipped through because every test we had was flat",
+  "tags": ["structural", "parity"],
+  "expect": {
+    "modules": ">=3"
+  }
+}

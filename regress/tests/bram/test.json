@@ -1,6 +1,8 @@
 {
-  "top": "bram",
   "description": "1024x16 block RAM with a registered read port",
   "exercises": ["RAMB inference", "BRAM placement", "BRAM fasm features"],
-  "parts": ["xc7a35tcpg236"]
+  "tags": ["primitive"],
+  "expect": {
+    "primitives": { "RAMB18E1": ">=1" }
+  }
 }

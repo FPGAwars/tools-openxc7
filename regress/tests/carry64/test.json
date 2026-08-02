@@ -1,6 +1,8 @@
 {
-  "top": "carry64",
   "description": "64-bit counter and adder: long CARRY4 chains",
   "exercises": ["carry chains", "placement of vertical slice chains"],
-  "parts": ["xc7a35tcpg236"]
+  "tags": ["primitive"],
+  "expect": {
+    "primitives": { "CARRY4": ">=8" }
+  }
 }

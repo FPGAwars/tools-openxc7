@@ -1,6 +1,0 @@
-{
-  "top": "hier",
-  "description": "Two submodules with port passthroughs, left unflattened",
-  "exercises": ["hierarchical JSON frontend", "merge_nets", "non-flat netlists"],
-  "parts": ["xc7a35tcpg236"]
-}

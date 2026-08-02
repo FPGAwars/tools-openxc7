@@ -1,0 +1,162 @@
+"""Test declarations: the `test.json` schema, its defaults and its validation.
+
+A test is a directory under `regress/tests/` containing a `test.json` and the
+sources it needs. Everything here is data — the engine never knows about any
+particular test — so adding one is dropping a folder, and the only code that
+ever changes is this file when the *vocabulary* itself grows.
+
+Validation is deliberately strict about unknown keys: a typo in a declaration
+would otherwise silently disable a check, which is the worst failure mode a
+test suite can have (it keeps reporting green).
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from pathlib import Path
+
+DEFAULT_PART = "xc7a35tcpg236"
+
+FLOW_STAGES = ("synth", "pnr", "fasm", "bitstream")
+EXPECT_KEYS = {
+    "status", "log_contains", "log_absent", "primitives", "modules",
+    "artifacts", "metrics_present",
+}
+TOP_LEVEL_KEYS = {
+    "description", "exercises", "why", "tier", "tags", "sources", "top",
+    "parts", "constraints", "xdc_extra", "synth", "nextpnr", "flow", "expect",
+    "metrics",
+}
+
+
+class SpecError(Exception):
+    """A declaration is malformed. The message names the file and the field."""
+
+
+@dataclass
+class TestSpec:
+    name: str
+    directory: Path
+    description: str
+    exercises: list[str] = field(default_factory=list)
+    tier: int = 1
+    tags: list[str] = field(default_factory=list)
+    sources: list[Path] = field(default_factory=list)
+    top: str = ""
+    parts: list[str] = field(default_factory=list)
+    constraints: str = "auto"
+    xdc_extra: list[str] = field(default_factory=list)
+    synth_opts: str = ""
+    nextpnr_args: list[str] = field(default_factory=list)
+    router: str = "router2"
+    flow: str = "bitstream"
+    expect: dict = field(default_factory=dict)
+    track_metrics: bool = True
+    tolerances: dict = field(default_factory=dict)
+
+    @property
+    def expected_to_fail(self) -> bool:
+        return self.expect.get("status", "pass") == "fail"
+
+
+def _part_groups(repo: Path) -> dict[str, list[str]]:
+    manifest = json.loads((repo / "chipdb-parts.json").read_text())
+    every = [part for parts in manifest.values() for part in parts]
+    return {"default": [DEFAULT_PART], "all": every, "artix7": manifest.get("artix7", [])}
+
+
+def _check_keys(where: str, given, allowed: set[str]) -> None:
+    if not isinstance(given, dict):
+        raise SpecError(f"{where}: expected an object, got {type(given).__name__}")
+    unknown = set(given) - allowed
+    if unknown:
+        raise SpecError(
+            f"{where}: unknown key(s) {sorted(unknown)}. Known keys: {sorted(allowed)}"
+        )
+
+
+def load(directory: Path, repo: Path) -> TestSpec:
+    """Read and validate one test directory."""
+    declaration = directory / "test.json"
+    if not declaration.exists():
+        raise SpecError(f"{directory}: no test.json")
+    try:
+        raw = json.loads(declaration.read_text())
+    except ValueError as exc:
+        raise SpecError(f"{declaration}: invalid JSON — {exc}") from exc
+
+    _check_keys(str(declaration), raw, TOP_LEVEL_KEYS)
+    if "description" not in raw:
+        raise SpecError(f"{declaration}: 'description' is required")
+
+    sources = [directory / name for name in raw.get("sources", [])]
+    if not sources:
+        sources = sorted(directory.glob("*.v"))
+    for source in sources:
+        if not source.exists():
+            raise SpecError(f"{declaration}: source not found: {source.name}")
+    if not sources:
+        raise SpecError(f"{declaration}: no sources (no 'sources' key and no *.v)")
+
+    parts = raw.get("parts", "default")
+    if isinstance(parts, str):
+        groups = _part_groups(repo)
+        if parts not in groups:
+            raise SpecError(
+                f"{declaration}: unknown part group '{parts}' (known: {sorted(groups)})"
+            )
+        parts = groups[parts]
+    if not isinstance(parts, list) or not parts:
+        raise SpecError(f"{declaration}: 'parts' must be a non-empty list or a group name")
+
+    flow = raw.get("flow", "bitstream")
+    if flow not in FLOW_STAGES:
+        raise SpecError(f"{declaration}: 'flow' must be one of {list(FLOW_STAGES)}")
+
+    expect = raw.get("expect", {})
+    _check_keys(f"{declaration}: expect", expect, EXPECT_KEYS)
+    status = expect.get("status", "pass")
+    if status not in ("pass", "fail"):
+        raise SpecError(f"{declaration}: expect.status must be 'pass' or 'fail'")
+
+    synth = raw.get("synth", {})
+    _check_keys(f"{declaration}: synth", synth, {"opts"})
+    nextpnr = raw.get("nextpnr", {})
+    _check_keys(f"{declaration}: nextpnr", nextpnr, {"args", "router"})
+    metrics = raw.get("metrics", {})
+    _check_keys(f"{declaration}: metrics", metrics, {"track", "tolerances"})
+
+    constraints = raw.get("constraints", "auto")
+    if constraints != "auto" and not (directory / constraints).exists():
+        raise SpecError(f"{declaration}: constraints file not found: {constraints}")
+
+    return TestSpec(
+        name=directory.name,
+        directory=directory,
+        description=raw["description"],
+        exercises=raw.get("exercises", []),
+        tier=int(raw.get("tier", 1)),
+        tags=raw.get("tags", []),
+        sources=sources,
+        top=raw.get("top", directory.name),
+        parts=parts,
+        constraints=constraints,
+        xdc_extra=raw.get("xdc_extra", []),
+        synth_opts=synth.get("opts", ""),
+        nextpnr_args=nextpnr.get("args", []),
+        router=nextpnr.get("router", "router2"),
+        flow=flow,
+        expect=expect,
+        track_metrics=metrics.get("track", True),
+        tolerances=metrics.get("tolerances", {}),
+    )
+
+
+def load_all(tests_dir: Path, repo: Path) -> list[TestSpec]:
+    """Every test in the catalogue, sorted by name. Fails on the first bad one."""
+    return [
+        load(entry, repo)
+        for entry in sorted(tests_dir.iterdir())
+        if entry.is_dir() and not entry.name.startswith(".")
+    ]

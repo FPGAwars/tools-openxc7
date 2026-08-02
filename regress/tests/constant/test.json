@@ -1,0 +1,10 @@
+{
+  "description": "Constant driving a pad directly (VCC -> IOB)",
+  "exercises": ["global constant node", "chipdb pseudo-driver placement"],
+  "why": "one-line repro of the global constant node bug: it failed on EVERY part, so this one runs across the whole manifest",
+  "tags": ["structural"],
+  "parts": "all",
+  "expect": {
+    "artifacts": ["bitstream"]
+  }
+}

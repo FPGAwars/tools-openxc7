@@ -1,7 +1,7 @@
 {
   "bram": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192212,
+      "bit_bytes": 2192209,
       "brams": 1,
       "dsps": 0,
       "env": {
@@ -11,12 +11,12 @@
       "ffs": 26,
       "fmax_mhz": 459.77,
       "luts": 31,
-      "pnr_seconds": 1.77
+      "pnr_seconds": 1.66
     }
   },
   "carry64": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192218,
+      "bit_bytes": 2192212,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -26,12 +26,77 @@
       "ffs": 128,
       "fmax_mhz": 195.85,
       "luts": 257,
-      "pnr_seconds": 1.79
+      "pnr_seconds": 1.66
     }
   },
   "constant": {
+    "xc7a100tcsg324": {
+      "bit_bytes": 3825991,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2932.55,
+      "luts": 1,
+      "pnr_seconds": 6.48
+    },
+    "xc7a100tfgg484": {
+      "bit_bytes": 3825991,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2932.55,
+      "luts": 1,
+      "pnr_seconds": 6.58
+    },
+    "xc7a100tfgg676": {
+      "bit_bytes": 3825991,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2932.55,
+      "luts": 1,
+      "pnr_seconds": 6.58
+    },
+    "xc7a100tftg256": {
+      "bit_bytes": 3825991,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2932.55,
+      "luts": 1,
+      "pnr_seconds": 6.56
+    },
+    "xc7a200tfbg484": {
+      "bit_bytes": 9730855,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2932.55,
+      "luts": 1,
+      "pnr_seconds": 14.91
+    },
     "xc7a35tcpg236": {
-      "bit_bytes": 2192220,
+      "bit_bytes": 2192213,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -41,12 +106,77 @@
       "ffs": 1,
       "fmax_mhz": 2915.45,
       "luts": 1,
-      "pnr_seconds": 1.53
+      "pnr_seconds": 1.44
+    },
+    "xc7a35tcsg324": {
+      "bit_bytes": 2192213,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2915.45,
+      "luts": 1,
+      "pnr_seconds": 3.31
+    },
+    "xc7a35tfgg484": {
+      "bit_bytes": 2192213,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2932.55,
+      "luts": 1,
+      "pnr_seconds": 3.23
+    },
+    "xc7a35tftg256": {
+      "bit_bytes": 2192213,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2932.55,
+      "luts": 1,
+      "pnr_seconds": 3.09
+    },
+    "xc7a50tcsg324": {
+      "bit_bytes": 2192213,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2915.45,
+      "luts": 1,
+      "pnr_seconds": 3.26
+    },
+    "xc7a50tfgg484": {
+      "bit_bytes": 2192213,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 1,
+      "fmax_mhz": 2932.55,
+      "luts": 1,
+      "pnr_seconds": 3.28
     }
   },
   "dsp48": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192214,
+      "bit_bytes": 2192210,
       "brams": 0,
       "dsps": 1,
       "env": {
@@ -56,12 +186,12 @@
       "ffs": 36,
       "fmax_mhz": 320.2,
       "luts": 81,
-      "pnr_seconds": 1.73
+      "pnr_seconds": 1.62
     }
   },
   "hier": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192212,
+      "bit_bytes": 2192209,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -71,12 +201,27 @@
       "ffs": 22,
       "fmax_mhz": 409.67,
       "luts": 8,
-      "pnr_seconds": 1.62
+      "pnr_seconds": 1.54
+    }
+  },
+  "vclk": {
+    "xc7a35tcpg236": {
+      "bit_bytes": 2192209,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 24,
+      "fmax_mhz": 328.73,
+      "luts": 48,
+      "pnr_seconds": 1.57
     }
   },
   "widemux": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192218,
+      "bit_bytes": 2192212,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -86,7 +231,7 @@
       "ffs": 38,
       "fmax_mhz": 385.95,
       "luts": 35,
-      "pnr_seconds": 1.7
+      "pnr_seconds": 1.59
     }
   }
 }
