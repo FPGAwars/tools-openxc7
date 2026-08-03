@@ -9,9 +9,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 26,
-      "fmax_mhz": 493.58,
+      "fmax_mhz": 647.25,
       "luts": 31,
-      "pnr_seconds": 6.11
+      "pnr_seconds": 6.17
     }
   },
   "carry64": {
@@ -24,9 +24,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 128,
-      "fmax_mhz": 189.65,
+      "fmax_mhz": 224.37,
       "luts": 257,
-      "pnr_seconds": 6.17
+      "pnr_seconds": 6.14
     }
   },
   "constant": {
@@ -39,9 +39,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2932.55,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 10.52
+      "pnr_seconds": 11.48
     },
     "xc7a100tfgg484": {
       "bit_bytes": 3825947,
@@ -52,9 +52,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 10.52
+      "pnr_seconds": 11.17
     },
     "xc7a100tfgg676": {
       "bit_bytes": 3825947,
@@ -65,9 +65,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 10.5
+      "pnr_seconds": 11.17
     },
     "xc7a100tftg256": {
       "bit_bytes": 3825947,
@@ -78,9 +78,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 10.86
+      "pnr_seconds": 11.32
     },
     "xc7a200tfbg484": {
       "bit_bytes": 9730811,
@@ -91,9 +91,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2932.55,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 18.37
+      "pnr_seconds": 19.47
     },
     "xc7a35tcpg236": {
       "bit_bytes": 2192169,
@@ -104,9 +104,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 5.83
+      "pnr_seconds": 5.96
     },
     "xc7a35tcsg324": {
       "bit_bytes": 2192169,
@@ -117,9 +117,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.5
+      "pnr_seconds": 7.8
     },
     "xc7a35tfgg484": {
       "bit_bytes": 2192169,
@@ -130,9 +130,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.5
+      "pnr_seconds": 7.82
     },
     "xc7a35tftg256": {
       "bit_bytes": 2192169,
@@ -143,9 +143,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.53
+      "pnr_seconds": 7.92
     },
     "xc7a50tcsg324": {
       "bit_bytes": 2192169,
@@ -156,9 +156,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.54
+      "pnr_seconds": 7.82
     },
     "xc7a50tfgg484": {
       "bit_bytes": 2192169,
@@ -169,9 +169,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.57
+      "pnr_seconds": 7.79
     }
   },
   "dsp48": {
@@ -184,9 +184,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 36,
-      "fmax_mhz": 305.25,
+      "fmax_mhz": 387.9,
       "luts": 81,
-      "pnr_seconds": 6.14
+      "pnr_seconds": 6.13
     }
   },
   "hier": {
@@ -199,9 +199,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 22,
-      "fmax_mhz": 462.75,
+      "fmax_mhz": 446.83,
       "luts": 8,
-      "pnr_seconds": 5.95
+      "pnr_seconds": 5.98
     }
   },
   "vclk": {
@@ -214,9 +214,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 24,
-      "fmax_mhz": 326.9,
+      "fmax_mhz": 451.06,
       "luts": 48,
-      "pnr_seconds": 5.95
+      "pnr_seconds": 5.99
     }
   },
   "widemux": {
@@ -229,9 +229,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 38,
-      "fmax_mhz": 362.32,
+      "fmax_mhz": 340.83,
       "luts": 35,
-      "pnr_seconds": 6.12
+      "pnr_seconds": 6.13
     }
   }
 }
