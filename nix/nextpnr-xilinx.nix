@@ -1,22 +1,33 @@
-{ stdenv, cmake, git, lib, fetchFromGitHub, python312Packages, python312, eigen
-, pkg-config, llvmPackages, ... }:
+{ stdenv, cmake, git, lib, fetchFromGitHub, applyPatches, python312Packages
+, python312, eigen, pkg-config, llvmPackages, ... }:
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
   version = "unstable-2026-08-03";
 
-  # stable-backports tip. Every fix we used to carry as a local patch is now
-  # upstream: PR #102 (2026-08-01) took the global const node, the XDC virtual
-  # clock, the per-clock fmax getter, both timing-walk fixes, the DSP48E1
-  # timing model and the two mingw ones; PR #104 (2026-08-03) took the router2
-  # reservation fix, which is what kept this pinned to a pre-0.9.x commit —
-  # 6b46121f made any registered counter unroutable and its fix had never been
-  # pushed. Hence: no patches at all, for the first time.
-  src = fetchFromGitHub {
-    owner = "openXC7";
-    repo = "nextpnr-xilinx";
-    rev = "a9badf1d36ad4bf1087898c91abc09dde952cc83";
-    hash = "sha256-zHhD4dpMADaILtWZC2PVNWDPrad8Ms8JmpcGNtK4gCU=";
-    fetchSubmodules = true;
+  # stable-backports tip (PRs #102 and #104 took all eight of our previous
+  # local patches upstream), plus ONE local patch pending its own PR:
+  # xc7-slice-validation-strength fixes a second defect of 6b46121f, found
+  # 2026-08-03 by our regression suite — the frozen-tile fast-path and the
+  # pin-merge skip both keyed on STRENGTH_STRONG, which is how HeAP binds the
+  # chains it places, so carry chains / mux trees skipped slice validation
+  # AND input-pin merging (two nets on one physical A-pin -> router failure),
+  # and the O6-name check contradicted fixupPlacement's rename contract
+  # (which made strict validation hang instead).
+  #
+  # The patch is applied to the SOURCE (applyPatches) so every consumer —
+  # the native build, the chipdb derivation and the Windows cross build —
+  # sees the same tree from one single place, instead of the hand-synced
+  # per-derivation patch lists that shipped a half-updated package once.
+  src = applyPatches {
+    name = "nextpnr-xilinx-source";
+    src = fetchFromGitHub {
+      owner = "openXC7";
+      repo = "nextpnr-xilinx";
+      rev = "a9badf1d36ad4bf1087898c91abc09dde952cc83";
+      hash = "sha256-zHhD4dpMADaILtWZC2PVNWDPrad8Ms8JmpcGNtK4gCU=";
+      fetchSubmodules = true;
+    };
+    patches = [ ./patches/xc7-slice-validation-strength.patch ];
   };
 
   # 0.9.x detects eigen via pkg-config (upstream 77911357)
