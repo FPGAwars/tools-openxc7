@@ -132,6 +132,19 @@ xc7frames2bit   ledon.frames -> ledon.bit    (bitstream)
 
 ### 5. Upload it to the board
 
+**On Linux, install the USB rules first** — otherwise the device node belongs
+to `root` and programming fails with a permission error, however correct the
+rest of the installation is. Root is needed once, not on every use:
+
+```bash
+sudo cp udev/99-openfpgaloader.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+Then unplug and replug the board. See [`udev/README.md`](udev/README.md) for
+what the file is and why `sudo openFPGALoader` is the wrong way out. macOS
+needs nothing; Windows needs a driver (typically WinUSB via Zadig) instead.
+
 ```bash
 make prog
 ```
@@ -253,6 +266,7 @@ into a 404 at install time.
 | `chipdb-parts.json` | The part manifest |
 | `scripts/`, `e2e/` | Validation you can run locally, and the multi-part end-to-end |
 | `install*.sh`, `uninstall*.sh`, `start`, `lib/` | End-user installation and environment |
+| `udev/` | USB rules needed to program boards on Linux (copy of openFPGALoader's) |
 | `example/`, `config/` | The Basys3 LED example and board constraint files |
 | `.github/workflows/` | CI: guards, per-platform packages, release |
 
