@@ -7,6 +7,7 @@ the toolchain still behaves the way each test declares it should.
 
 ```bash
 scripts/regress.sh --list                       # the catalogue (no toolchain needed)
+scripts/regress.sh --explain bram               # what a test is for, in full
 scripts/regress.sh <package-dir-or-tgz>         # run everything, compare vs baseline
 scripts/regress.sh <package> --test bram --keep
 scripts/regress.sh <package> --tier 1 --markdown report.md
@@ -22,9 +23,25 @@ A test is a directory. Drop it in and it is picked up — no code to touch:
 
 ```
 regress/tests/mydesign/
-├── test.json
+├── test.json     what is checked (machine-readable)
+├── README.md     what it is for (required)
 └── design.v
 ```
+
+**The README is mandatory** — the harness refuses to load a test without one.
+A declaration says *what* is asserted; the README says what the test is for,
+what a good result looks like, and how to read a bad one. Four sections:
+
+| Section | Content |
+|---|---|
+| What it probes | The mechanism under test, and what each expectation pins down |
+| Why it exists | The bug, risk or property behind it — the part nobody can reconstruct later |
+| Expected result | What a healthy run produces, with today's reference numbers |
+| Reading a failure | Each plausible failure and what it points at |
+
+Keep the machine-readable facts in `test.json` and the narrative in the
+README, so the two cannot contradict each other. `--explain <test>` prints
+it.
 
 The design exposes `(input clk, output led)` and the declaration can be two
 lines, because everything else has a default:

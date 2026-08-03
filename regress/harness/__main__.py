@@ -52,6 +52,8 @@ def main() -> int:
     parser.add_argument("--tier", type=int, help="run tiers up to this one")
     parser.add_argument("--tag", action="append", help="run tests carrying this tag")
     parser.add_argument("--list", action="store_true", help="show the catalogue and exit")
+    parser.add_argument("--explain", metavar="TEST",
+                        help="print what a test is for (its README) and exit")
     parser.add_argument("--update-baseline", action="store_true",
                         help="record the measured values as the new baseline")
     parser.add_argument("--json", type=Path, help="write the report as JSON")
@@ -64,6 +66,12 @@ def main() -> int:
     except spec_module.SpecError as exc:
         raise SystemExit(f"invalid test declaration:\n  {exc}")
 
+    if args.explain:
+        for spec in specs:
+            if spec.name == args.explain:
+                print(spec.readme.read_text())
+                return 0
+        raise SystemExit(f"no such test: {args.explain}")
     if args.list:
         reporting.catalogue(specs)
         return 0

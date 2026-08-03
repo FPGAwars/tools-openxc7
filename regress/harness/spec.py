@@ -39,6 +39,7 @@ class TestSpec:
     name: str
     directory: Path
     description: str
+    readme: Path | None = None
     exercises: list[str] = field(default_factory=list)
     tier: int = 1
     tags: list[str] = field(default_factory=list)
@@ -90,6 +91,17 @@ def load(directory: Path, repo: Path) -> TestSpec:
     if "description" not in raw:
         raise SpecError(f"{declaration}: 'description' is required")
 
+    # Every test explains itself. A declaration says WHAT is checked; the
+    # README says what the test is for, what a good result looks like and how
+    # to read a bad one — the part a future reader (or a contributor from
+    # openXC7) cannot reconstruct from the JSON.
+    readme = directory / "README.md"
+    if not readme.exists():
+        raise SpecError(
+            f"{directory}: README.md is required (what it probes, why it exists, "
+            f"expected result, how to read a failure). See regress/README.md."
+        )
+
     sources = [directory / name for name in raw.get("sources", [])]
     if not sources:
         sources = sorted(directory.glob("*.v"))
@@ -135,6 +147,7 @@ def load(directory: Path, repo: Path) -> TestSpec:
         name=directory.name,
         directory=directory,
         description=raw["description"],
+        readme=readme,
         exercises=raw.get("exercises", []),
         tier=int(raw.get("tier", 1)),
         tags=raw.get("tags", []),
