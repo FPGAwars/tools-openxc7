@@ -77,39 +77,22 @@ let
   nextpnrWin = cross.stdenv.mkDerivation {
     pname = "nextpnr-xilinx-win"; version = "unstable-2026-07-13";
     src = nextpnrSrc;
-    # The SAME nextpnr patch list as nix/nextpnr-xilinx.nix: the .exe must
-    # behave like the native binaries. (The chipdb .bin are NOT built here —
-    # they come prebuilt from the native chipdb derivation — so the bbaexport
-    # patch is inert here; it is included to keep one canonical list.)
-    # Gap found 2026-07-15: the 20260716 windows exe shipped without
-    # xdc-virtual-clock-crash.patch because this list was missing.
-    patches = [
-      ../patches/bbaexport-global-const-node.patch
-      ../patches/xdc-virtual-clock-crash.patch
-      ../patches/timing-fmax-python.patch
-      ../patches/timing-selfloop-arcs.patch
-      ../patches/timing-lut-shared-pins.patch
-      ../patches/timing-dsp48-comb.patch
-    ];
     nativeBuildInputs = [ pkgs.cmake pkgs.git pkgs.pkg-config python ];
     buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads mingwPython ];
     enableParallelBuilding = true;
     postPatch = ''
-      # router2: boost::container::flat_map's sorted invariant breaks on mingw
-      # (count() true but at() throws) -> std::map. No change on Linux. Upstream PR.
-      sed -i 's|boost::container::flat_map<int, std::pair<int, PipId>> bound_nets;|std::map<int, std::pair<int, PipId>> bound_nets;|' common/router2.cc
-      grep -q '#include <map>' common/router2.cc || \
-        sed -i 's|#include <boost/container/flat_map.hpp>|#include <boost/container/flat_map.hpp>\n#include <map>|' common/router2.cc
-      # getPipName/getWireName copy whole chipdb PODs by value; the last record
-      # of the file then reads a few bytes past the mapping end -> page fault
-      # under the Windows file mapping (benign-but-UB on Linux, found by
-      # ASan/UBSan with a clocked design). const refs only read real fields.
-      # Upstream PR material.
-      sed -i 's|auto loc_info  = locInfo(pip);|const auto \&loc_info  = locInfo(pip);|' xilinx/arch.cc
-      sed -i 's|auto pip_data  = loc_info.pip_data\[pip.index\];|const auto \&pip_data  = loc_info.pip_data[pip.index];|' xilinx/arch.cc
-      sed -i 's|auto tile_inst = chip_info->tile_insts\[pip.tile\];|const auto \&tile_inst = chip_info->tile_insts[pip.tile];|' xilinx/arch.cc
-      sed -i 's|auto wire_data = locInfo(w).wire_data\[w.index\];|const auto \&wire_data = locInfo(w).wire_data[w.index];|' xilinx/arch.cc
-      grep -q "const auto &pip_data" xilinx/arch.cc || { echo "POD-ref patch failed"; exit 1; }
+      # The nextpnr patch list that used to live here (kept in sync with
+      # nix/nextpnr-xilinx.nix so the .exe behaved like the native binaries)
+      # is gone: every fix is upstream since PRs #102 and #104. So are the two
+      # mingw-only ones that used to be seds — router2's flat_map, whose
+      # sorted invariant breaks on this build, and the chipdb PODs copied by
+      # value, which read past the mapping end and page-faulted under the
+      # Windows file mapping. Asserted rather than assumed, so a future pin
+      # that loses them fails here instead of shipping a crashing .exe.
+      grep -q 'std::map<int, std::pair<int, PipId>> bound_nets;' common/router2.cc \
+        || { echo "upstream router2 std::map fix missing"; exit 1; }
+      grep -q "const auto &pip_data" xilinx/arch.cc \
+        || { echo "upstream chipdb const-ref fix missing"; exit 1; }
       # nixpkgs names the boost python lib 'python' (no version suffix); add "" to
       # the version search list so find_package(Boost COMPONENTS python) matches.
       sed -i 's|foreach (PyVer 3 36 37 38 39 310 311 312 313 314)|foreach (PyVer "" 3 36 37 38 39 310 311 312 313 314)|' CMakeLists.txt

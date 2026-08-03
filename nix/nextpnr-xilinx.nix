@@ -2,50 +2,22 @@
 , pkg-config, llvmPackages, ... }:
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
-  version = "unstable-2026-07-13";
+  version = "unstable-2026-08-03";
 
-  # Last commit BEFORE the 0.9.x routing regression (same-slice FF->LUT
-  # feedback arc unroutable since 6b46121f; bisected 2026-07-30). Re-pin to
-  # the 0.9.x tag once upstream fixes it — everything else here already
-  # builds 0.9.1.
+  # stable-backports tip. Every fix we used to carry as a local patch is now
+  # upstream: PR #102 (2026-08-01) took the global const node, the XDC virtual
+  # clock, the per-clock fmax getter, both timing-walk fixes, the DSP48E1
+  # timing model and the two mingw ones; PR #104 (2026-08-03) took the router2
+  # reservation fix, which is what kept this pinned to a pre-0.9.x commit —
+  # 6b46121f made any registered counter unroutable and its fix had never been
+  # pushed. Hence: no patches at all, for the first time.
   src = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr-xilinx";
-    rev = "27727428c13f60849fef9f85a814793db06390bb";
-    hash = "sha256-zzBk04/KDwCR3CjHmejAJG/fL5I3YpEj8SZKajVZ+64=";
+    rev = "a9badf1d36ad4bf1087898c91abc09dde952cc83";
+    hash = "sha256-zHhD4dpMADaILtWZC2PVNWDPrad8Ms8JmpcGNtK4gCU=";
     fetchSubmodules = true;
   };
-
-  # The global const node in the chipdb only included the GLBL wires of
-  # column x=0, but pseudo const driver bels exist in every tile: a driver
-  # placed elsewhere could only feed its own row -> router error "Invalid
-  # global constant node" on VCC/GND-to-pad and PLL designs (openXC7 #38/#41,
-  # gatecat#54). Root-caused 2026-07-12; upstream PR material.
-  patches = [
-    ./patches/bbaexport-global-const-node.patch
-    # XDC parser: a "virtual clock" (create_clock without target ports/nets,
-    # common in Vivado XDCs for I/O timing) crashed with an uncaught
-    # std::out_of_range; ignore it with a warning instead. Upstream PR material.
-    ./patches/xdc-virtual-clock-crash.patch
-    # The fork lacks mainline's --report; expose per-clock fmax/target to the
-    # embedded Python (ctx.reportClockFmaxJson(), computed on demand on the
-    # routed design) so --post-route scripts (apio report) can emit the clock
-    # table. Upstream PR material.
-    ./patches/timing-fmax-python.patch
-    # (frontend-hier-merge-nets.patch retired 2026-07-30: 0.9.x already
-    # carries the fix as upstream commit c7c655d5.)
-    # The xc7 post-route LUT pin fixup can bind a cell input pin to the
-    # cell's own output net (router feeding the output back through an
-    # unused input pin of the site); the timing walk then saw a false
-    # combinational loop and aborted post-route analysis for the WHOLE
-    # design ("timing analysis failed due to presence of combinatorial
-    # loops...", empty apio report table). Filter self-net arcs on both
-    # sides of the fanin bookkeeping. Found with an Icestudio VGA design
-    # with F7 muxes (wide-LUT clusters). Upstream PR material.
-    ./patches/timing-selfloop-arcs.patch
-    ./patches/timing-lut-shared-pins.patch
-    ./patches/timing-dsp48-comb.patch
-  ];
 
   # 0.9.x detects eigen via pkg-config (upstream 77911357)
   nativeBuildInputs = [ cmake git pkg-config ];
