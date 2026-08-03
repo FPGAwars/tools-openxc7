@@ -901,30 +901,48 @@ def run_fase3_prjxray():
     copy_python_dep("intervaltree", "3.1.0")
     copy_python_dep("sortedcontainers", "2.4.0")
 
-    # -- PATCH!
-    # -- Use patch file: store/util.py
-    # -- Instead of dist/lib/python3.12/site_packages/prjxray/util.py
-    # -- class OpenSafeFile: no lock/unlock files
-    # -- For unknown reasons, it does not work on the computers
-    # -- from URJC when locking/undocking
-    # -- It gives the error: [Errno 9] Bad file descriptor
+    # -- File-locking opt-out: PRJXRAY_NO_FILE_LOCK
     # --
-    # -- Still required after openXC7/prjxray#5 (merged 2026-08-02): upstream
-    # -- only skips locking where fcntl is missing (Windows), and keeps it on
-    # -- POSIX, which is exactly the case this patch works around.
-
-    # --- Copiar el fichero parcheado
+    # -- Upstream locks the database files with flock on POSIX. On some
+    # -- network/lab filesystems flock fails with "[Errno 9] Bad file
+    # -- descriptor" and kills the flow (originally seen on the URJC lab
+    # -- machines). This used to be handled by replacing util.py wholesale
+    # -- with a copy that had locking commented out -- which shipped one
+    # -- site's workaround to every user of the package.
+    # --
+    # -- Instead, keep upstream's behaviour as the default and make it a
+    # -- runtime parameter: anyone whose filesystem cannot flock exports
+    # -- PRJXRAY_NO_FILE_LOCK=1, with no repackaging and no rebuild.
+    # --
+    # -- The whole implementation is to force upstream's own `fcntl is None`
+    # -- path, which already skips both lock and unlock. On Windows fcntl
+    # -- does not exist and upstream sets it to None anyway, so this is a
+    # -- no-op there.
     PATCH_DIR = "lib/python3.12/site-packages/prjxray"
-    origen = Path.cwd() / "store" / "util.py"
     destino = Path.cwd() / DIST / PATCH_DIR / "util.py"
+    texto = destino.read_text()
+    ancla = "from .roi import Roi\n"
+    if ancla not in texto:
+        raise SystemExit(
+            f"❌ {PATCH_DIR}/util.py: no se encontró el ancla '{ancla.strip()}' "
+            "para insertar el opt-out de locking (¿cambió el fichero upstream?)"
+        )
+    opt_out = ancla + (
+        "\n"
+        "# -- openXC7 packaging: opt out of file locking at runtime, for\n"
+        "# -- filesystems where flock fails (export PRJXRAY_NO_FILE_LOCK=1).\n"
+        "# -- Upstream behaviour -- locking enabled on POSIX -- is the default.\n"
+        'if os.environ.get("PRJXRAY_NO_FILE_LOCK"):\n'
+        "    fcntl = None\n"
+    )
     # -- El fichero copiado del store de nix es de solo-lectura; en macOS
-    # -- hay que habilitar escritura antes de sobreescribirlo con el parche
-    # -- (no-op si ya era escribible).
-    if destino.exists():
-        write_access(destino)
-    shutil.copy(origen, destino)
+    # -- hay que habilitar escritura antes de tocarlo (no-op si ya lo era).
+    write_access(destino)
+    destino.write_text(texto.replace(ancla, opt_out, 1))
+    if "PRJXRAY_NO_FILE_LOCK" not in destino.read_text():
+        raise SystemExit(f"❌ {PATCH_DIR}/util.py: el opt-out no quedó aplicado")
     mark = "✅"
-    print(f"➡️  Dep: {mark}{PATCH_DIR}/util.py")
+    print(f"➡️  Dep: {mark}{PATCH_DIR}/util.py (PRJXRAY_NO_FILE_LOCK opt-out)")
 
     # -- DEBUG
     # dir = nix_locate("nextpnr-xilinx")
