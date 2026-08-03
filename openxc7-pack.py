@@ -901,48 +901,97 @@ def run_fase3_prjxray():
     copy_python_dep("intervaltree", "3.1.0")
     copy_python_dep("sortedcontainers", "2.4.0")
 
-    # -- File-locking opt-out: PRJXRAY_NO_FILE_LOCK
+    # -- File locking: best-effort instead of fatal
     # --
-    # -- Upstream locks the database files with flock on POSIX. On some
-    # -- network/lab filesystems flock fails with "[Errno 9] Bad file
-    # -- descriptor" and kills the flow (originally seen on the URJC lab
-    # -- machines). This used to be handled by replacing util.py wholesale
-    # -- with a copy that had locking commented out -- which shipped one
-    # -- site's workaround to every user of the package.
+    # -- OpenSafeFile is on the hot path of every build (tile.py, lib.py and
+    # -- tile_segbits.py read the database through it), and upstream aborts
+    # -- the whole flow when flock fails. On some network/lab filesystems it
+    # -- fails with "[Errno 9] Bad file descriptor" -- originally seen on the
+    # -- URJC lab machines -- so every build there died.
     # --
-    # -- Instead, keep upstream's behaviour as the default and make it a
-    # -- runtime parameter: anyone whose filesystem cannot flock exports
-    # -- PRJXRAY_NO_FILE_LOCK=1, with no repackaging and no rebuild.
+    # -- The old fix replaced util.py wholesale with a copy that never locked,
+    # -- shipping one site's workaround to everybody. The new one keeps
+    # -- upstream's locking where it works and degrades where it does not:
+    # -- the packaged tools only read the database, so a failed lock is not
+    # -- worth losing a build over. It warns once and carries on.
     # --
-    # -- The whole implementation is to force upstream's own `fcntl is None`
-    # -- path, which already skips both lock and unlock. On Windows fcntl
-    # -- does not exist and upstream sets it to None anyway, so this is a
-    # -- no-op there.
+    # -- PRJXRAY_NO_FILE_LOCK=1 skips the attempt entirely, for anyone who
+    # -- prefers not to pay the timeout on a filesystem known to be hostile.
     PATCH_DIR = "lib/python3.12/site-packages/prjxray"
     destino = Path.cwd() / DIST / PATCH_DIR / "util.py"
     texto = destino.read_text()
+
     ancla = "from .roi import Roi\n"
-    if ancla not in texto:
-        raise SystemExit(
-            f"❌ {PATCH_DIR}/util.py: no se encontró el ancla '{ancla.strip()}' "
-            "para insertar el opt-out de locking (¿cambió el fichero upstream?)"
-        )
-    opt_out = ancla + (
+    fatal = (
+        "        except Exception as e:\n"
+        '            print(f"{e}: {self.name}")\n'
+        "            exit(1)\n"
+    )
+    # -- unlock_file tambien desbloquea sin proteccion: si flock falla al
+    # -- entrar, vuelve a fallar al salir y la excepcion mata el build en el
+    # -- __exit__ (cazado al probarlo). Hay que degradar en los DOS sitios.
+    desbloqueo = "        fcntl.flock(self.fd.fileno(), fcntl.LOCK_UN)\n"
+    for trozo, que in (
+        (ancla, "el ancla de imports"),
+        (fatal, "el exit(1) de lock_file"),
+        (desbloqueo, "el flock de unlock_file"),
+    ):
+        if trozo not in texto:
+            raise SystemExit(
+                f"❌ {PATCH_DIR}/util.py: no se encontró {que} "
+                "(¿cambió el fichero upstream?)"
+            )
+
+    preludio = ancla + (
         "\n"
-        "# -- openXC7 packaging: opt out of file locking at runtime, for\n"
-        "# -- filesystems where flock fails (export PRJXRAY_NO_FILE_LOCK=1).\n"
-        "# -- Upstream behaviour -- locking enabled on POSIX -- is the default.\n"
+        "# -- openXC7 packaging: locking is best-effort.\n"
+        "# -- Upstream aborts the flow when flock fails; these tools only read\n"
+        "# -- the database, so on filesystems that cannot lock we warn once and\n"
+        "# -- continue instead of killing the build. Set PRJXRAY_NO_FILE_LOCK=1\n"
+        "# -- to skip the attempt altogether.\n"
+        "_openxc7_lock_warned = False\n"
+        "\n"
+        "\n"
+        "def _openxc7_lock_unavailable(exc, name):\n"
+        "    global _openxc7_lock_warned\n"
+        "    if not _openxc7_lock_warned:\n"
+        "        print(f'warning: file locking unavailable ({exc}); '\n"
+        "              f'continuing without it [{name}]')\n"
+        "        _openxc7_lock_warned = True\n"
+        "\n"
+        "\n"
         'if os.environ.get("PRJXRAY_NO_FILE_LOCK"):\n'
         "    fcntl = None\n"
     )
+    degradar = (
+        "        except Exception as e:\n"
+        "            _openxc7_lock_unavailable(e, self.name)\n"
+    )
+    desbloqueo_seguro = (
+        "        try:\n"
+        "            fcntl.flock(self.fd.fileno(), fcntl.LOCK_UN)\n"
+        "        except Exception as e:\n"
+        "            _openxc7_lock_unavailable(e, self.name)\n"
+    )
+
     # -- El fichero copiado del store de nix es de solo-lectura; en macOS
     # -- hay que habilitar escritura antes de tocarlo (no-op si ya lo era).
     write_access(destino)
-    destino.write_text(texto.replace(ancla, opt_out, 1))
-    if "PRJXRAY_NO_FILE_LOCK" not in destino.read_text():
-        raise SystemExit(f"❌ {PATCH_DIR}/util.py: el opt-out no quedó aplicado")
+    destino.write_text(
+        texto.replace(ancla, preludio, 1)
+        .replace(fatal, degradar, 1)
+        .replace(desbloqueo, desbloqueo_seguro, 1)
+    )
+
+    resultado = destino.read_text()
+    if (
+        "_openxc7_lock_unavailable" not in resultado
+        or "exit(1)" in resultado
+        or resultado.count("_openxc7_lock_unavailable(e, self.name)") != 2
+    ):
+        raise SystemExit(f"❌ {PATCH_DIR}/util.py: el parche de locking no quedó aplicado")
     mark = "✅"
-    print(f"➡️  Dep: {mark}{PATCH_DIR}/util.py (PRJXRAY_NO_FILE_LOCK opt-out)")
+    print(f"➡️  Dep: {mark}{PATCH_DIR}/util.py (locking best-effort)")
 
     # -- DEBUG
     # dir = nix_locate("nextpnr-xilinx")
