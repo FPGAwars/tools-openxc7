@@ -12,6 +12,7 @@ happened (log, artefacts, cells, utilisation, timing). Judgement lives in
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -64,15 +65,21 @@ class _Session:
     def log(self) -> str:
         return "\n".join(self.chunks)
 
-    def step(self, name: str, cmd: list[str], stdout_to: Path | None = None) -> float:
+    def step(self, name: str, cmd: list, stdout_to: Path | None = None,
+             env_extra: dict | None = None) -> float:
         started = time.monotonic()
+        entorno = {**os.environ, **(env_extra or {})}
+        # Every std handle is a pipe, never a file and never a terminal. Under
+        # wine the mingw python aborts at init_sys_streams with
+        # "[WinError 6] Invalid handle" if stdout is a redirected file — real
+        # Windows accepts it, so this is a wine-only quirk, and capturing the
+        # output ourselves sidesteps it uniformly on every platform.
+        proc = subprocess.run(cmd, cwd=self.workdir, capture_output=True,
+                              text=True, stdin=subprocess.DEVNULL, env=entorno)
         if stdout_to is not None:
-            with open(stdout_to, "w") as handle:
-                proc = subprocess.run(cmd, cwd=self.workdir, stdout=handle,
-                                      stderr=subprocess.PIPE, text=True)
+            stdout_to.write_text(proc.stdout or "")
             output = proc.stderr or ""
         else:
-            proc = subprocess.run(cmd, cwd=self.workdir, capture_output=True, text=True)
             output = (proc.stdout or "") + (proc.stderr or "")
         elapsed = time.monotonic() - started
         self.chunks.append(f"=== {name} (exit {proc.returncode}) ===\n{output}")
@@ -155,7 +162,7 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
             return result
 
         result.pnr_seconds = round(session.step("nextpnr-xilinx", [
-            pkg.tool("nextpnr-xilinx"),
+            *pkg.cmd("nextpnr-xilinx"),
             "--chipdb", str(pkg.chipdb(part)),
             "--xdc", str(xdc),
             "--json", str(netlist),
@@ -163,7 +170,7 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
             "--post-route", str(post_route),
             "--router", spec.router,
             *spec.nextpnr_args,
-        ]), 2)
+        ], env_extra=pkg.env_extra), 2)
         result.artifacts["fasm"] = fasm
         if metrics_file.exists():
             observed = json.loads(metrics_file.read_text())
@@ -179,9 +186,10 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
 
         device = pkg.device(part)
         session.step("fasm2frames", [
-            pkg.tool("fasm2frames"), "--part", device,
+            *pkg.python_cmd(pkg.root / "libexec/fasm2frames"),
+            "--part", device,
             "--db-root", str(pkg.db / "artix7"), str(fasm),
-        ], stdout_to=frames)
+        ], stdout_to=frames, env_extra=pkg.env_extra)
         if frames.stat().st_size == 0:
             raise _StepFailed("fasm2frames", "fasm2frames produced no frames")
         result.artifacts["frames"] = frames
@@ -189,12 +197,12 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
             return result
 
         session.step("xc7frames2bit", [
-            pkg.tool("xc7frames2bit"),
+            *pkg.cmd("xc7frames2bit"),
             "--part_file", str(pkg.db / "artix7" / device / "part.yaml"),
             "--part_name", device,
             "--frm_file", str(frames),
             "--output_file", str(bitstream),
-        ])
+        ], env_extra=pkg.env_extra)
         if bitstream.stat().st_size == 0:
             raise _StepFailed("xc7frames2bit", "empty bitstream")
         result.artifacts["bitstream"] = bitstream
@@ -207,3 +215,6 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
         return result
     finally:
         result.log = session.log
+        # Always on disk: with --keep there is something to read, and a
+        # failure is diagnosable without re-running the whole thing by hand.
+        (workdir / "flow.log").write_text(session.log)

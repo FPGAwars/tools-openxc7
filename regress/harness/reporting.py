@@ -39,6 +39,10 @@ def console(entries: list[dict]) -> None:
         print(line(entry))
         for note in entry.get("findings", []) + entry.get("notes", []):
             print(f"       {note}")
+        # A failed flow without its output is undebuggable; show the tail of
+        # the step that broke.
+        for linea in (entry.get("log_tail") or "").splitlines():
+            print(f"       │ {linea}")
 
 
 def catalogue(specs) -> None:

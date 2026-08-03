@@ -112,10 +112,14 @@ def main() -> int:
                         notes.append("baseline recorded with different tool versions")
                         status = "WARN" if status == "OK" else status
 
+                cola = ""
+                if status == "FAIL" and not result.ok:
+                    cola = "\n".join(result.log.splitlines()[-12:])
                 entries.append({
                     "test": spec.name, "part": part, "status": status,
                     "description": spec.description, "metrics": measured,
                     "findings": findings, "notes": notes, "error": result.error,
+                    "log_tail": cola,
                 })
                 if args.update_baseline and status != "FAIL" and measured:
                     baseline.setdefault(spec.name, {})[part] = {**measured, "env": versions}
