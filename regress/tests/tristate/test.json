@@ -4,6 +4,6 @@
   "tags": ["primitive", "io"],
   "expect": {
     "primitives": { "OBUFT": 1 },
-    "log_absent": ["ERROR"]
+    "log_absent": ["\\bERROR:"]
   }
 }

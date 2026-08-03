@@ -80,7 +80,7 @@ database · the whole flow runs · metrics are tracked against the baseline.
 | Key | Example | Checks |
 |---|---|---|
 | `status` | `"fail"` | Negative tests: the flow *must* fail |
-| `log_contains` / `log_absent` | `["ignoring virtual clock"]` | Regex over the whole flow log |
+| `log_contains` / `log_absent` | `["ignoring virtual clock"]` | Regex over the whole flow log (case-insensitive — a bare `ERROR` matches Python's `ImportError` in the benign Windows fasm-parser fallback; use `\bERROR:` for tool errors) |
 | `primitives` | `{"DSP48E1": ">=1"}` | What synthesis inferred, counted on the netlist |
 | `modules` | `">=3"` | Modules surviving synthesis, i.e. hierarchy is intact |
 | `artifacts` | `["bitstream"]` | Produced and non-empty |
