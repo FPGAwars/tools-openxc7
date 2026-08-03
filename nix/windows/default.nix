@@ -33,20 +33,14 @@ let
   # needs the stdlib (json/os/pathlib) for the report script.
   mingwPython = cross.python311;
 
-  # -- pinned sources (same revs/hashes as nix/nextpnr-xilinx.nix, nix/prjxray.nix)
-  nextpnrSrc = pkgs.fetchFromGitHub {
-    owner = "openXC7"; repo = "nextpnr-xilinx";
-    # pre-0.9.x-regression pin — see nix/nextpnr-xilinx.nix for the rationale
-    rev = "27727428c13f60849fef9f85a814793db06390bb";
-    hash = "sha256-zzBk04/KDwCR3CjHmejAJG/fL5I3YpEj8SZKajVZ+64=";
-    fetchSubmodules = true;
-  };
-  prjxraySrc = pkgs.fetchFromGitHub {
-    owner = "jrrk2"; repo = "prjxray";
-    rev = "132342f7a27c650a7cbedda663e2f33bc4a582f5";
-    hash = "sha256-b/UQAu4hvAJ5Jng6z1XmlVpRUN1mb1igefcy9/c2HbM=";
-    fetchSubmodules = true;
-  };
+  # -- Sources come from the native derivations, never re-declared here.
+  # -- They used to be a second copy of the same owner/rev/hash "kept in sync
+  # -- by hand" with nix/nextpnr-xilinx.nix and nix/prjxray.nix, which is
+  # -- exactly how a pin bump ships a half-updated package: re-pinning prjxray
+  # -- left this copy behind and the cross build failed on POSIX headers the
+  # -- new tree no longer includes. One pin, one place.
+  nextpnrSrc = nextpnr-xilinx.src;
+  prjxraySrc = prjxray.src;
 
   commonFlags = [
     "-DARCH=xilinx" "-DBUILD_GUI=OFF" "-DBUILD_TESTS=OFF" "-DUSE_OPENMP=OFF"
