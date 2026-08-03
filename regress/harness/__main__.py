@@ -121,7 +121,14 @@ def main() -> int:
                     "findings": findings, "notes": notes, "error": result.error,
                     "log_tail": cola,
                 })
-                if args.update_baseline and status != "FAIL" and measured:
+                # A baseline refresh records every run that completed its flow
+                # and held its expectations — INCLUDING metric drift beyond
+                # tolerance. That is the point of refreshing on a toolchain
+                # bump: the drift is deliberate, it is printed loudly here,
+                # and the baseline diff in the bump's change is what a human
+                # reviews. What is never recorded is a broken flow or a
+                # violated expectation (findings).
+                if args.update_baseline and measured and not findings:
                     baseline.setdefault(spec.name, {})[part] = {**measured, "env": versions}
     finally:
         if args.keep:
@@ -143,6 +150,14 @@ def main() -> int:
 
     summary = reporting.worst([entry["status"] for entry in entries])
     print(f"\nregression: {summary}")
+    if args.update_baseline:
+        # Refreshing rewrites the reference, so metric drift cannot "fail"
+        # the run — only a broken flow or violated expectation can.
+        broken = [e for e in entries if e["findings"]]
+        if broken:
+            print(f"NOT re-baselined ({len(broken)} broken): "
+                  + ", ".join(f"{e['test']}/{e['part']}" for e in broken))
+        return 1 if broken else 0
     return 1 if summary == "FAIL" else 0
 
 

@@ -5,13 +5,13 @@
       "brams": 1,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 26,
-      "fmax_mhz": 493.58,
+      "fmax_mhz": 647.25,
       "luts": 31,
-      "pnr_seconds": 1.99
+      "pnr_seconds": 1.36
     }
   },
   "carry64": {
@@ -20,13 +20,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 128,
-      "fmax_mhz": 189.65,
+      "fmax_mhz": 224.37,
       "luts": 257,
-      "pnr_seconds": 1.94
+      "pnr_seconds": 1.36
     }
   },
   "constant": {
@@ -35,143 +35,143 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2932.55,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 9.3
+      "pnr_seconds": 5.79
     },
     "xc7a100tfgg484": {
       "bit_bytes": 3825947,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 9.47
+      "pnr_seconds": 5.72
     },
     "xc7a100tfgg676": {
       "bit_bytes": 3825947,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 9.23
+      "pnr_seconds": 5.81
     },
     "xc7a100tftg256": {
       "bit_bytes": 3825947,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 9.5
+      "pnr_seconds": 5.83
     },
     "xc7a200tfbg484": {
       "bit_bytes": 9730811,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2932.55,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 19.75
+      "pnr_seconds": 13.45
     },
     "xc7a35tcpg236": {
       "bit_bytes": 2192169,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 1.45
+      "pnr_seconds": 1.24
     },
     "xc7a35tcsg324": {
       "bit_bytes": 2192169,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.91
+      "pnr_seconds": 2.69
     },
     "xc7a35tfgg484": {
       "bit_bytes": 2192169,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.84
+      "pnr_seconds": 2.71
     },
     "xc7a35tftg256": {
       "bit_bytes": 2192169,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.96
+      "pnr_seconds": 2.75
     },
     "xc7a50tcsg324": {
       "bit_bytes": 2192169,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.83
+      "pnr_seconds": 2.73
     },
     "xc7a50tfgg484": {
       "bit_bytes": 2192169,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
-      "fmax_mhz": 2915.45,
+      "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.8
+      "pnr_seconds": 2.69
     }
   },
   "dsp48": {
@@ -180,13 +180,13 @@
       "brams": 0,
       "dsps": 1,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 36,
-      "fmax_mhz": 305.25,
+      "fmax_mhz": 387.9,
       "luts": 81,
-      "pnr_seconds": 1.8
+      "pnr_seconds": 1.37
     }
   },
   "hier": {
@@ -195,13 +195,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 22,
-      "fmax_mhz": 462.75,
+      "fmax_mhz": 446.83,
       "luts": 8,
-      "pnr_seconds": 1.63
+      "pnr_seconds": 1.3
     }
   },
   "vclk": {
@@ -210,13 +210,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 24,
-      "fmax_mhz": 326.9,
+      "fmax_mhz": 451.06,
       "luts": 48,
-      "pnr_seconds": 1.65
+      "pnr_seconds": 1.24
     }
   },
   "widemux": {
@@ -225,13 +225,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 38,
-      "fmax_mhz": 362.32,
+      "fmax_mhz": 340.83,
       "luts": 35,
-      "pnr_seconds": 1.73
+      "pnr_seconds": 1.32
     }
   }
 }
