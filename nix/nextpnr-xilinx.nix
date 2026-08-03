@@ -1,5 +1,17 @@
 { stdenv, cmake, git, lib, fetchFromGitHub, applyPatches, python312Packages
 , python312, eigen, pkg-config, llvmPackages, ... }:
+let
+  # Kept out of the mkDerivation so its .rev survives: applyPatches returns a
+  # plain store path without fetchFromGitHub's attributes, and the version
+  # stamp below needs the revision.
+  upstream = fetchFromGitHub {
+    owner = "openXC7";
+    repo = "nextpnr-xilinx";
+    rev = "a9badf1d36ad4bf1087898c91abc09dde952cc83";
+    hash = "sha256-zHhD4dpMADaILtWZC2PVNWDPrad8Ms8JmpcGNtK4gCU=";
+    fetchSubmodules = true;
+  };
+in
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
   version = "unstable-2026-08-03";
@@ -20,13 +32,7 @@ stdenv.mkDerivation rec {
   # per-derivation patch lists that shipped a half-updated package once.
   src = applyPatches {
     name = "nextpnr-xilinx-source";
-    src = fetchFromGitHub {
-      owner = "openXC7";
-      repo = "nextpnr-xilinx";
-      rev = "a9badf1d36ad4bf1087898c91abc09dde952cc83";
-      hash = "sha256-zHhD4dpMADaILtWZC2PVNWDPrad8Ms8JmpcGNtK4gCU=";
-      fetchSubmodules = true;
-    };
+    src = upstream;
     patches = [ ./patches/xc7-slice-validation-strength.patch ];
   };
 
@@ -36,7 +42,7 @@ stdenv.mkDerivation rec {
     ++ (lib.optionals stdenv.cc.isClang [ llvmPackages.openmp ]);
 
   cmakeFlags = [
-    "-DCURRENT_GIT_VERSION=${lib.substring 0 7 src.rev}"
+    "-DCURRENT_GIT_VERSION=${lib.substring 0 7 upstream.rev}"
     "-DARCH=xilinx"
     "-DBUILD_GUI=OFF"
     "-DBUILD_TESTS=OFF"
