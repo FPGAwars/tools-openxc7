@@ -1,0 +1,9 @@
+{
+  "description": "High-Z assignment inferring an OBUFT on the pad",
+  "exercises": ["tristate inference", "OBUFT IOB configuration"],
+  "tags": ["primitive", "io"],
+  "expect": {
+    "primitives": { "OBUFT": 1 },
+    "log_absent": ["ERROR"]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "description": "32-deep rotating shift register mapped onto one SRLC32E",
+  "exercises": ["SRL inference", "SLICEM-only placement", "SRL fasm features"],
+  "tags": ["primitive", "slicem"],
+  "expect": {
+    "primitives": { "SRLC32E": ">=1" }
+  }
+}

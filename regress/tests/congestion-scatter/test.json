@@ -1,0 +1,17 @@
+{
+  "description": "Congestion bench, scattered permutation (STRIDE=61): the stress leg",
+  "exercises": ["router under channel contention", "long-hop traffic at ~60% utilisation"],
+  "tier": 2,
+  "tags": ["scale"],
+  "sources": ["../congestion-local/design.v"],
+  "top": "congestion",
+  "parameters": { "N": 192, "W": 64, "MUL": 61, "ADD": 7 },
+  "expect": {
+    "primitives": { "FDRE": ">=12288" }
+  },
+  "metrics": {
+    "tolerances": {
+      "pnr_seconds": { "warn": 0.3, "fail": 1.0 }
+    }
+  }
+}

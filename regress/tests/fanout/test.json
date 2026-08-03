@@ -1,0 +1,9 @@
+{
+  "description": "One flip-flop fanning out to 256 loads",
+  "exercises": ["high-fanout nets", "buffering/replication", "fanout timing"],
+  "tags": ["structural"],
+  "expect": {
+    "primitives": { "FDRE": ">=257" },
+    "metrics_present": ["fmax_mhz"]
+  }
+}

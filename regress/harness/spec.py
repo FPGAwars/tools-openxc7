@@ -26,7 +26,7 @@ EXPECT_KEYS = {
 TOP_LEVEL_KEYS = {
     "description", "exercises", "why", "tier", "tags", "sources", "top",
     "parts", "constraints", "xdc_extra", "synth", "nextpnr", "flow", "expect",
-    "metrics",
+    "metrics", "parameters",
 }
 
 
@@ -49,6 +49,7 @@ class TestSpec:
     constraints: str = "auto"
     xdc_extra: list[str] = field(default_factory=list)
     synth_opts: str = ""
+    parameters: dict = field(default_factory=dict)
     nextpnr_args: list[str] = field(default_factory=list)
     router: str = "router2"
     flow: str = "bitstream"
@@ -134,6 +135,10 @@ def load(directory: Path, repo: Path) -> TestSpec:
 
     synth = raw.get("synth", {})
     _check_keys(f"{declaration}: synth", synth, {"opts"})
+    parameters = raw.get("parameters", {})
+    if not isinstance(parameters, dict) or not all(
+            isinstance(v, (int, str)) for v in parameters.values()):
+        raise SpecError(f"{declaration}: 'parameters' must map names to int/str values")
     nextpnr = raw.get("nextpnr", {})
     _check_keys(f"{declaration}: nextpnr", nextpnr, {"args", "router"})
     metrics = raw.get("metrics", {})
@@ -157,6 +162,7 @@ def load(directory: Path, repo: Path) -> TestSpec:
         constraints=constraints,
         xdc_extra=raw.get("xdc_extra", []),
         synth_opts=synth.get("opts", ""),
+        parameters=parameters,
         nextpnr_args=nextpnr.get("args", []),
         router=nextpnr.get("router", "router2"),
         flow=flow,

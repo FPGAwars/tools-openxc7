@@ -150,9 +150,18 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
     try:
         xdc = _write_constraints(spec, pkg, part, workdir, repo)
 
+        # Verilog parameters from the declaration: chparam runs after the
+        # sources are read (they are file arguments, read before -p) and
+        # before synthesis, so one parametrised design.v can back several
+        # tests — e.g. the congestion pair, same netlist shape with a
+        # different permutation stride.
+        chparams = "".join(
+            f"chparam -set {name} {value} {spec.top}; "
+            for name, value in spec.parameters.items()
+        )
         session.step("yosys", [
             "yosys", "-p",
-            f"synth_xilinx -arch xc7 -top {spec.top} {spec.synth_opts}; "
+            f"{chparams}synth_xilinx -arch xc7 -top {spec.top} {spec.synth_opts}; "
             f"write_json {netlist}",
             *[str(source) for source in spec.sources],
         ])

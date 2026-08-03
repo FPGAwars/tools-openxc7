@@ -1,0 +1,8 @@
+{
+  "description": "64x8 distributed RAM (RAM64M) with async read",
+  "exercises": ["LUTRAM inference", "SLICEM write port", "distributed-RAM fasm"],
+  "tags": ["primitive", "slicem"],
+  "expect": {
+    "primitives": { "RAM64M": ">=1" }
+  }
+}

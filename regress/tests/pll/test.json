@@ -1,0 +1,9 @@
+{
+  "description": "PLLE2_BASE with feedback loop, BUFG, and a counter in its domain",
+  "exercises": ["clock management tile", "PLL feedback routing", "BUFG tree"],
+  "tags": ["primitive", "clocking"],
+  "expect": {
+    "primitives": { "PLLE2_BASE": 1 },
+    "artifacts": ["bitstream"]
+  }
+}
