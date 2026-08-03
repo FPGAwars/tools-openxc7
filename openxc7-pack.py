@@ -2,6 +2,7 @@
 
 import subprocess
 import shutil
+import hashlib
 import re
 import os
 import stat
@@ -1107,6 +1108,50 @@ def generar_binarios():
 # -- Manifest con la lista de parts a empaquetar
 CHIPDB_PARTS_FILE = "chipdb-parts.json"
 
+# -- Sello de identidad de los .bin (ver chipdb_identidad). Sin punto inicial
+# -- a proposito: un fichero oculto se pierde al viajar (actions/upload-artifact
+# -- excluye ocultos por defecto desde v4.4), y ademas documenta dentro del
+# -- paquete con que toolchain se genero el chipdb.
+CHIPDB_STAMP = "chipdb-id.txt"
+
+
+def chipdb_identidad() -> str:
+    """Identidad de los .bin: de que toolchain son validos.
+
+    Los constids se hornean en el .bin al generarlo, asi que un .bin de otro
+    nextpnr revienta EN EJECUCION con "internal IDs inconsistent with the
+    supplied chip database". Reutilizar bins ajenos ya ha colado binarios
+    incompatibles en tres ocasiones (2026-07-16, 07-31 y 08-03), siempre por
+    confiar en que alguien se acordara de borrar dist/.
+
+    La identidad es el hash de lo que determina el contenido: el pin de
+    nextpnr, la derivacion del chipdb, los parches que tocan bbaexport y el
+    manifest de parts. Es la MISMA definicion que la clave de cache del CI
+    (.github/workflows/linux-package.yml), para que ambos coincidan.
+    """
+    fuentes = [
+        Path.cwd() / "nix/nextpnr-xilinx.nix",
+        Path.cwd() / "nix/nextpnr-xilinx-chipdb.nix",
+        Path.cwd() / CHIPDB_PARTS_FILE,
+    ]
+    fuentes += sorted((Path.cwd() / "nix/patches").glob("*.patch"))
+    resumen = hashlib.sha256()
+    for fuente in fuentes:
+        if not fuente.exists():
+            raise SystemExit(f"❌ falta {fuente} para calcular la identidad del chipdb")
+        resumen.update(fuente.name.encode())
+        resumen.update(fuente.read_bytes())
+    return resumen.hexdigest()[:16]
+
+
+def leer_sello(directorio: Path) -> str:
+    fich = directorio / CHIPDB_STAMP
+    return fich.read_text(encoding="utf-8").strip() if fich.exists() else ""
+
+
+def escribir_sello(directorio: Path, identidad: str):
+    (directorio / CHIPDB_STAMP).write_text(identidad + "\n", encoding="utf-8")
+
 
 def chipdb_parts() -> list:
     """Lista [(familia, part), ...] leida del manifest."""
@@ -1131,17 +1176,32 @@ def primer_speedgrade(familia: str, part: str) -> str:
     return devices[0]
 
 
-def sembrar_chipdb():
+def sembrar_chipdb(identidad: str):
     """Copiar .bin precompilados desde $OPENXC7_CHIPDB_SEED (opcional).
 
-    El chipdb .bin es identico entre plataformas,
-    asi que un directorio con bins ya generados en otra maquina (p.ej. el
-    build server Linux) evita regenerarlos aqui (util en macOS y en CI).
+    El chipdb .bin es identico entre plataformas, asi que un directorio con
+    bins ya generados en otra maquina (p.ej. el build server Linux) evita
+    regenerarlos aqui (util en macOS y en CI).
+
+    El seed DEBE llevar el sello de identidad correcto: apuntar a un seed es
+    una decision explicita, asi que un seed ajeno se rechaza en vez de
+    ignorarse en silencio (perderia una hora de regeneracion) o de usarse
+    (empaquetaria bins incompatibles).
     """
     seed = os.environ.get("OPENXC7_CHIPDB_SEED")
     if not seed:
         return
     seed_dir = Path(seed)
+    sello = leer_sello(seed_dir)
+    if sello != identidad:
+        raise SystemExit(
+            f"❌ El seed {seed_dir} no corresponde a esta toolchain:\n"
+            f"   esperado: {identidad}\n"
+            f"   encontrado: {sello or '(sin sello ' + CHIPDB_STAMP + ')'}\n"
+            "   Sus .bin llevan otros constids y el nextpnr empaquetado los\n"
+            "   rechazaria en ejecucion. Usa un seed generado con estos pines\n"
+            "   o quita OPENXC7_CHIPDB_SEED para regenerarlos."
+        )
     for _, part in chipdb_parts():
         src = seed_dir / f"{part}.bin"
         dst = Path.cwd() / f"dist/chipdb/{part}.bin"
@@ -1211,8 +1271,29 @@ def generar_db():
     print(ansi.DEFAULT, end='', flush=True)
     print()
 
+    # -- Los .bin que sobrevivan de una ejecucion anterior solo valen si son
+    # -- de ESTA toolchain: si no, se tiran y se regeneran. Antes se reusaban
+    # -- a ciegas y el paquete salia con un chipdb incompatible que solo se
+    # -- detectaba al ejecutar (tres veces: 2026-07-16, 07-31 y 08-03).
+    identidad = chipdb_identidad()
+    destino = Path.cwd() / "dist/chipdb"
+    destino.mkdir(parents=True, exist_ok=True)
+    previos = sorted(destino.glob("*.bin"))
+    if previos:
+        sello = leer_sello(destino)
+        if sello == identidad:
+            print(f"📌 Reutilizando {len(previos)} .bin ya presentes "
+                  f"(identidad {identidad})")
+        else:
+            print(f"♻️  Descartando {len(previos)} .bin de otra toolchain "
+                  f"(sello {sello or 'ausente'} ≠ {identidad}); se regeneran")
+            for viejo in previos:
+                viejo.unlink()
+            for sobra in destino.glob("*.bba"):
+                sobra.unlink()
+
     # -- Reutilizar bins precompilados si se ha indicado un seed
-    sembrar_chipdb()
+    sembrar_chipdb(identidad)
 
     # -- Generar cada part del manifest. bbaexport es independiente por
     # -- part -> paralelizable con $OPENXC7_CHIPDB_JOBS (por defecto 1;
@@ -1226,6 +1307,11 @@ def generar_db():
     with ThreadPoolExecutor(max_workers=max(jobs, 1)) as pool:
         for resultado in pool.map(lambda fp: generar_db_part(*fp), parts):
             print(resultado)
+
+    # -- Sellar: a partir de aqui estos .bin se pueden reutilizar o servir de
+    # -- seed, y cualquier cambio de pin/parche invalidara el sello solo.
+    escribir_sello(destino, identidad)
+    print(f"🔏 chipdb sellado: {identidad}")
 
     # -- Resumen de tamaños
     print()

@@ -74,8 +74,10 @@ jobs:
           TGZ=$(ls apio-openxc7-linux-x86-64-*.tgz)
           echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
           ls -la "$TGZ"
+          # el sello chipdb-id.txt viaja con los .bin: sin él, el pack de
+          # darwin rechaza el seed (y con él, un seed de otro pin también)
           mkdir -p chipdb-cache
-          cp dist/chipdb/*.bin chipdb-cache/
+          cp dist/chipdb/*.bin dist/chipdb/chipdb-id.txt chipdb-cache/
 
       - name: Cache the oss-cad-suite validation env
         uses: actions/cache@v4
@@ -104,6 +106,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: chipdb-bins
-          path: dist/chipdb/*.bin
+          path: |
+            dist/chipdb/*.bin
+            dist/chipdb/chipdb-id.txt
           compression-level: 1     # already dense binary data
           retention-days: 7
