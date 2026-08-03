@@ -139,7 +139,6 @@
             inherit pkgs lib;
             inherit (self.packages.${system})
               nextpnr-xilinx prjxray fasm nextpnr-xilinx-chipdb;
-            utilPatch = ./store/util.py;
           };
         });
 

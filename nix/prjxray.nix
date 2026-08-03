@@ -2,16 +2,18 @@
 , ... }:
 stdenv.mkDerivation rec {
   pname = "prjxray";
-  version = "132342f7a27c650a7cbedda663e2f33bc4a582f5";
+  version = "78d98b98dc189a89cd1def61cee7c938f51bc6e5";
 
-  # jrrk2/prjxray is the openXC7 ecosystem's active tree (f4pga merged in,
-  # plus modern-gcc build fixes, gflags bump and the openxc7 fasm submodule).
+  # openXC7/prjxray: a fork of jrrk2/prjxray (itself f4pga plus modern-gcc
+  # build fixes, a gflags bump and the openxc7 fasm submodule) that now also
+  # carries the Windows/ODR work we used to patch in locally — merged upstream
+  # 2026-08-02 as PR #5. A strict superset of the previous jrrk2 pin.
   src = fetchFromGitHub {
-    owner = "jrrk2";
+    owner = "openXC7";
     repo = "prjxray";
-    rev = "132342f7a27c650a7cbedda663e2f33bc4a582f5";
+    rev = "78d98b98dc189a89cd1def61cee7c938f51bc6e5";
     fetchSubmodules = true;
-    hash = "sha256-b/UQAu4hvAJ5Jng6z1XmlVpRUN1mb1igefcy9/c2HbM=";
+    hash = "sha256-KrPYNm8ooh49WGiJOqZD1dYgptUYNRP/jKU9C4gvgiw=";
   };
 
   nativeBuildInputs = [ cmake git ];

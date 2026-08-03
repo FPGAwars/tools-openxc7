@@ -8,8 +8,17 @@
 # https://opensource.org/licenses/ISC
 #
 # SPDX-License-Identifier: ISC
-# -- PATCH: fcntl is POSIX-only (no Windows); it is only needed by the
-# -- flock calls below, which this patch disables anyway.
+# -- PATCH: this replacement disables file locking entirely (see __enter__ /
+# -- __exit__ below). It predates the Windows port and exists for a different
+# -- reason: flock failed with "[Errno 9] Bad file descriptor" on the URJC
+# -- machines, aborting the flow.
+# --
+# -- Upstream (openXC7/prjxray#5, merged 2026-08-02) now guards fcntl for
+# -- Windows, where it does not exist, but keeps locking on POSIX — so this
+# -- file is still needed for the linux/macOS packages and is NOT redundant
+# -- with the upstream fix. The Windows package no longer installs it.
+# --
+# -- fcntl is POSIX-only; it is only needed by the flock calls below.
 try:
     import fcntl
 except ImportError:

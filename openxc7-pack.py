@@ -908,6 +908,10 @@ def run_fase3_prjxray():
     # -- For unknown reasons, it does not work on the computers
     # -- from URJC when locking/undocking
     # -- It gives the error: [Errno 9] Bad file descriptor
+    # --
+    # -- Still required after openXC7/prjxray#5 (merged 2026-08-02): upstream
+    # -- only skips locking where fcntl is missing (Windows), and keeps it on
+    # -- POSIX, which is exactly the case this patch works around.
 
     # --- Copiar el fichero parcheado
     PATCH_DIR = "lib/python3.12/site-packages/prjxray"

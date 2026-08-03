@@ -16,7 +16,6 @@
 , prjxray                  # native: provides prjxray python + fasm2frames/bit2fasm
 , fasm                     # native python package (pulls textx -> arpeggio)
 , nextpnr-xilinx-chipdb    # native: artix7 chipdb (every footprint's .bin)
-, utilPatch ? null         # store/util.py (prjxray flock workaround), optional
 }:
 
 let
@@ -142,23 +141,16 @@ let
   };
 
   prjxrayWin = cross.stdenv.mkDerivation {
-    pname = "prjxray-win"; version = "132342f7";
+    pname = "prjxray-win"; version = "78d98b98";
     src = prjxraySrc;
     nativeBuildInputs = [ pkgs.cmake pkgs.git pkgs.pkg-config python ];
     buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads ];
     enableParallelBuilding = true;
-    # POSIX -> Win32 ports (#ifdef _WIN32; Linux path unchanged) + the deprecated
-    # warning suppression from nix/prjxray.nix.
+    # The Win32 ports (MemoryMappedFile, Database segbits) and the ODR fix for
+    # the Configuration explicit specializations used to be applied here; they
+    # are upstream since openXC7/prjxray#5, so only the deprecated-warning
+    # suppression from nix/prjxray.nix remains.
     postPatch = ''
-      cp ${./prjxray-patches/memory_mapped_file.cc} lib/memory_mapped_file.cc
-      cp ${./prjxray-patches/database.cc} lib/database.cc
-      # ODR fix (upstream PR material): declare the Configuration explicit
-      # specializations in configuration.h. Without it, tool TUs instantiate
-      # the header-defined primary of createType2ConfigurationPacketData and
-      # mingw ld fails with duplicate symbols (previously worked around with
-      # a permissive linker flag). Verified 2026-07-30 on bit0.
-      patch -p1 < ${./prjxray-patches/spartan6-odr.patch}
-      grep -q 'Configuration<Spartan6>::createType2ConfigurationPacketData(' lib/include/prjxray/xilinx/configuration.h || { echo "ODR patch failed"; exit 1; }
       sed -i '29 itarget_compile_options(libprjxray PUBLIC "-Wno-deprecated")' lib/CMakeLists.txt || true
     '';
     cmakeFlags = [
@@ -244,18 +236,14 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
   # -- POSIX-ism fixes (systematic audit 2026-07-12): these scripts run under
   # -- oss-cad-suite's WINDOWS python in apio. Guards fail the build if the
   # -- upstream text drifts. Upstream PR material (f4pga/prjxray).
-  # fasm2frames: the '/dev/stdout' default does not exist on Windows; apio
-  # invokes it with a shell redirect, so default to sys.stdout instead
-  sed -i "s|^import argparse$|import argparse\nimport sys|" $out/libexec/fasm2frames
-  sed -i "s|default='/dev/stdout',|default=None,|" $out/libexec/fasm2frames
-  sed -i "s|f_out=open(args.fn_out, 'w'),|f_out=(open(args.fn_out, 'w') if args.fn_out else sys.stdout),|" $out/libexec/fasm2frames
-  grep -q "args.fn_out else sys.stdout" $out/libexec/fasm2frames || { echo "fasm2frames patch failed"; exit 1; }
-  # bit2fasm: a NamedTemporaryFile kept open cannot be written by the
-  # bitread.exe subprocess on Windows (sharing violation) -> close it first
-  sed -i "s|bits_file = stack.enter_context(tempfile.NamedTemporaryFile())|bits_file = stack.enter_context(tempfile.NamedTemporaryFile(delete=False)); bits_file.close(); stack.callback(os.unlink, bits_file.name)|" $out/libexec/bit2fasm
-  grep -q "delete=False" $out/libexec/bit2fasm || { echo "bit2fasm patch failed"; exit 1; }
-  ${lib.optionalString (utilPatch != null)
-    "install -m 644 ${utilPatch} $out/lib/python3.12/site-packages/prjxray/util.py"}
+  # The Windows fixes to the python tools (fasm2frames defaulting to
+  # sys.stdout instead of /dev/stdout, bit2fasm closing its temporary file
+  # before bitread writes it, and OpenSafeFile working without fcntl) used to
+  # be applied here as seds and a replacement util.py. All three are upstream
+  # since openXC7/prjxray#5, so the packaged sources already carry them.
+  grep -q "args.fn_out else sys.stdout" $out/libexec/fasm2frames || { echo "upstream fasm2frames fix missing"; exit 1; }
+  grep -q "delete=False" $out/libexec/bit2fasm || { echo "upstream bit2fasm fix missing"; exit 1; }
+  grep -q "fcntl = None" $out/lib/python3.12/site-packages/prjxray/util.py || { echo "upstream util.py fcntl guard missing"; exit 1; }
 
   # -- Windows launchers (apio/oss-cad-suite provides the Windows python)
   ${cmdLauncher "fasm2frames"}
