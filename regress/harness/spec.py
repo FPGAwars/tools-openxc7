@@ -69,7 +69,9 @@ class TestSpec:
 def _part_groups(repo: Path) -> dict[str, list[str]]:
     manifest = json.loads((repo / "chipdb-parts.json").read_text())
     every = [part for parts in manifest.values() for part in parts]
-    return {"default": [DEFAULT_PART], "all": every, "artix7": manifest.get("artix7", [])}
+    # One group per family in the manifest (artix7, spartan7, ...): a test
+    # can say "parts": "zynq7" and follow the manifest as it grows.
+    return {"default": [DEFAULT_PART], "all": every, **manifest}
 
 
 def _check_keys(where: str, given, allowed: set[str]) -> None:

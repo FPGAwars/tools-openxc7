@@ -144,12 +144,15 @@ let
     dontStrip = true;
   };
 
-  # parts to ship, from the shared manifest (same list as openxc7-pack.py)
-  chipdbParts = (builtins.fromJSON (builtins.readFile ../../chipdb-parts.json)).artix7;
+  # families and parts to ship, from the shared manifest (same list as pack/)
+  chipdbManifest = builtins.fromJSON (builtins.readFile ../../chipdb-parts.json);
+  chipdbFamilies = builtins.attrNames chipdbManifest;
+  chipdbParts = lib.concatLists (builtins.attrValues chipdbManifest);
 
-  # build only the manifest parts (the full artix7 family would also build
-  # seven more GB-class xc7a200t package variants we don't ship)
-  chipdb = nextpnr-xilinx-chipdb.artix7.override { parts = chipdbParts; };
+  # build only the manifest parts, per family (a full family would also build
+  # GB-class package variants we don't ship)
+  chipdbFor = family:
+    nextpnr-xilinx-chipdb.${family}.override { parts = chipdbManifest.${family}; };
   gccLib = "${cross.stdenv.cc.cc.lib}/x86_64-w64-mingw32/lib";
 
   # pure-python tool env (fasm pulls textx -> arpeggio; + prjxray's python deps).
@@ -192,9 +195,13 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
   find $out/lib/python3.11 -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
   # -- chipdb (the parts from chipdb-parts.json, like openxc7-pack.py) + data
-  ${lib.concatMapStringsSep "\n  " (p: "cp ${chipdb}/${p}.bin $out/chipdb/") chipdbParts}
-  cp -r ${nextpnr-xilinx}/share/nextpnr/external/prjxray-db/artix7 \
-        $out/share/nextpnr/external/prjxray-db/
+  ${lib.concatMapStringsSep "\n  " (family:
+      lib.concatMapStringsSep "\n  "
+        (p: "cp ${chipdbFor family}/${p}.bin $out/chipdb/")
+        chipdbManifest.${family}) chipdbFamilies}
+  ${lib.concatMapStringsSep "\n  " (family:
+      "cp -r ${nextpnr-xilinx}/share/nextpnr/external/prjxray-db/${family} $out/share/nextpnr/external/prjxray-db/")
+      chipdbFamilies}
   cp -r ${nextpnr-xilinx}/share/nextpnr/python/. $out/share/nextpnr/python/ 2>/dev/null || \
     mkdir -p $out/share/nextpnr/python
 

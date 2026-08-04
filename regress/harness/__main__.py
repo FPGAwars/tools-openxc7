@@ -14,6 +14,10 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# The repo root, so the harness shares pack.families with the packer — the
+# part->family rule must have ONE python source (nix has its own copy of the
+# prefix table in nextpnr-xilinx-chipdb.nix; that is the whole duplication).
+sys.path.insert(1, str(Path(__file__).resolve().parent.parent.parent))
 
 import checks          # noqa: E402
 import metrics as metrics_module  # noqa: E402

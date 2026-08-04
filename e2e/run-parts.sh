@@ -3,7 +3,7 @@
 #
 #   e2e/run-parts.sh <package-dir> <workdir> [wine]
 #
-# For every artix7 part in chipdb-parts.json:
+# For every part of every family in chipdb-parts.json:
 #   yosys (host) -> nextpnr-xilinx (--chipdb <part>.bin, generated XDC,
 #   --post-route report) -> fasm2frames -> xc7frames2bit -> .bit
 # With `wine`, nextpnr-xilinx.exe / xc7frames2bit.exe run under wine64
@@ -24,7 +24,19 @@ cd "$WORK"
 
 DB="$PKG/share/nextpnr/external/prjxray-db"
 # E2E_PARTS overrides the manifest (space-separated) — handy for quick runs
-PARTS=${E2E_PARTS:-$(python3 -c "import json;print(' '.join(json.load(open('$REPO/chipdb-parts.json'))['artix7']))")}
+PARTS=${E2E_PARTS:-$(python3 -c "import json;print(' '.join(p for ps in json.load(open('$REPO/chipdb-parts.json')).values() for p in ps))")}
+
+# part -> family, same prefix rule as pack/families.py and chipdb.nix
+family_of() {
+  case "$1" in
+    xc7a*) echo artix7 ;;
+    xc7k*) echo kintex7 ;;
+    xc7s*) echo spartan7 ;;
+    xc7z*) echo zynq7 ;;
+    xc7v*) echo virtex7 ;;
+    *) echo "unknown family for part $1" >&2; exit 1 ;;
+  esac
+}
 
 run_tool() {  # run_tool <exe-basename> <args...>
   local tool="$1"; shift
@@ -66,8 +78,9 @@ fail=0
 for part in $PARTS; do
   echo
   echo "===== $part ====="
-  python3 "$REPO/e2e/gen_xdc.py" "$DB" artix7 "$part" > "blinky-$part.xdc"
-  device=$(basename "$(ls -d "$DB/artix7/$part"-* | sort | head -1)")
+  family=$(family_of "$part")
+  python3 "$REPO/e2e/gen_xdc.py" "$DB" "$family" "$part" > "blinky-$part.xdc"
+  device=$(basename "$(ls -d "$DB/$family/$part"-* | sort | head -1)")
 
   rm -f hardware.pnr
   if ! run_tool nextpnr-xilinx \
@@ -94,24 +107,24 @@ for part in $PARTS; do
       # file redirects — this is a wine-only quirk)
       ( PYTHONPATH="$PKG/lib/python3.12/site-packages" \
         wine64 "$E2E_WINPY/bin/python3.exe" "$PKG/libexec/fasm2frames" \
-          --part "$device" --db-root "$DB/artix7" "blinky-$part.fasm" \
+          --part "$device" --db-root "$DB/$family" "blinky-$part.fasm" \
           </dev/null 2> >(cat > "blinky-$part.f2f.err") | cat > "blinky-$part.frames" ) \
         || { echo "FAIL $part: fasm2frames (windows python)"; tail -3 "blinky-$part.f2f.err"; fail=1; continue; }
       test -s "blinky-$part.frames" || { echo "FAIL $part: empty frames (windows python)"; tail -3 "blinky-$part.f2f.err"; fail=1; continue; }
     else
       PYTHONPATH="$PKG/lib/python3.12/site-packages" \
         python3 "$PKG/libexec/fasm2frames" \
-          --part "$device" --db-root "$DB/artix7" "blinky-$part.fasm" \
+          --part "$device" --db-root "$DB/$family" "blinky-$part.fasm" \
           > "blinky-$part.frames" || { echo "FAIL $part: fasm2frames"; fail=1; continue; }
     fi
   else
     run_tool fasm2frames \
-        --part "$device" --db-root "$DB/artix7" "blinky-$part.fasm" \
+        --part "$device" --db-root "$DB/$family" "blinky-$part.fasm" \
         > "blinky-$part.frames" || { echo "FAIL $part: fasm2frames"; fail=1; continue; }
   fi
 
   if ! run_tool xc7frames2bit \
-        --part_file "$DB/artix7/$device/part.yaml" \
+        --part_file "$DB/$family/$device/part.yaml" \
         --part_name "$device" \
         --frm_file "blinky-$part.frames" \
         --output_file "blinky-$part.bit"; then

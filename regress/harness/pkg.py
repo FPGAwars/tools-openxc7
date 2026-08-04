@@ -16,6 +16,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pack.families import family_of
+
 
 def _windows_python() -> str:
     """Prefix of a mingw python usable under wine ($E2E_WINPY, or the store)."""
@@ -111,7 +113,7 @@ class Package:
 
     def device(self, part: str) -> str:
         """The part with its speedgrade, e.g. xc7a35tcpg236 -> xc7a35tcpg236-1."""
-        matches = sorted(d.name for d in (self.db / "artix7").glob(f"{part}-*") if d.is_dir())
+        matches = sorted(d.name for d in (self.db / family_of(part)).glob(f"{part}-*") if d.is_dir())
         if not matches:
             raise SystemExit(f"part {part} is not in the packaged prjxray-db")
         return matches[0]

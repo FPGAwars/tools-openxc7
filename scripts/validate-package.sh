@@ -112,16 +112,20 @@ python3 - "$REPO_ROOT/chipdb-parts.json" > "$SCRATCH/parts.txt" <<'PYEOF'
 import json, sys
 with open(sys.argv[1]) as f:
     manifest = json.load(f)
-for part in manifest.get("artix7", []):
-    print(part)
+for family, parts in manifest.items():
+    for part in parts:
+        print(f"{family} {part}")
 PYEOF
-[ -s "$SCRATCH/parts.txt" ] || fail "empty artix7 part list from chipdb-parts.json"
+[ -s "$SCRATCH/parts.txt" ] || fail "empty part list from chipdb-parts.json"
 NPARTS=0
-while read -r part; do
+while read -r family part; do
     [ -f "$PKG/chipdb/$part.bin" ] || fail "chipdb missing: chipdb/$part.bin"
+    # each family's prjxray-db must travel with its parts (fasm2frames needs
+    # the segbits + part.yaml of that family)
+    [ -d "$PKG/share/nextpnr/external/prjxray-db/$family" ]         || fail "prjxray-db missing for family: $family"
     NPARTS=$((NPARTS + 1))
 done < "$SCRATCH/parts.txt"
-ok "chipdb: all $NPARTS artix7 manifest parts present"
+ok "chipdb: all $NPARTS manifest parts present (with their family dbs)"
 
 # --- feature markers inside the packaged binary -----------------------------
 MARKERS=$(grep -a -c reportClockFmaxJson "$NEXTPNR_BIN" || true)

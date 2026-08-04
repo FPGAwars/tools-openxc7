@@ -19,6 +19,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pack.families import family_of
+
 # Runs inside nextpnr's embedded interpreter. The output path is prepended as
 # an assignment, which keeps this readable python instead of a format template.
 POST_ROUTE = '''\
@@ -98,7 +100,7 @@ def _write_constraints(spec, pkg, part, workdir: Path, repo: Path) -> Path:
     xdc = workdir / "constraints.xdc"
     if spec.constraints == "auto":
         generated = subprocess.run(
-            [sys.executable, str(repo / "e2e" / "gen_xdc.py"), str(pkg.db), "artix7", part],
+            [sys.executable, str(repo / "e2e" / "gen_xdc.py"), str(pkg.db), family_of(part), part],
             capture_output=True, text=True,
         )
         if generated.returncode != 0:
@@ -197,7 +199,7 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
         session.step("fasm2frames", [
             *pkg.python_cmd(pkg.root / "libexec/fasm2frames"),
             "--part", device,
-            "--db-root", str(pkg.db / "artix7"), str(fasm),
+            "--db-root", str(pkg.db / family_of(part)), str(fasm),
         ], stdout_to=frames, env_extra=pkg.env_extra)
         if frames.stat().st_size == 0:
             raise _StepFailed("fasm2frames", "fasm2frames produced no frames")
@@ -207,7 +209,7 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
 
         session.step("xc7frames2bit", [
             *pkg.cmd("xc7frames2bit"),
-            "--part_file", str(pkg.db / "artix7" / device / "part.yaml"),
+            "--part_file", str(pkg.db / family_of(part) / device / "part.yaml"),
             "--part_name", device,
             "--frm_file", str(frames),
             "--output_file", str(bitstream),
