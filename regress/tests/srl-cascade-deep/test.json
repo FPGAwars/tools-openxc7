@@ -1,0 +1,12 @@
+{
+  "description": "256-deep shift register: two full SLICEM cascades linked through the fabric via Q[31]",
+  "exercises": ["SRL cascade beyond 128 bits", "packer Q31->Q rewire at slice boundaries"],
+  "why": "MC31 cannot leave a slice; the fifth chain element onward needs the boundary link moved to the ordinary Q output with the read address tied to 31. This covers that rewrite path (the 128 test never triggers it).",
+  "tags": ["primitive", "slicem"],
+  "sources": ["../srl-cascade/design.v"],
+  "top": "srl_cascade",
+  "parameters": { "DEPTH": 256 },
+  "expect": {
+    "primitives": { "SRLC32E": 8 }
+  }
+}

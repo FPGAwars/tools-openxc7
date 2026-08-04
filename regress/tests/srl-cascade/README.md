@@ -1,45 +1,49 @@
-# srl-cascade — a known toolchain gap, kept on the record
+# srl-cascade — the in-slice MC31 cascade, once a known gap
 
 ## What it probes
 
-A 128-deep shift register, which needs four SRLC32Es chained through the
-dedicated MC31→DI cascade. **This is an expected-fail test** (`status:
-"fail"`): it passes while the flow keeps failing, and trips the day the
-flow succeeds — so the gap can never be silently fixed (or silently
-believed fixed).
+A 128-deep shift register: four SRLC32Es chained through the dedicated
+Q31→D cascade. The MC31 wire that carries it only exists **inside** a
+SLICEM — the cascade muxes run top-down D→C→B→A (`xDI1MUX ← (x+1)MC31`)
+— so the packer must place the whole chain in ONE slice, head at D6LUT,
+exactly like a carry chain. The expected fasm is characteristic: one
+SLICEM with `.SRL` on all four LUTs and the three cascade features
+`ALUT.DI1MUX.BDI1_BMC31`, `BLUT.DI1MUX.DI_CMC31`, `CLUT.DI1MUX.DI_DMC31`.
 
 ## Why it exists
 
-Found on 2026-08-04 by the first SRL coverage this suite ever had, and
-verified to be historic rather than a regression:
+**This never worked before the `xc7-srl-cascade-packing` patch** (found
+2026-08-04 by this suite's first SRL coverage, fixed the same day):
 
-- **27727428 (the July pin)** dies at pack/arch level:
-  `No wire found for port Q31`.
-- **a9badf1d + #105 (current)** gets further — the port exists, packing
-  succeeds — and dies at routing:
-  `Failed to route arc ... C6LUT_MC31 -> ADI1MUX_OUT`, with the chained
-  SRLs placed four rows apart. The MC31 cascade physically reaches only
-  the adjacent slice, and nothing constrains the chain elements to be
-  adjacent.
+- the July pin (27727428) died at pack/arch level:
+  `No wire found for port Q31`;
+- the a9badf1d pin mapped Q31→MC31, so packing succeeded — but nothing
+  constrained the chain, HeAP scattered it across rows, and router2
+  correctly reported the cascade arc unroutable
+  (`... C6LUT_MC31 -> ... ADI1MUX_OUT`);
+- the fasm emitter then still wrote bare site-wire names (`BMC31`),
+  which fasm2frames rejects — prjxray names the shared mux leg after
+  both signals riding it (`BDI1_BMC31`, …), because the LUTRAM
+  write-data broadcast and the SRL cascade share one config bit.
 
-Every design inferring a shift register deeper than 32 (delay lines, FIR
-pipelines, synchronisers with long depths) hits this. Users can work
-around it with `srl_style` attributes or manual FF stages, but the
-toolchain gives no useful diagnostic — just an unroutable arc.
-
-Upstream-issue material: clean two-pin history, minimal reproducer, and
-the likely fix direction (constrain chained SRLs into adjacent slices at
-pack time, the same way carry chains are constrained).
+The fix (cluster constraints in `pack_srls()` + the fasm feature names)
+lives in `nix/patches/xc7-srl-cascade-packing.patch`, upstream-PR
+material for openXC7/nextpnr-xilinx. This test is the guard that it
+stays fixed. `srl-cascade-deep` covers the >128-bit continuation.
 
 ## Expected result
 
-The flow FAILS (currently at the MC31 routing arc) and the test therefore
-reports OK. `led` stays driven through the final tap so synthesis cannot
-optimise the chain away before it reaches the failure.
+Routes; exactly 4 SRLC32E, no FDRE for the register body; fmax n/a (the
+whole register lives in SRLs — no FF-to-FF paths, same as `srl`); fasm
+accepted end-to-end (`fasm2frames` proves the cascade features are real
+chipdb features).
 
-## Reading a "failure"
+## Reading a failure
 
-A failure of THIS test means the design **routed**: the cascade gap was
-fixed. Do not just bump tolerances — verify on hardware if possible, flip
-this into a positive test (drop `status: fail`, assert `SRLC32E >= 4`),
-and retire the limitation note from the docs.
+- **`No wire found for port Q31`** — the Q31→MC31 port mapping regressed.
+- **Unroutable `MC31 → …DI1MUX` arc** — the packer cascade clustering
+  regressed (chain scattered across slices again).
+- **fasm2frames rejects a `DI1MUX` feature** — the feature-name
+  translation regressed (bare site-wire name emitted).
+- **SRLC32E ≠ 4** — yosys changed its shift-register mapping; recalibrate
+  deliberately before touching the expectation.

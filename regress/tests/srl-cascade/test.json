@@ -1,10 +1,11 @@
 {
-  "description": "KNOWN GAP: >32-deep shift registers (SRLC32E MC31 cascade) never route",
-  "exercises": ["the documented SRL-cascade limitation, as an expected-fail guard"],
-  "why": "old pin died at pack ('No wire found for port Q31'); current pin reaches routing and fails on the MC31->DI cascade arc because nothing constrains chained SRLs to adjacent slices. If this test ever passes, the gap was fixed upstream: flip it to a positive test.",
-  "tags": ["structural", "slicem", "xfail"],
+  "description": "128-deep shift register: four SRLC32Es chained through the in-slice MC31 cascade",
+  "exercises": ["SRL Q31/MC31 cascade", "packer cascade clustering into one SLICEM", "DI1MUX fasm features"],
+  "why": "this NEVER worked before the xc7-srl-cascade-packing patch: the old pin died at pack ('No wire found for port Q31'), the a9badf1d pin scattered the chain and the MC31 arc was unroutable. This test is the guard that the fix stays fixed.",
+  "tags": ["primitive", "slicem"],
   "top": "srl_cascade",
+  "parameters": { "DEPTH": 128 },
   "expect": {
-    "status": "fail"
+    "primitives": { "SRLC32E": 4 }
   }
 }

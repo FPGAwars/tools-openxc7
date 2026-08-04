@@ -33,7 +33,10 @@ stdenv.mkDerivation rec {
   src = applyPatches {
     name = "nextpnr-xilinx-source";
     src = upstream;
-    patches = [ ./patches/xc7-slice-validation-strength.patch ];
+    patches = [
+      ./patches/xc7-slice-validation-strength.patch
+      ./patches/xc7-srl-cascade-packing.patch
+    ];
   };
 
   # 0.9.x detects eigen via pkg-config (upstream 77911357)

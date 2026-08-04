@@ -119,10 +119,10 @@ design. A big opaque design would buy realism at the cost of diagnosis — when
 
 | Group | Tests |
 |---|---|
-| Primitives | `carry64`, `bram`, `dsp48`, `widemux`, `srl`, `lutram`, `pll`, `tristate` |
+| Primitives | `carry64`, `bram`, `dsp48`, `widemux`, `srl`, `srl-cascade`, `srl-cascade-deep`, `lutram`, `pll`, `tristate` |
 | Structural properties | `hier` (never flattened), `constant` (constant straight to a pad, run across every part), `fanout` (one driver, 256 loads) |
 | Behaviour parity | `vclk` (a virtual clock must warn, not crash, and still report timing) |
-| Known gaps, on the record | `srl-cascade` (expected-fail: >32-deep shift registers have never routed; trips when fixed) |
+| Known gaps, on the record | *(none right now — `srl-cascade` graduated to a positive test when the `xc7-srl-cascade-packing` patch closed the gap it recorded)* |
 | Scale | the `congestion-local` / `congestion-scatter` pair: ~60% utilisation with routing locality as the ONLY knob (same design, different `STRIDE`), so a regression separates "router under contention" from "everything got slower" |
 | Third-party sanity | *(pending)* the Artix-7 blinkies from openXC7/demo-projects, pinned in `lock.json` |
 
