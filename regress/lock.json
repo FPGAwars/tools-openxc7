@@ -10,7 +10,7 @@
   "demo-projects": {
     "repository": "openXC7/demo-projects",
     "rev": "2189fd4cf96a6e1ed459bbedf90c21fcbbc76703",
-    "status": "pinned, not wired yet",
+    "status": "wired: tests demo-arty and demo-basys3; scripts/fetch-demos.sh materialises the tree under regress/external/ (gitignored; SKIP when absent)",
     "usable_today": {
       "blinky-digilent-arty": "xc7a35tcsg324",
       "blinky-digilent-basys-3": "xc7a35tcpg236"
@@ -23,7 +23,6 @@
   },
 
   "apio": {
-    "status": "not wired yet",
-    "why": "scripts/apio-check.sh will drive real apio against a published prerelease; pin the version here when it lands"
+    "status": "superseded (\u00a74.1 scope boundary): scripts/asset-check.sh verifies the published assets by apio's URL rule without installing apio; tests that DRIVE apio live in the apio repo"
   }
 }

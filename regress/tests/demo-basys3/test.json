@@ -1,0 +1,12 @@
+{
+  "description": "Upstream blinky for the Digilent Basys 3 (openXC7/demo-projects, untouched)",
+  "exercises": ["third-party sources and board constraints end-to-end", "xc7a35tcpg236 packaging", "LOC-style XDC"],
+  "tags": ["third-party", "board"],
+  "sources": ["../../external/demo-projects/blinky-digilent-basys-3/blinky.v"],
+  "constraints": "../../external/demo-projects/blinky-digilent-basys-3/blinky.xdc",
+  "top": "blinky",
+  "parts": ["xc7a35tcpg236"],
+  "expect": {
+    "primitives": { "FDRE": ">=25" }
+  }
+}

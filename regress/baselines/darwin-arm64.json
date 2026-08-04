@@ -204,6 +204,36 @@
       "pnr_seconds": 3.35
     }
   },
+  "demo-arty": {
+    "xc7a35tcsg324": {
+      "bit_bytes": 2192214,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 25,
+      "fmax_mhz": 429.92,
+      "luts": 56,
+      "pnr_seconds": 1.56
+    }
+  },
+  "demo-basys3": {
+    "xc7a35tcpg236": {
+      "bit_bytes": 2192216,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 25,
+      "fmax_mhz": 429.37,
+      "luts": 56,
+      "pnr_seconds": 1.55
+    }
+  },
   "dsp48": {
     "xc7a35tcpg236": {
       "bit_bytes": 2192210,

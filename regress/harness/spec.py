@@ -56,6 +56,10 @@ class TestSpec:
     expect: dict = field(default_factory=dict)
     track_metrics: bool = True
     tolerances: dict = field(default_factory=dict)
+    # A referenced file under regress/external/ that is not there (the pinned
+    # third-party trees are fetched, not committed). The suite reports the
+    # test as SKIP with the fetch command instead of failing everyone's run.
+    missing_external: Path | None = None
 
     @property
     def expected_to_fail(self) -> bool:
@@ -103,12 +107,21 @@ def load(directory: Path, repo: Path) -> TestSpec:
             f"expected result, how to read a failure). See regress/README.md."
         )
 
+    external_root = (repo / "regress" / "external").resolve()
+
+    def _external(path: Path) -> bool:
+        return path.resolve().is_relative_to(external_root)
+
+    missing_external = None
     sources = [directory / name for name in raw.get("sources", [])]
     if not sources:
         sources = sorted(directory.glob("*.v"))
     for source in sources:
         if not source.exists():
-            raise SpecError(f"{declaration}: source not found: {source.name}")
+            if _external(source):
+                missing_external = source
+            else:
+                raise SpecError(f"{declaration}: source not found: {source.name}")
     if not sources:
         raise SpecError(f"{declaration}: no sources (no 'sources' key and no *.v)")
 
@@ -146,7 +159,10 @@ def load(directory: Path, repo: Path) -> TestSpec:
 
     constraints = raw.get("constraints", "auto")
     if constraints != "auto" and not (directory / constraints).exists():
-        raise SpecError(f"{declaration}: constraints file not found: {constraints}")
+        if _external(directory / constraints):
+            missing_external = directory / constraints
+        else:
+            raise SpecError(f"{declaration}: constraints file not found: {constraints}")
 
     return TestSpec(
         name=directory.name,
@@ -169,6 +185,7 @@ def load(directory: Path, repo: Path) -> TestSpec:
         expect=expect,
         track_metrics=metrics.get("track", True),
         tolerances=metrics.get("tolerances", {}),
+        missing_external=missing_external,
     )
 
 

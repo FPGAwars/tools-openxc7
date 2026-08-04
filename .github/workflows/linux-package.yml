@@ -98,6 +98,9 @@ jobs:
       # Same environment as L1 (the user env): the baselines carry the tool
       # versions they were recorded with, so a different yosys would drown
       # the report in version-mismatch warnings.
+      - name: Fetch the pinned third-party trees (regress/lock.json)
+        run: bash scripts/fetch-demos.sh
+
       - name: Regression suite against the tarball (L2 gate)
         run: |
           export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"

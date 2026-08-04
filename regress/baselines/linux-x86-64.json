@@ -204,6 +204,36 @@
       "pnr_seconds": 2.87
     }
   },
+  "demo-arty": {
+    "xc7a35tcsg324": {
+      "bit_bytes": 2192170,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 25,
+      "fmax_mhz": 429.92,
+      "luts": 56,
+      "pnr_seconds": 1.24
+    }
+  },
+  "demo-basys3": {
+    "xc7a35tcpg236": {
+      "bit_bytes": 2192172,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version a9badf1)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 25,
+      "fmax_mhz": 429.37,
+      "luts": 56,
+      "pnr_seconds": 1.26
+    }
+  },
   "dsp48": {
     "xc7a35tcpg236": {
       "bit_bytes": 2192166,

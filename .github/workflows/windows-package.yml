@@ -143,6 +143,9 @@ jobs:
         run: |
           [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash ./install-oss-cad-suite.sh
 
+      - name: Fetch the pinned third-party trees (regress/lock.json)
+        run: bash scripts/fetch-demos.sh
+
       - name: Regression suite against the tarball under wine (L2 gate)
         run: |
           nix shell --inputs-from . nixpkgs#wine64 -c bash -euo pipefail -c '

@@ -124,7 +124,7 @@ design. A big opaque design would buy realism at the cost of diagnosis — when
 | Behaviour parity | `vclk` (a virtual clock must warn, not crash, and still report timing) |
 | Known gaps, on the record | *(none right now — `srl-cascade` graduated to a positive test when the `xc7-srl-cascade-packing` patch closed the gap it recorded)* |
 | Scale | the `congestion-local` / `congestion-scatter` pair: ~60% utilisation with routing locality as the ONLY knob (same design, different `STRIDE`), so a regression separates "router under contention" from "everything got slower" |
-| Third-party sanity | *(pending)* the Artix-7 blinkies from openXC7/demo-projects, pinned in `lock.json` |
+| Third-party sanity | `demo-arty`, `demo-basys3`: the openXC7/demo-projects blinkies untouched (their Verilog, their board `LOC` XDCs), pinned in `lock.json` and fetched by `scripts/fetch-demos.sh` — absent tree reports SKIP, never a gate |
 
 ## What is compared
 

@@ -97,6 +97,22 @@ def main() -> int:
     entries = []
     try:
         for spec in specs:
+            # Pinned third-party sources are fetched, not committed. A test
+            # whose external tree is absent is reported (SKIP, never a gate),
+            # unless the run asked for that test by name — then it is an
+            # error, because silence is exactly what was not wanted.
+            if spec.missing_external is not None:
+                remedio = ("external sources not fetched "
+                           f"({spec.missing_external.name}): run scripts/fetch-demos.sh")
+                if args.test and spec.name in args.test:
+                    raise SystemExit(f"{spec.name}: {remedio}")
+                entries.append({
+                    "test": spec.name, "part": "-", "status": "SKIP",
+                    "description": spec.description, "metrics": {},
+                    "findings": [], "notes": [remedio], "error": "",
+                    "log_tail": "",
+                })
+                continue
             for part in (args.part or spec.parts):
                 result = run_flow(spec, package, part, work_root / spec.name / part, REPO)
                 measured = metrics_module.compute(result) if result.ok else {}

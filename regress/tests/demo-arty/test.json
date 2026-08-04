@@ -1,0 +1,12 @@
+{
+  "description": "Upstream blinky for the Digilent Arty A7-35 (openXC7/demo-projects, untouched)",
+  "exercises": ["third-party sources and board constraints end-to-end", "xc7a35tcsg324 packaging", "LOC-style XDC"],
+  "tags": ["third-party", "board"],
+  "sources": ["../../external/demo-projects/blinky-digilent-arty/blinky.v"],
+  "constraints": "../../external/demo-projects/blinky-digilent-arty/blinky.xdc",
+  "top": "blinky",
+  "parts": ["xc7a35tcsg324"],
+  "expect": {
+    "primitives": { "FDRE": ">=25" }
+  }
+}

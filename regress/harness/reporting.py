@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-SEVERITY = {"OK": 0, "NEW": 1, "WARN": 2, "FAIL": 3}
-_COLOUR = {"OK": "\033[0;32m", "NEW": "\033[0;34m", "WARN": "\033[1;33m", "FAIL": "\033[0;31m"}
+SEVERITY = {"OK": 0, "NEW": 1, "SKIP": 2, "WARN": 3, "FAIL": 4}
+_COLOUR = {"OK": "\033[0;32m", "NEW": "\033[0;34m", "SKIP": "\033[0;36m",
+           "WARN": "\033[1;33m", "FAIL": "\033[0;31m"}
 _RESET = "\033[0m"
 
 
