@@ -18,6 +18,7 @@ on:
   pull_request:
     paths:
       - 'openxc7-pack.py'
+      - 'pack/**'
       - 'macpack.py'
       - 'flake.nix'
       - 'nix/**'
