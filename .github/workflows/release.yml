@@ -121,6 +121,18 @@ jobs:
           gh release upload "$DATE" apio-openxc7-*.tgz SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" --clobber
 
+      # Close the loop: re-resolve every asset by apio's tag->date->name rule
+      # against what GitHub actually serves, and require the published
+      # SHA256SUMS to match the tarballs validated above (the 2026-07-24
+      # class of failure -- a tag apio resolves to nothing -- dies here).
+      - name: Verify the published assets the way apio will fetch them
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_CHECK_REPO: ${{ github.repository }}
+          DATE: ${{ needs.prepare.outputs.date }}
+        run: |
+          bash scripts/asset-check.sh "$DATE" --expect-dir .
+
       # Promotion stays a human decision; these are the steps it involves,
       # including the pin bumps that keep installers and apio aligned with
       # what is actually published (scripts/check-pins.sh asserts it).
