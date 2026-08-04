@@ -71,11 +71,12 @@ def to_markdown(entries: list[dict], versions: dict, platform: str, path: Path) 
             "|---|---|---|---|---|---|---|---|---|"]
     for entry in entries:
         metrics = entry.get("metrics") or {}
+        cell = lambda key: ("n/a" if metrics.get(key) is None else metrics.get(key))
         rows.append(
             f"| {entry['status']} | {entry['test']} | {entry['part']} | "
-            f"{metrics.get('fmax_mhz', '—')} | {metrics.get('luts', '—')} | "
-            f"{metrics.get('ffs', '—')} | {metrics.get('brams', '—')} | "
-            f"{metrics.get('dsps', '—')} | {metrics.get('pnr_seconds', '—')} |"
+            f"{cell('fmax_mhz')} | {cell('luts')} | "
+            f"{cell('ffs')} | {cell('brams')} | "
+            f"{cell('dsps')} | {cell('pnr_seconds')} |"
         )
     problems = [entry for entry in entries if entry["status"] in ("FAIL", "WARN")]
     if problems:
