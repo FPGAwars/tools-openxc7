@@ -11,7 +11,7 @@
       "ffs": 26,
       "fmax_mhz": 647.25,
       "luts": 31,
-      "pnr_seconds": 6.17
+      "pnr_seconds": 6.24
     }
   },
   "carry64": {
@@ -26,7 +26,7 @@
       "ffs": 128,
       "fmax_mhz": 224.37,
       "luts": 257,
-      "pnr_seconds": 6.14
+      "pnr_seconds": 6.15
     }
   },
   "congestion-local": {
@@ -41,7 +41,7 @@
       "ffs": 12288,
       "fmax_mhz": 423.91,
       "luts": 12324,
-      "pnr_seconds": 18.56
+      "pnr_seconds": 18.81
     }
   },
   "congestion-scatter": {
@@ -56,7 +56,7 @@
       "ffs": 12288,
       "fmax_mhz": 398.57,
       "luts": 12324,
-      "pnr_seconds": 25.34
+      "pnr_seconds": 25.76
     }
   },
   "constant": {
@@ -71,7 +71,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 11.48
+      "pnr_seconds": 11.31
     },
     "xc7a100tfgg484": {
       "bit_bytes": 3825947,
@@ -84,7 +84,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 11.17
+      "pnr_seconds": 11.2
     },
     "xc7a100tfgg676": {
       "bit_bytes": 3825947,
@@ -97,7 +97,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 11.17
+      "pnr_seconds": 11.22
     },
     "xc7a100tftg256": {
       "bit_bytes": 3825947,
@@ -110,7 +110,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 11.32
+      "pnr_seconds": 11.17
     },
     "xc7a200tfbg484": {
       "bit_bytes": 9730811,
@@ -123,7 +123,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 19.47
+      "pnr_seconds": 19.55
     },
     "xc7a35tcpg236": {
       "bit_bytes": 2192169,
@@ -136,7 +136,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 5.96
+      "pnr_seconds": 5.97
     },
     "xc7a35tcsg324": {
       "bit_bytes": 2192169,
@@ -149,7 +149,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.8
+      "pnr_seconds": 7.72
     },
     "xc7a35tfgg484": {
       "bit_bytes": 2192169,
@@ -162,7 +162,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.82
+      "pnr_seconds": 7.72
     },
     "xc7a35tftg256": {
       "bit_bytes": 2192169,
@@ -175,7 +175,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.92
+      "pnr_seconds": 7.91
     },
     "xc7a50tcsg324": {
       "bit_bytes": 2192169,
@@ -188,7 +188,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.82
+      "pnr_seconds": 7.79
     },
     "xc7a50tfgg484": {
       "bit_bytes": 2192169,
@@ -201,7 +201,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.79
+      "pnr_seconds": 7.89
     }
   },
   "dsp48": {
@@ -216,7 +216,7 @@
       "ffs": 36,
       "fmax_mhz": 387.9,
       "luts": 81,
-      "pnr_seconds": 6.13
+      "pnr_seconds": 6.21
     }
   },
   "fanout": {
@@ -231,7 +231,7 @@
       "ffs": 257,
       "fmax_mhz": 335.35,
       "luts": 393,
-      "pnr_seconds": 6.53
+      "pnr_seconds": 6.56
     }
   },
   "hier": {
@@ -246,7 +246,7 @@
       "ffs": 22,
       "fmax_mhz": 446.83,
       "luts": 8,
-      "pnr_seconds": 5.98
+      "pnr_seconds": 6.06
     }
   },
   "lutram": {
@@ -261,7 +261,7 @@
       "ffs": 28,
       "fmax_mhz": 517.87,
       "luts": 49,
-      "pnr_seconds": 6.16
+      "pnr_seconds": 6.18
     }
   },
   "pll": {
@@ -291,7 +291,37 @@
       "ffs": 0,
       "fmax_mhz": null,
       "luts": 1,
+      "pnr_seconds": 5.98
+    }
+  },
+  "srl-cascade": {
+    "xc7a35tcpg236": {
+      "bit_bytes": 2192172,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 0,
+      "fmax_mhz": null,
+      "luts": 4,
       "pnr_seconds": 5.95
+    }
+  },
+  "srl-cascade-deep": {
+    "xc7a35tcpg236": {
+      "bit_bytes": 2192177,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 2772742)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 0,
+      "fmax_mhz": null,
+      "luts": 8,
+      "pnr_seconds": 6.0
     }
   },
   "tristate": {
@@ -306,7 +336,7 @@
       "ffs": 24,
       "fmax_mhz": 451.06,
       "luts": 49,
-      "pnr_seconds": 6.01
+      "pnr_seconds": 5.96
     }
   },
   "vclk": {
@@ -336,7 +366,7 @@
       "ffs": 38,
       "fmax_mhz": 340.83,
       "luts": 35,
-      "pnr_seconds": 6.13
+      "pnr_seconds": 6.05
     }
   }
 }
