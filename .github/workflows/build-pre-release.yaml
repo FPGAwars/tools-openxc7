@@ -12,14 +12,18 @@
 # you dispatch it standalone or through a release. This workflow only picks
 # the date, wires the chipdb seed, and — if EVERYTHING is green — publishes.
 #
-# The release is created at the END, as an idempotent dated PRERELEASE
-# (never latest). Any red aborts with no release; the build artifacts stay
-# downloadable for debugging. Promotion to a real (latest) release is a
-# manual, human step:
-#   gh release edit <date> --prerelease=false --latest
-name: release
+# The release is created at the END, as a dated PRERELEASE (never latest),
+# following the FPGAwars ecosystem convention (fpgawars/apio-workflows):
+# daily cron, the tag resolved at the very beginning, an existing same-tag
+# pre-release is replaced, a same-tag STABLE release fails the run, and only
+# the newest N pre-releases are kept. Any red aborts with no release; the
+# build artifacts stay downloadable for debugging. Promotion to a real
+# (latest) release is a manual, human step (see the release note).
+name: build-pre-release
 
 on:
+  schedule:
+    - cron: "0 0 * * *"      # daily, like the other FPGAwars libraries
   workflow_dispatch:
     inputs:
       date:
@@ -44,17 +48,31 @@ jobs:
     outputs:
       date: ${{ steps.d.outputs.date }}
     steps:
+      - name: Get release and package tags (ecosystem convention)
+        uses: fpgawars/apio-workflows/.github/actions/get-release-and-package-tags@main
+        with:
+          release-tag-var: RELEASE_TAG
+          package-tag-var: PACKAGE_TAG
       - id: d
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
             DATE="${GITHUB_REF_NAME}"
           elif [ -n "${{ github.event.inputs.date }}" ]; then
             DATE="${{ github.event.inputs.date }}"
           else
-            DATE="$(date -u +%Y-%m-%d)"
+            DATE="$RELEASE_TAG"
           fi
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
           echo "Release date: $DATE"
+      # Fail FAST if today's tag already exists as a stable release — before
+      # spending 3 platform builds on a run that must not publish.
+      - name: Ensure no conflicting release (early, just-check)
+        uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
+        with:
+          release-tag: ${{ steps.d.outputs.date }}
+          just-check: "true"
 
   linux:
     needs: prepare
@@ -99,6 +117,21 @@ jobs:
           echo "chipdb parity OK ($n bins byte-identical)"
           rm -rf lin win
 
+      # Ecosystem convention (fpgawars/apio-workflows): keep only the newest
+      # pre-releases, then replace today's pre-release if it exists — and FAIL
+      # if the tag was already promoted to a stable release (never clobber it).
+      - name: Cleanup old pre-releases (keep the newest 5)
+        uses: fpgawars/apio-workflows/.github/actions/cleanup-old-prereleases@main
+        with:
+          pre-release-keep-count: "5"
+
+      - name: Ensure no conflicting release (delete same-tag pre-release, fail on stable)
+        uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          release-tag: ${{ needs.prepare.outputs.date }}
+
       - name: Create the dated prerelease (never latest) and upload assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -114,12 +147,27 @@ jobs:
           done
           sha256sum apio-openxc7-*.tgz > SHA256SUMS
           cat SHA256SUMS
-          gh release view "$DATE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
-            gh release create "$DATE" --repo "$GITHUB_REPOSITORY" \
-              --title "$DATE" --prerelease --latest=false \
-              --notes "openXC7 toolchain — $DATE (release candidate: validated by CI, pending manual promotion)"
+          cat > RELEASE-BODY.md <<EOFBODY
+          openXC7 toolchain — $DATE. Validated by CI (package gate, regression
+          suite on the three platforms, linux/windows chipdb parity).
+
+          ### Pre-release note
+          This daily release was created as a pre-release and will be deleted
+          after a few days unless it is marked as a stable release. To make it
+          stable:
+          * Open the release for editing.
+          * Turn off the \\`Set as a pre-release\\` checkbox.
+          * (optional) Turn on the \\`Set as the latest release\\` checkbox.
+          * Remove this pre-release note; then Update Release.
+          * Then bump \\`OPENXC7_DATE\\` in lib/common.sh and the openxc7 tag in
+            apio's remote-config, and run scripts/check-pins.sh (see the job
+            summary checklist).
+          EOFBODY
+          gh release create "$DATE" --repo "$GITHUB_REPOSITORY" \
+            --title "$DATE" --prerelease --latest=false \
+            --notes-file RELEASE-BODY.md
           gh release upload "$DATE" apio-openxc7-*.tgz SHA256SUMS \
-            --repo "$GITHUB_REPOSITORY" --clobber
+            --repo "$GITHUB_REPOSITORY"
 
       # Close the loop: re-resolve every asset by apio's tag->date->name rule
       # against what GitHub actually serves, and require the published

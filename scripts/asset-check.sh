@@ -76,7 +76,7 @@ def sha256_stream(resp):
     return h.hexdigest()
 
 
-# The published SHA256SUMS (release.yml uploads it). Optional: manual
+# The published SHA256SUMS (build-pre-release.yaml uploads it). Optional: manual
 # releases predate it — existence checks still run without one.
 sums = {}
 try:
@@ -87,7 +87,7 @@ try:
                 sums[parts[1].lstrip("*")] = parts[0]
     print(f"SHA256SUMS: {len(sums)} entries")
 except urllib.error.HTTPError:
-    print("SHA256SUMS: not published on this release (pre-release.yml era)")
+    print("SHA256SUMS: not published on this release (pre-build-pre-release era)")
 
 for platform in platforms:
     asset = f"apio-openxc7-{platform}-{date}.tgz"
