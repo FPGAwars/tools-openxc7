@@ -1,0 +1,26 @@
+{
+  "description": "KNOWN GAP: kintex7 LVDS input (RIOB18 diff-in segbits missing in prjxray db)",
+  "exercises": [
+    "kintex7 flow end-to-end",
+    "xc7k325tffg900 packaging (speed -2 only)",
+    "IBUFDS differential clock input"
+  ],
+  "tags": [
+    "third-party",
+    "board",
+    "kintex7",
+    "xfail"
+  ],
+  "sources": [
+    "../../external/demo-projects/blinky-genesys2/blinky.v"
+  ],
+  "constraints": "../../external/demo-projects/blinky-genesys2/blinky.xdc",
+  "top": "blinky",
+  "parts": [
+    "xc7k325tffg900"
+  ],
+  "expect": {
+    "status": "fail"
+  },
+  "why": "Routes fine; fasm2frames rejects RIOB18.IOB_Y0.IBUFDS_BANK_GLUE / SSTL*.IN_DIFF / *.IN_ONLY \u2014 the kintex7 HP-bank differential-input bits were never fuzzed upstream. Genesys2/KC705 only have LVDS clocks, so kintex7 shipped no boards and left the manifest (round 3). While kintex7 is out, this fails earlier (no chipdb bin); when it returns it fails at fasm2frames; when the db gap is fixed it PASSES and this guard trips: flip it to a positive test and re-enable the boards."
+}

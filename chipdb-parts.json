@@ -17,6 +17,7 @@
   ],
   "zynq7": [
     "xc7z010clg400",
-    "xc7z020clg400"
+    "xc7z020clg400",
+    "xc7z020clg484"
   ]
 }
