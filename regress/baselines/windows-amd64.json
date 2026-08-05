@@ -11,7 +11,7 @@
       "ffs": 26,
       "fmax_mhz": 647.25,
       "luts": 31,
-      "pnr_seconds": 6.21
+      "pnr_seconds": 6.09
     }
   },
   "carry64": {
@@ -26,7 +26,7 @@
       "ffs": 128,
       "fmax_mhz": 224.37,
       "luts": 257,
-      "pnr_seconds": 6.13
+      "pnr_seconds": 6.12
     }
   },
   "congestion-local": {
@@ -41,7 +41,7 @@
       "ffs": 12288,
       "fmax_mhz": 423.91,
       "luts": 12324,
-      "pnr_seconds": 18.53
+      "pnr_seconds": 18.72
     }
   },
   "congestion-scatter": {
@@ -56,7 +56,7 @@
       "ffs": 12288,
       "fmax_mhz": 398.57,
       "luts": 12324,
-      "pnr_seconds": 25.48
+      "pnr_seconds": 25.59
     }
   },
   "constant": {
@@ -71,7 +71,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 11.21
+      "pnr_seconds": 10.98
     },
     "xc7a100tfgg484": {
       "bit_bytes": 3825947,
@@ -84,7 +84,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 11.23
+      "pnr_seconds": 10.86
     },
     "xc7a100tfgg676": {
       "bit_bytes": 3825947,
@@ -97,7 +97,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 11.2
+      "pnr_seconds": 10.96
     },
     "xc7a100tftg256": {
       "bit_bytes": 3825947,
@@ -110,7 +110,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 11.22
+      "pnr_seconds": 10.92
     },
     "xc7a200tfbg484": {
       "bit_bytes": 9730811,
@@ -123,7 +123,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 19.42
+      "pnr_seconds": 18.88
     },
     "xc7a35tcpg236": {
       "bit_bytes": 2192169,
@@ -136,7 +136,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 5.96
+      "pnr_seconds": 5.97
     },
     "xc7a35tcsg324": {
       "bit_bytes": 2192169,
@@ -149,7 +149,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.77
+      "pnr_seconds": 7.66
     },
     "xc7a35tfgg484": {
       "bit_bytes": 2192169,
@@ -162,7 +162,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.75
+      "pnr_seconds": 7.64
     },
     "xc7a35tftg256": {
       "bit_bytes": 2192169,
@@ -175,7 +175,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.79
+      "pnr_seconds": 7.66
     },
     "xc7a50tcsg324": {
       "bit_bytes": 2192169,
@@ -188,7 +188,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.74
+      "pnr_seconds": 7.63
     },
     "xc7a50tfgg484": {
       "bit_bytes": 2192169,
@@ -201,7 +201,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.78
+      "pnr_seconds": 7.64
     },
     "xc7s50csga324": {
       "bit_bytes": 2192169,
@@ -214,7 +214,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.75
+      "pnr_seconds": 7.59
     },
     "xc7z010clg400": {
       "bit_bytes": 2083897,
@@ -227,7 +227,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 5.4
+      "pnr_seconds": 5.36
     },
     "xc7z020clg400": {
       "bit_bytes": 4045721,
@@ -240,7 +240,7 @@
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 6.91
+      "pnr_seconds": 6.73
     }
   },
   "demo-arty": {
@@ -255,7 +255,7 @@
       "ffs": 25,
       "fmax_mhz": 429.92,
       "luts": 56,
-      "pnr_seconds": 5.96
+      "pnr_seconds": 6.0
     }
   },
   "demo-basys3": {
@@ -270,7 +270,7 @@
       "ffs": 25,
       "fmax_mhz": 429.37,
       "luts": 56,
-      "pnr_seconds": 6.02
+      "pnr_seconds": 6.01
     }
   },
   "demo-zybo": {
@@ -300,7 +300,7 @@
       "ffs": 36,
       "fmax_mhz": 387.9,
       "luts": 81,
-      "pnr_seconds": 6.12
+      "pnr_seconds": 6.14
     }
   },
   "fanout": {
@@ -315,7 +315,7 @@
       "ffs": 257,
       "fmax_mhz": 335.35,
       "luts": 393,
-      "pnr_seconds": 6.58
+      "pnr_seconds": 6.62
     }
   },
   "hier": {
@@ -330,7 +330,7 @@
       "ffs": 22,
       "fmax_mhz": 446.83,
       "luts": 8,
-      "pnr_seconds": 6.11
+      "pnr_seconds": 6.03
     }
   },
   "lutram": {
@@ -345,7 +345,7 @@
       "ffs": 28,
       "fmax_mhz": 517.87,
       "luts": 49,
-      "pnr_seconds": 6.11
+      "pnr_seconds": 6.08
     }
   },
   "pll": {
@@ -360,7 +360,7 @@
       "ffs": 22,
       "fmax_mhz": 451.06,
       "luts": 49,
-      "pnr_seconds": 5.99
+      "pnr_seconds": 5.98
     }
   },
   "spartan7-blinky": {
@@ -375,7 +375,7 @@
       "ffs": 24,
       "fmax_mhz": 453.93,
       "luts": 48,
-      "pnr_seconds": 7.63
+      "pnr_seconds": 7.64
     }
   },
   "srl": {
@@ -390,7 +390,7 @@
       "ffs": 0,
       "fmax_mhz": null,
       "luts": 1,
-      "pnr_seconds": 5.93
+      "pnr_seconds": 6.01
     }
   },
   "srl-cascade": {
@@ -405,7 +405,7 @@
       "ffs": 0,
       "fmax_mhz": null,
       "luts": 4,
-      "pnr_seconds": 5.92
+      "pnr_seconds": 5.96
     }
   },
   "srl-cascade-deep": {
@@ -420,7 +420,7 @@
       "ffs": 0,
       "fmax_mhz": null,
       "luts": 8,
-      "pnr_seconds": 6.0
+      "pnr_seconds": 6.04
     }
   },
   "tristate": {
@@ -435,7 +435,7 @@
       "ffs": 24,
       "fmax_mhz": 451.06,
       "luts": 49,
-      "pnr_seconds": 6.04
+      "pnr_seconds": 6.01
     }
   },
   "vclk": {
@@ -465,7 +465,7 @@
       "ffs": 38,
       "fmax_mhz": 340.83,
       "luts": 35,
-      "pnr_seconds": 6.03
+      "pnr_seconds": 6.1
     }
   }
 }
