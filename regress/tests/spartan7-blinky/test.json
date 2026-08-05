@@ -1,0 +1,8 @@
+{
+  "description": "Counter blinky on xc7s50csga324 — first spartan7 coverage",
+  "exercises": ["spartan7 flow end-to-end", "xc7s50csga324 packaging (Arty S7-50)"],
+  "tags": ["board", "spartan7"],
+  "top": "spartan7_blinky",
+  "parts": ["xc7s50csga324"],
+  "expect": { "primitives": { "FDRE": ">=24" } }
+}

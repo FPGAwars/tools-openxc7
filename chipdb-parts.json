@@ -11,5 +11,12 @@
     "xc7a100tfgg484",
     "xc7a100tfgg676",
     "xc7a200tfbg484"
+  ],
+  "spartan7": [
+    "xc7s50csga324"
+  ],
+  "zynq7": [
+    "xc7z010clg400",
+    "xc7z020clg400"
   ]
 }

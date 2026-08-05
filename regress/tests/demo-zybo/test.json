@@ -1,0 +1,10 @@
+{
+  "description": "Upstream blinky for the Digilent Zybo Z7-10 (openXC7/demo-projects, untouched) — first zynq7 coverage",
+  "exercises": ["zynq7 PL-only flow end-to-end", "xc7z010clg400 packaging", "third-party board constraints"],
+  "tags": ["third-party", "board", "zynq7"],
+  "sources": ["../../external/demo-projects/blinky-digilent-zybo/blinky.v"],
+  "constraints": "../../external/demo-projects/blinky-digilent-zybo/blinky.xdc",
+  "top": "blinky",
+  "parts": ["xc7z010clg400"],
+  "expect": { "primitives": { "FDRE": ">=20" } }
+}
