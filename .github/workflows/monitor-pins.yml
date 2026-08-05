@@ -1,0 +1,26 @@
+# The standing alarm that replaces human memory in the release flow:
+# scripts/check-pins.sh asserts that the three version sources agree —
+# lib/common.sh (what ./install.sh downloads), the latest PROMOTED
+# GitHub release, and apio's remote-config (what apio installs). Any
+# drift (an unmerged bump PR, a manual promotion, a revert) turns this
+# workflow red until resolved. Badge-able, like the other FPGAwars
+# monitors.
+name: monitor-pins
+
+on:
+  schedule:
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: check-pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/check-pins.sh

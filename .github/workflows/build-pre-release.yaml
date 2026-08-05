@@ -47,6 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       date: ${{ steps.d.outputs.date }}
+      skip: ${{ steps.nc.outputs.skip }}
     steps:
       - name: Get release and package tags (ecosystem convention)
         uses: fpgawars/apio-workflows/.github/actions/get-release-and-package-tags@main
@@ -66,6 +67,26 @@ jobs:
           fi
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
           echo "Release date: $DATE"
+      # Scheduled runs only build when there is something new: if the last
+      # published release was built from this same commit, stop here (three
+      # platform builds and a release that would be byte-identical noise).
+      # Dispatch and tag-push runs always build (explicit intent).
+      - name: No-change guard (schedule only)
+        id: nc
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LAST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1             --json tagName -q '.[0].tagName' 2>/dev/null || true)
+          LAST_SHA=""
+          [ -n "$LAST_TAG" ] && LAST_SHA=$(gh release view "$LAST_TAG"             --repo "$GITHUB_REPOSITORY" --json targetCommitish -q .targetCommitish || true)
+          if [ -n "$LAST_SHA" ] && [ "$LAST_SHA" = "$GITHUB_SHA" ]; then
+            echo "no changes since release $LAST_TAG ($LAST_SHA) — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Fail FAST if today's tag already exists as a stable release — before
       # spending 3 platform builds on a run that must not publish.
       - name: Ensure no conflicting release (early, just-check)
@@ -76,6 +97,7 @@ jobs:
 
   linux:
     needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
     uses: ./.github/workflows/linux-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
@@ -83,6 +105,7 @@ jobs:
   # After linux: it publishes the chipdb-bins artifact this job seeds from.
   darwin:
     needs: [prepare, linux]
+    if: needs.prepare.outputs.skip != 'true'
     uses: ./.github/workflows/darwin-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
@@ -90,12 +113,14 @@ jobs:
 
   windows:
     needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
     uses: ./.github/workflows/windows-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
 
   publish:
     needs: [prepare, linux, darwin, windows]
+    if: needs.prepare.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4    # scripts/ for chipdb-assets + asset-check
@@ -179,6 +204,7 @@ jobs:
             summary checklist).
           EOFBODY
           gh release create "$DATE" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
             --title "$DATE" --prerelease --latest=false \
             --notes-file RELEASE-BODY.md
           gh release upload "$DATE" apio-openxc7-*.tgz SHA256SUMS \

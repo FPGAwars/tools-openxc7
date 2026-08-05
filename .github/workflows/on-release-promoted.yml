@@ -1,0 +1,118 @@
+# Promotion propagation — the automatic tail of the release flow.
+#
+# Human flow: the daily build-pre-release publishes a dated PRERELEASE;
+# a human tries it and PROMOTES it (unchecks "pre-release" on GitHub).
+# That promotion fires this workflow (release event, type `released`),
+# which does everything that used to be a memory-dependent checklist:
+#
+#   1. re-verify the promoted release the way apio will fetch it
+#      (scripts/asset-check.sh) — a broken promotion stops HERE;
+#   2. bump OPENXC7_DATE in lib/common.sh (what ./install.sh downloads)
+#      and commit it to the default branch;
+#   3. open a PR against FPGAwars/apio bumping remote-config's openxc7
+#      tag — and the definitions tag in the SAME PR (both pointers move
+#      atomically; a board without its chipdb cannot happen). Needs the
+#      APIO_PR_TOKEN secret (fine-grained PAT: apio repo, Contents RW +
+#      Pull requests RW); without it, the diff lands in the job summary
+#      for a manual PR instead of failing.
+#
+# The remaining human steps: promote (one click) and merge the apio PR
+# (one click, with review). scripts/check-pins.sh (see monitor-pins.yml)
+# stands guard for drift in between.
+name: on-release-promoted
+
+on:
+  release:
+    types: [released]
+
+permissions:
+  contents: write
+
+jobs:
+  propagate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard — only dated release tags
+        id: guard
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          case "$TAG" in
+            20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]) echo "ok=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "tag '$TAG' is not a dated release; nothing to propagate"
+               echo "ok=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.ok == 'true'
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Verify the promoted release (asset-check)
+        if: steps.guard.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_CHECK_REPO: ${{ github.repository }}
+        run: bash scripts/asset-check.sh "${{ github.event.release.tag_name }}"
+
+      - name: Bump OPENXC7_DATE in lib/common.sh and push
+        if: steps.guard.outputs.ok == 'true'
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          # the pin is env-overridable: OPENXC7_DATE="${OPENXC7_DATE:-<date>}"
+          sed -i -E "s/(OPENXC7_DATE:-)[0-9-]+\}/\1${TAG}}/" lib/common.sh
+          grep "^OPENXC7_DATE=" lib/common.sh
+          if git diff --quiet lib/common.sh; then
+            echo "installer already at $TAG"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add lib/common.sh
+            git commit -m "installer: OPENXC7_DATE -> $TAG (release promoted)"
+            git pull --rebase origin "${{ github.event.repository.default_branch }}"
+            git push origin "${{ github.event.repository.default_branch }}"
+          fi
+
+      - name: Open (or prepare) the apio remote-config PR
+        if: steps.guard.outputs.ok == 'true'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          APIO_PR_TOKEN: ${{ secrets.APIO_PR_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # newest STABLE definitions release rides in the same PR
+          DEFTAG=$(GH_TOKEN="${APIO_PR_TOKEN:-$GH_TOKEN}" gh release view \
+            --repo FPGAwars/apio-definitions --json tagName -q .tagName 2>/dev/null || true)
+          git clone --depth 1 https://github.com/FPGAwars/apio /tmp/apio
+          ARGS="openxc7=$TAG"
+          [ -n "$DEFTAG" ] && ARGS="$ARGS definitions=$DEFTAG"
+          bash scripts/bump-remote-config.sh /tmp/apio/remote-config/apio-1.5.x.jsonc $ARGS
+          cd /tmp/apio
+          if git diff --quiet; then
+            echo "remote-config already up to date" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git diff > /tmp/remote-config.patch
+          if [ -z "${APIO_PR_TOKEN:-}" ]; then
+            {
+              echo "## APIO_PR_TOKEN not set — manual PR needed"
+              echo '```diff'; cat /tmp/remote-config.patch; echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          BRANCH="bump/openxc7-$TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git commit -am "remote-config: openxc7 -> $TAG${DEFTAG:+, definitions -> $DEFTAG}"
+          git push -f "https://x-access-token:${APIO_PR_TOKEN}@github.com/FPGAwars/apio" "$BRANCH"
+          {
+            printf 'Automated bump after promoting [tools-openxc7 %s](https://github.com/%s/releases/tag/%s).' \
+              "$TAG" "${{ github.repository }}" "$TAG"
+            [ -n "$DEFTAG" ] && printf ' Also pins definitions %s (released boards ride with their toolchain).' "$DEFTAG"
+            printf '\n'
+          } > /tmp/pr-body.md
+          GH_TOKEN="$APIO_PR_TOKEN" gh pr create --repo FPGAwars/apio \
+            --head "$BRANCH" --title "remote-config: openxc7 $TAG" \
+            --body-file /tmp/pr-body.md \
+            2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || \
+            echo "PR may already exist for $BRANCH" >> "$GITHUB_STEP_SUMMARY"
