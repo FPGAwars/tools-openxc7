@@ -44,7 +44,12 @@ let
 
   commonFlags = [
     "-DARCH=xilinx" "-DBUILD_GUI=OFF" "-DBUILD_TESTS=OFF" "-DUSE_OPENMP=OFF"
-    "-Wno-deprecated" "-DCURRENT_GIT_VERSION=2772742"
+    "-Wno-deprecated"
+    # version stamp derived from the pinned source, like the native build --
+    # this was a hardcoded 2772742 from the spike era, so every windows exe
+    # since the August pins reported July's revision (caught by the baseline
+    # env fingerprint of the regression suite, 2026-08-05)
+    "-DCURRENT_GIT_VERSION=${lib.substring 0 7 nextpnr-xilinx.src.rev}"
     "-DPython3_EXECUTABLE=${python.interpreter}"
   ];
 
