@@ -308,8 +308,20 @@ belongs to them.
 This repository was created by **Juan González-Gómez
 ([Obijuan](https://github.com/Obijuan))** for [FPGAwars](https://github.com/FPGAwars),
 who set up the original Nix packaging, the installation scripts, the environment
-and the Basys3 example that this project still builds on. Multi-platform support
-(macOS and Windows) was added later on top of that foundation.
+and the Basys3 example that this project still builds on. 
+
+
+**Carlos Venegas ([cavearr](https://github.com/cavearr))**
+contributed, on top of that foundation: multi-platform support (native macOS
+on Apple Silicon and Windows cross-compiled from Linux), fixes to the openXC7
+toolchain itself (routing, timing and packer bugs, all merged upstream,
+nextpnr-xilinx #102/#104/#105/#106 and prjxray #5, so the packages carry zero
+local patches), extended Artix-7 board coverage plus the Spartan-7 and
+Zynq-7000 (PL) families, a declarative regression suite that gates every
+package on all three platforms, and the automated build, validation and
+release workflows.
+
+
 
 ## License
 
