@@ -98,10 +98,25 @@ jobs:
     needs: [prepare, linux, darwin, windows]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4    # scripts/ for chipdb-assets + asset-check
+
       - uses: actions/download-artifact@v4
         with:
           pattern: apio-openxc7-*     # the 3 package artifacts (not chipdb-bins)
           merge-multiple: true
+
+      # The platform-independent per-FPGA assets (apio's upcoming on-demand
+      # loader): one gzipped bin per manifest part + an index with both
+      # hashes and the chipdb identity stamp. Same bins the packages carry.
+      - uses: actions/download-artifact@v4
+        with:
+          name: chipdb-bins
+          path: chipdb-bins
+
+      - name: Build the per-FPGA chipdb assets
+        run: |
+          D="${{ needs.prepare.outputs.date }}"
+          bash scripts/chipdb-assets.sh chipdb-bins chipdb-assets "${D//-/}" && ls -la chipdb-assets | head -5
 
       - name: Assert the chipdb is byte-identical linux<->windows
         run: |
@@ -167,7 +182,7 @@ jobs:
             --title "$DATE" --prerelease --latest=false \
             --notes-file RELEASE-BODY.md
           gh release upload "$DATE" apio-openxc7-*.tgz SHA256SUMS \
-            --repo "$GITHUB_REPOSITORY"
+            chipdb-assets/* --repo "$GITHUB_REPOSITORY"
 
       # Close the loop: re-resolve every asset by apio's tag->date->name rule
       # against what GitHub actually serves, and require the published
