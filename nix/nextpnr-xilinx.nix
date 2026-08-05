@@ -1,14 +1,15 @@
 { stdenv, cmake, git, lib, fetchFromGitHub, applyPatches, python312Packages
 , python312, eigen, pkg-config, llvmPackages, ... }:
 let
-  # Kept out of the mkDerivation so its .rev survives: applyPatches returns a
-  # plain store path without fetchFromGitHub's attributes, and the version
-  # stamp below needs the revision.
+  # Kept in a let so the version stamp below can read .rev (a lesson from
+  # the applyPatches era: it returns a plain store path without attributes).
+  # If local patches ever return, wrap this in applyPatches AT THE SOURCE so
+  # native, chipdb and the Windows cross see one tree.
   upstream = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr-xilinx";
-    rev = "a9badf1d36ad4bf1087898c91abc09dde952cc83";
-    hash = "sha256-zHhD4dpMADaILtWZC2PVNWDPrad8Ms8JmpcGNtK4gCU=";
+    rev = "fedc910d79576871c8fcd853be5c91739efe0b21";
+    hash = "sha256-3jtGnJyffoAqICOYD492jiwuFta8wZdwSExn/hPP5k8=";
     fetchSubmodules = true;
   };
 in
@@ -16,28 +17,11 @@ stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
   version = "unstable-2026-08-03";
 
-  # stable-backports tip (PRs #102 and #104 took all eight of our previous
-  # local patches upstream), plus ONE local patch pending its own PR:
-  # xc7-slice-validation-strength fixes a second defect of 6b46121f, found
-  # 2026-08-03 by our regression suite — the frozen-tile fast-path and the
-  # pin-merge skip both keyed on STRENGTH_STRONG, which is how HeAP binds the
-  # chains it places, so carry chains / mux trees skipped slice validation
-  # AND input-pin merging (two nets on one physical A-pin -> router failure),
-  # and the O6-name check contradicted fixupPlacement's rename contract
-  # (which made strict validation hang instead).
-  #
-  # The patch is applied to the SOURCE (applyPatches) so every consumer —
-  # the native build, the chipdb derivation and the Windows cross build —
-  # sees the same tree from one single place, instead of the hand-synced
-  # per-derivation patch lists that shipped a half-updated package once.
-  src = applyPatches {
-    name = "nextpnr-xilinx-source";
-    src = upstream;
-    patches = [
-      ./patches/xc7-slice-validation-strength.patch
-      ./patches/xc7-srl-cascade-packing.patch
-    ];
-  };
+  # stable-backports tip (2026-08-05): our PRs #105 (slice validation
+  # strength marker) and #106 (SRL cascade packing + DI1MUX fasm names)
+  # merged upstream — ZERO local patches for the first time. PRs #102/#104
+  # took the previous eight.
+  src = upstream;
 
   # 0.9.x detects eigen via pkg-config (upstream 77911357)
   nativeBuildInputs = [ cmake git pkg-config ];
