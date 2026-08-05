@@ -47,14 +47,23 @@ apio-openxc7-windows-amd64-<YYYYMMDD>.tgz
 
 ## Supported FPGA parts
 
-Every package ships a chipdb for these Artix-7 footprints:
+Every package ships a chipdb (and the matching prjxray database) for three
+7-series families:
 
-| Device | Footprints |
-|---|---|
-| xc7a35t | `cpg236`, `csg324`, `fgg484`, `ftg256` |
-| xc7a50t | `csg324`, `fgg484` |
-| xc7a100t | `csg324`, `ftg256`, `fgg484`, `fgg676` |
-| xc7a200t | `fbg484` |
+| Family | Device | Footprints | Boards (examples) |
+|---|---|---|---|
+| Artix-7 | xc7a35t | `cpg236`, `csg324`, `fgg484`, `ftg256` | Basys3, Arty A7-35, Cmod A7 |
+| Artix-7 | xc7a50t | `csg324`, `fgg484` | |
+| Artix-7 | xc7a100t | `csg324`, `ftg256`, `fgg484`, `fgg676` | Arty A7-100, Nexys |
+| Artix-7 | xc7a200t | `fbg484` | |
+| Spartan-7 | xc7s50 | `csga324` | Arty S7-50 |
+| Zynq-7000 (PL) | xc7z010 | `clg400` | Zybo Z7-10, EBAZ4205 |
+| Zynq-7000 (PL) | xc7z020 | `clg400`, `clg484` | Pynq-Z1/Z2, Arty Z7-20, Zybo Z7-20, ZedBoard |
+
+Zynq support is **PL-only**: the toolchain produces the fabric bitstream
+(loaded over JTAG); the ARM PS boots on its own. The Arty S7-25 cannot be
+supported yet (`xc7s25` is not in the prjxray database), and Kintex-7 is
+work in progress (its differential-input bits are missing upstream).
 
 `chipdb-parts.json` is the **single source of truth** for that list: it is read by
 the packer, by the Windows build and by the CI assertions. Adding a board whose
@@ -227,7 +236,19 @@ That last step is also available on its own:
 e2e/run-parts.sh <extracted-package-dir> <workdir> [wine]
 ```
 
-A second check keeps the installers honest about what is actually published:
+The second layer is the **regression suite**: 21 declarative tests (one
+folder + `test.json` each) that run real designs through the whole flow on
+every packaged family — primitives, structural properties, a parametric
+congestion pair, and the untouched upstream demo projects — and compare
+fmax/utilisation/router-time against per-platform baselines:
+
+```bash
+scripts/fetch-demos.sh                     # pinned third-party sources
+scripts/regress.sh <package.tgz>           # the whole catalogue
+scripts/regress.sh <pkg> --test srl --json report.json
+```
+
+A third check keeps the installers honest about what is actually published:
 
 ```bash
 scripts/check-pins.sh            # installer pins vs promoted releases vs apio
@@ -246,12 +267,17 @@ single package or for a full release:
 | `linux-package.yml` | Builds + validates `linux-x86-64` (and owns the chipdb) |
 | `darwin-package.yml` | Builds + validates `darwin-arm64` |
 | `windows-package.yml` | Cross-builds + validates `windows-amd64` under wine |
-| `release.yml` | Orchestrates the three, then publishes |
+| `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): builds the three only when there are new commits, then publishes |
+| `on-release-promoted.yml` | Fires when a prerelease is promoted: re-verifies it, bumps the installer pin, opens the apio remote-config PR |
+| `monitor-pins.yml` | Daily alarm: installer, latest promoted release and apio's remote-config must agree |
 
-`release.yml` creates the release **only after every platform is green**, as a
-dated **prerelease** (never marked "latest"), with the three assets and their
-`SHA256SUMS`. Promoting a validated candidate to a real release stays a
-deliberate manual step.
+`build-pre-release.yaml` creates the release **only after every platform is
+green**, as a dated **prerelease** (never "latest"), with the three tarballs,
+their `SHA256SUMS`, and one gzipped `chipdb-<part>-<date>.bin.gz` per FPGA
+plus a `chipdb-index-<date>.json` (the bins are platform-independent — these
+per-FPGA assets back apio's upcoming on-demand loader). Old prereleases are
+pruned automatically; promoting a candidate to a real release is a deliberate
+one-click human step, and everything after that click is automated.
 
 Asset names must match the release tag: apio derives the package date from the
 **tag** (`2026-07-31` → `20260731`), not from the file name, so a mismatch turns
@@ -262,8 +288,9 @@ into a 404 at install time.
 | Path | What it is |
 |---|---|
 | `flake.nix`, `nix/` | The reproducible build: every package, the dev shells and the Windows cross recipe |
-| `openxc7-pack.py`, `macpack.py` | The packer (macOS backend relocates Mach-O libraries and re-signs them) |
-| `chipdb-parts.json` | The part manifest |
+| `openxc7-pack.py`, `pack/`, `macpack.py` | The packer: a thin CLI over the `pack/` modules (unit-tested in `tests/`); the macOS backend relocates Mach-O libraries and re-signs them |
+| `chipdb-parts.json` | The part manifest (family → footprints) — one line here per new part |
+| `regress/` | The declarative regression suite (tests, baselines, pinned third-party demos) |
 | `scripts/`, `e2e/` | Validation you can run locally, and the multi-part end-to-end |
 | `install*.sh`, `uninstall*.sh`, `start`, `lib/` | End-user installation and environment |
 | `udev/` | USB rules needed to program boards on Linux (copy of openFPGALoader's) |
