@@ -321,6 +321,8 @@ Zynq-7000 (PL) families, a declarative regression suite that gates every
 package on all three platforms, and the automated build, validation and
 release workflows.
 
+**Fernando Mosquera ([Benitos](https://github.com/benitoss))**
+contributed with Icestudio and verilog designs, feedback, testing, and real-world physical board tests.
 
 
 ## License
