@@ -41,7 +41,7 @@ jobs:
     outputs:
       tarball: ${{ steps.pack.outputs.tarball }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22
         with:
           summarize: false          # no branded gantt/Discord footer
@@ -58,7 +58,7 @@ jobs:
 
       - name: Seed the chipdb from the linux job of this run
         if: inputs.seed_from_artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: chipdb-bins
           path: chipdb-cache
@@ -68,7 +68,7 @@ jobs:
       # with linux-package.yml.
       - name: Seed the chipdb from the shared cache (standalone)
         if: ${{ !inputs.seed_from_artifact }}
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: chipdb-cache
           key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
@@ -95,7 +95,7 @@ jobs:
           ls -la "$TGZ"
 
       - name: Cache the oss-cad-suite validation env
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/oss-cad-suite
           key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
@@ -127,14 +127,14 @@ jobs:
         run: |
           [ -f regress-report.md ] && cat regress-report.md >> "$GITHUB_STEP_SUMMARY" || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: regress-report-darwin-arm64
           path: regress-report.*
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: apio-openxc7-darwin-arm64
           path: ${{ steps.pack.outputs.tarball }}

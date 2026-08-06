@@ -26,7 +26,7 @@ jobs:
     name: build + validate windows-amd64 (cross from linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22
         with:
           summarize: false          # no branded gantt/Discord footer
@@ -135,7 +135,7 @@ jobs:
       # with fasm2frames under the WINDOWS python (the real apio path; the
       # harness finds the mingw interpreter in the store, E2E_WINPY overrides).
       - name: Cache the oss-cad-suite validation env
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/oss-cad-suite
           key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
@@ -161,14 +161,14 @@ jobs:
         run: |
           [ -f regress-report.md ] && cat regress-report.md >> "$GITHUB_STEP_SUMMARY" || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: regress-report-windows-amd64
           path: regress-report.*
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: apio-openxc7-windows-amd64
           path: ${{ steps.tar.outputs.name }}

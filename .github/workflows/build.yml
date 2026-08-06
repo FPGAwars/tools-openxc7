@@ -24,7 +24,7 @@ jobs:
     name: linux (x86_64-linux) — regression guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@v22
@@ -52,7 +52,7 @@ jobs:
     # failed to compile (impure Python.h). macOS is a first-class platform;
     # a red build must be a red job.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Show host platform
         run: |

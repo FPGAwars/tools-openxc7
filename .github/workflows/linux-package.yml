@@ -35,7 +35,7 @@ jobs:
     outputs:
       tarball: ${{ steps.pack.outputs.tarball }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22
         with:
           summarize: false          # no branded gantt/Discord footer
@@ -54,7 +54,7 @@ jobs:
       # (nextpnr, prjxray, manifest) -> that tuple IS the cache key.
       # KEEP THE FILE LIST IN SYNC with darwin-package.yml.
       - name: Restore the chipdb cache (keyed by pins + manifest)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: chipdb-cache
           key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
@@ -83,7 +83,7 @@ jobs:
           cp dist/chipdb/*.bin dist/chipdb/chipdb-id.txt chipdb-cache/
 
       - name: Cache the oss-cad-suite validation env
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/oss-cad-suite
           key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
@@ -115,14 +115,14 @@ jobs:
         run: |
           [ -f regress-report.md ] && cat regress-report.md >> "$GITHUB_STEP_SUMMARY" || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: regress-report-linux-x86-64
           path: regress-report.*
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: apio-openxc7-linux-x86-64
           path: ${{ steps.pack.outputs.tarball }}
@@ -130,7 +130,7 @@ jobs:
 
       # Consumed by darwin-package.yml when orchestrated from release.yml.
       - name: Share the chipdb bins with the darwin job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: chipdb-bins
           path: |

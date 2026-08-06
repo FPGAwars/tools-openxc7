@@ -33,7 +33,7 @@ jobs:
     name: macOS LED example end-to-end
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22
         with:
           summarize: false          # no branded gantt/Discord footer
@@ -41,7 +41,7 @@ jobs:
 
       # KEEP THE FILE LIST IN SYNC with linux-package.yml / darwin-package.yml
       - name: Seed the chipdb from the shared cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: chipdb-cache
           key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}

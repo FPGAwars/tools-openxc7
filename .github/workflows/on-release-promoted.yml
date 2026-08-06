@@ -42,7 +42,7 @@ jobs:
                echo "ok=false" >> "$GITHUB_OUTPUT" ;;
           esac
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.guard.outputs.ok == 'true'
         with:
           ref: ${{ github.event.repository.default_branch }}

@@ -123,9 +123,9 @@ jobs:
     if: needs.prepare.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4    # scripts/ for chipdb-assets + asset-check
+      - uses: actions/checkout@v7    # scripts/ for chipdb-assets + asset-check
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: apio-openxc7-*     # the 3 package artifacts (not chipdb-bins)
           merge-multiple: true
@@ -133,7 +133,7 @@ jobs:
       # The platform-independent per-FPGA assets (apio's upcoming on-demand
       # loader): one gzipped bin per manifest part + an index with both
       # hashes and the chipdb identity stamp. Same bins the packages carry.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: chipdb-bins
           path: chipdb-bins
