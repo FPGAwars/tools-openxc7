@@ -54,8 +54,13 @@ failed = []
 def request(url, method="GET"):
     req = urllib.request.Request(url, method=method,
                                  headers={"User-Agent": "tools-openxc7-asset-check"})
+    # Authorization ONLY for api.github.com. Release download URLs redirect
+    # to signed blob storage, and urllib FORWARDS the Authorization header to
+    # the redirect target -- which rejects the double auth (HTTP 401). That
+    # broke the in-CI verification (token set) while the same check passed
+    # anonymously. Public downloads need no token; apio fetches them bare too.
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token:
+    if token and url.startswith("https://api.github.com/"):
         req.add_header("Authorization", f"Bearer {token}")
     return urllib.request.urlopen(req, timeout=60)
 
