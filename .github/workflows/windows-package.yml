@@ -73,13 +73,17 @@ jobs:
             PYTHONPATH=result-win/lib/python3.12/site-packages \
               python3 -c "import fasm, prjxray; print(\"fasm/prjxray import OK\")"
             echo "=== same imports under a WINDOWS python (the real apio path) ==="
-            # on real Windows fasm2frames runs with oss-cad-suite's Windows
+            # on real Windows fasm2frames runs with the oss-cad-suite Windows
             # python, not a POSIX one: catch POSIX-only imports (e.g. fcntl)
             WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)
+            # NOTE: no single quotes in here — this whole script IS a
+            # single-quoted string; a nested quote hands the rest of the file
+            # to the OUTER shell (wine64: command not found, exit 127 — the
+            # first public CI run caught exactly that).
             [ -z "$WINPY" ] && WINPY=$(nix build --print-out-paths --no-link \
-              --impure --expr '(import <nixpkgs> {}).pkgsCross.mingwW64.python311' 2>/dev/null | head -1 || true)
+              --inputs-from . "nixpkgs#pkgsCross.mingwW64.python311" 2>/dev/null | head -1 || true)
             if [ -n "$WINPY" ] && [ -x "$WINPY/bin/python3.exe" ]; then
-              wine64 "$WINPY/bin/python3.exe" -c "import sys; sys.path.insert(0, r'result-win/lib/python3.12/site-packages'); import prjxray.util, prjxray.fasm_assembler, fasm; print('windows-python imports OK')"
+              wine64 "$WINPY/bin/python3.exe" -c "import sys; sys.path.insert(0, \"result-win/lib/python3.12/site-packages\"); import prjxray.util, prjxray.fasm_assembler, fasm; print(\"windows-python imports OK\")"
             else
               echo "WARNING: mingw python not found; windows-python import check skipped"
             fi
@@ -93,7 +97,7 @@ jobs:
             DB=$PKG/share/nextpnr/external/prjxray-db/artix7
             mkdir -p run && cd run
             yosys -q -p "synth_xilinx -arch xc7 -top ledon; write_json ledon.json" ../example/ledon.v
-            # report script exercising nextpnr's embedded python (apio passes this
+            # report script exercising the embedded python of nextpnr (apio passes this
             # via --post-route; proves apio report works on Windows).
             printf "%s\n" "import json, os" "from pathlib import Path" \
               "rep = {\"utilization\": {}}" \
