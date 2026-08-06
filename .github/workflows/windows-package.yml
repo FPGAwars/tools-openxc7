@@ -20,6 +20,7 @@ on:
       - 'flake.nix'
       - 'flake.lock'
       - 'chipdb-parts.json'
+      - '.github/workflows/windows-package.yml'   # changes to this file validate themselves
 
 jobs:
   build:
@@ -115,9 +116,11 @@ jobs:
             # python + a shell redirect (catches POSIX-isms like /dev/stdout)
             WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)
             if [ -n "$WINPY" ] && [ -x "$WINPY/bin/python3.exe" ]; then
+              # mingw python under wine dies if stdout is a FILE (WinError 6,
+              # init_sys_streams) — it needs a pipe; cat writes the file.
               PYTHONPATH=../$PKG/lib/python3.12/site-packages \
                 wine64 "$WINPY/bin/python3.exe" ../$PKG/libexec/fasm2frames \
-                --part xc7a35tcpg236-1 --db-root ../$DB ledon.fasm > ledon.frames
+                --part xc7a35tcpg236-1 --db-root ../$DB ledon.fasm </dev/null | cat > ledon.frames
               echo "fasm2frames ran under the WINDOWS python"
             else
               PYTHONPATH=../$PKG/lib/python3.12/site-packages \
