@@ -3,7 +3,7 @@
 # Two native jobs (no cross-compilation, which nixpkgs does not support
 # Linux -> macOS):
 #   - linux  : x86_64-linux  on ubuntu-latest  -> must stay green (regression guard)
-#   - macos  : aarch64-darwin on macos-14       -> GATE A, exploratory (continue-on-error)
+#   - macos  : aarch64-darwin on macos-14       -> hard gate (first-class platform)
 #
 # GATE A question: do nextpnr-xilinx / prjxray / fasm build under Apple clang on
 # Apple Silicon? Each package is its own step so a partial pass is visible.
@@ -45,9 +45,12 @@ jobs:
         run: nix build -L .#fasm
 
   macos:
-    name: macos (aarch64-darwin) — GATE A
+    name: macos (aarch64-darwin)
     runs-on: macos-14            # Apple Silicon runner => aarch64-darwin
-    continue-on-error: true      # GATE A is exploratory; do not fail the workflow yet
+    # HARD gate since 2026-08-06: the F0-era "exploratory, continue-on-error"
+    # relaxation let the very first public run show GREEN while nextpnr
+    # failed to compile (impure Python.h). macOS is a first-class platform;
+    # a red build must be a red job.
     steps:
       - uses: actions/checkout@v4
 
@@ -67,22 +70,18 @@ jobs:
       - name: GATE A.0 — flake evaluates on darwin
         run: nix flake show
 
-      # GATE A.1..A.3 — does each derivation actually COMPILE under Apple clang?
-      # Each step is independent (continue-on-error) so we learn exactly which
-      # of the three pass. nextpnr-xilinx passing alone already de-risks the core.
-      - name: GATE A.1 — build nextpnr-xilinx
+      # Does each derivation actually COMPILE on darwin? One step per
+      # derivation so a failure names its culprit directly.
+      - name: Build nextpnr-xilinx
         id: build_nextpnr
-        continue-on-error: true
         run: nix build -L .#nextpnr-xilinx
 
-      - name: GATE A.2 — build prjxray
+      - name: Build prjxray
         id: build_prjxray
-        continue-on-error: true
         run: nix build -L .#prjxray
 
-      - name: GATE A.3 — build fasm
+      - name: Build fasm
         id: build_fasm
-        continue-on-error: true
         run: nix build -L .#fasm
 
       - name: GATE A — summary
