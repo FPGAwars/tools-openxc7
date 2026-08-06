@@ -34,7 +34,10 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          summarize: false          # no branded gantt/Discord footer
+          diagnostic-endpoint: ""   # no telemetry
 
       # KEEP THE FILE LIST IN SYNC with linux-package.yml / darwin-package.yml
       - name: Seed the chipdb from the shared cache

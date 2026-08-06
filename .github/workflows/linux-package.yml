@@ -36,7 +36,10 @@ jobs:
       tarball: ${{ steps.pack.outputs.tarball }}
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          summarize: false          # no branded gantt/Discord footer
+          diagnostic-endpoint: ""   # no telemetry
 
       - name: Resolve the package date
         id: d

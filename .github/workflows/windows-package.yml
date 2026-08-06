@@ -27,7 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          summarize: false          # no branded gantt/Discord footer
+          diagnostic-endpoint: ""   # no telemetry
 
       - name: Build the Windows package tree (flake output)
         run: |
