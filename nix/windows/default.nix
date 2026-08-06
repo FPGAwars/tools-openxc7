@@ -1,4 +1,5 @@
 # Reproducible assembly of the apio-openxc7-windows-amd64 package, cross-built
+# CI: windows-package.yml triggers on pushes touching nix/** (this file included).
 # from x86_64-linux with pkgsCross.mingwW64. Build with:
 #   nix build .#packages.x86_64-linux.openxc7-windows-amd64
 #
