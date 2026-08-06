@@ -93,6 +93,11 @@ jobs:
         uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
         env:
           GH_TOKEN: ${{ github.token }}   # the action drives `gh`, which requires it in Actions
+          # prepare has NO checkout (it is deliberately light), and gh needs
+          # a repo context: without a git dir it dies on its first command.
+          # The ecosystem repos run this action after checkout; GH_REPO is
+          # the checkout-free way to give gh its target.
+          GH_REPO: ${{ github.repository }}
         with:
           release-tag: ${{ steps.d.outputs.date }}
           just-check: "true"
