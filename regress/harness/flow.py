@@ -59,8 +59,9 @@ class FlowResult:
 class _Session:
     """Accumulates the log while running the steps of one flow."""
 
-    def __init__(self, workdir: Path):
+    def __init__(self, workdir: Path, timeout: int = 900):
         self.workdir = workdir
+        self.timeout = timeout
         self.chunks: list[str] = []
 
     @property
@@ -76,8 +77,21 @@ class _Session:
         # "[WinError 6] Invalid handle" if stdout is a redirected file — real
         # Windows accepts it, so this is a wine-only quirk, and capturing the
         # output ourselves sidesteps it uniformly on every platform.
-        proc = subprocess.run(cmd, cwd=self.workdir, capture_output=True,
-                              text=True, stdin=subprocess.DEVNULL, env=entorno)
+        # timeout: hangs are a REAL failure class here (the HeAP
+        # legalise_placement_strict loop, seen twice); without a limit one
+        # hanging test freezes the whole suite in CI.
+        try:
+            proc = subprocess.run(cmd, cwd=self.workdir, capture_output=True,
+                                  text=True, stdin=subprocess.DEVNULL,
+                                  env=entorno, timeout=self.timeout)
+        except subprocess.TimeoutExpired as exc:
+            partial = exc.stdout or ""
+            if isinstance(partial, bytes):
+                partial = partial.decode(errors="replace")
+            self.chunks.append(
+                f"=== {name} TIMED OUT after {self.timeout}s ===\n{partial}")
+            raise _StepFailed(
+                name, f"{name} timed out after {self.timeout}s (hang-class)")
         if stdout_to is not None:
             stdout_to.write_text(proc.stdout or "")
             output = proc.stderr or ""
@@ -138,7 +152,7 @@ def _count_cells(netlist: Path) -> dict:
 
 def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
     workdir.mkdir(parents=True, exist_ok=True)
-    session = _Session(workdir)
+    session = _Session(workdir, timeout=spec.timeout)
     result = FlowResult()
 
     netlist = workdir / "netlist.json"

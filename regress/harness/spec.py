@@ -26,7 +26,7 @@ EXPECT_KEYS = {
 TOP_LEVEL_KEYS = {
     "description", "exercises", "why", "tier", "tags", "sources", "top",
     "parts", "constraints", "xdc_extra", "synth", "nextpnr", "flow", "expect",
-    "metrics", "parameters",
+    "metrics", "parameters", "timeout",
 }
 
 
@@ -56,6 +56,9 @@ class TestSpec:
     expect: dict = field(default_factory=dict)
     track_metrics: bool = True
     tolerances: dict = field(default_factory=dict)
+    # Per-STEP wall-clock limit in seconds. Hangs are a real failure class
+    # (the HeAP legalise loop); a hanging test must fail, not freeze CI.
+    timeout: int = 900
     # A referenced file under regress/external/ that is not there (the pinned
     # third-party trees are fetched, not committed). The suite reports the
     # test as SKIP with the fetch command instead of failing everyone's run.
@@ -187,6 +190,7 @@ def load(directory: Path, repo: Path) -> TestSpec:
         expect=expect,
         track_metrics=metrics.get("track", True),
         tolerances=metrics.get("tolerances", {}),
+        timeout=int(raw.get("timeout", 900)),
         missing_external=missing_external,
     )
 
