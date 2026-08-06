@@ -227,7 +227,15 @@ jobs:
           ASSET_CHECK_REPO: ${{ github.repository }}
           DATE: ${{ needs.prepare.outputs.date }}
         run: |
-          bash scripts/asset-check.sh "$DATE" --expect-dir .
+          # The release-asset CDN is eventually consistent: seconds after
+          # upload a HEAD can still 404 (the first full run failed here while
+          # the very same check passed minutes later). Retry before failing.
+          for attempt in 1 2 3 4; do
+            bash scripts/asset-check.sh "$DATE" --expect-dir . && exit 0
+            echo "asset-check attempt $attempt: assets may still be propagating; retrying"
+            sleep 45
+          done
+          exit 1
 
       # Promotion stays a human decision; these are the steps it involves,
       # including the pin bumps that keep installers and apio aligned with
