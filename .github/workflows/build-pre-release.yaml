@@ -91,6 +91,8 @@ jobs:
       # spending 3 platform builds on a run that must not publish.
       - name: Ensure no conflicting release (early, just-check)
         uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
+        env:
+          GH_TOKEN: ${{ github.token }}   # the action drives `gh`, which requires it in Actions
         with:
           release-tag: ${{ steps.d.outputs.date }}
           just-check: "true"
