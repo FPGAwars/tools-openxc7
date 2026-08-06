@@ -41,6 +41,11 @@ class TestSolver(unittest.TestCase):
         div, mult, odivs, vco = xc7pll.solve(100.0, [65.0])
         self.assertAlmostEqual(vco / odivs[0], 65.0)
 
+    def test_version_flag(self):
+        with self.assertRaises(SystemExit) as ctx:
+            xc7pll.main(["-v"])
+        self.assertEqual(ctx.exception.code, 0)
+
     def test_cli_rejects_mmcm_territory(self):
         with self.assertRaises(SystemExit):
             xc7pll.main(["-i", "12", "-o", "48"])
