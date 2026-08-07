@@ -2,7 +2,7 @@
 #
 # Two native jobs (no cross-compilation, which nixpkgs does not support
 # Linux -> macOS):
-#   - linux  : x86_64-linux  on ubuntu-latest  -> must stay green (regression guard)
+#   - linux  : x86_64-linux  on ubuntu-22.04  -> must stay green (regression guard)
 #   - macos  : aarch64-darwin on macos-14       -> hard gate (first-class platform)
 #
 # GATE A question: do nextpnr-xilinx / prjxray / fasm build under Apple clang on
@@ -22,7 +22,7 @@ concurrency:
 jobs:
   linux:
     name: linux (x86_64-linux) — regression guard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - uses: actions/checkout@v7
 

@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   propagate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - name: Guard — only dated release tags
         id: guard

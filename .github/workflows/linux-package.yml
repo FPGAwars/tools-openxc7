@@ -31,7 +31,7 @@ on:
 jobs:
   build:
     name: build + validate linux-x86-64 (native)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     outputs:
       tarball: ${{ steps.pack.outputs.tarball }}
     steps:

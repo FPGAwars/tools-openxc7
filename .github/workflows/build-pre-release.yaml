@@ -4,9 +4,9 @@
 # own native runner (windows is cross-built from linux; nixpkgs cannot cross
 # Linux<->macOS, and Nix does not run on Windows):
 #
-#   linux-package.yml    ubuntu-latest   native   (also owns the chipdb)
+#   linux-package.yml    ubuntu-22.04   native   (also owns the chipdb)
 #   darwin-package.yml   macos-14        native   (seeded from linux)
-#   windows-package.yml  ubuntu-latest   cross    (validated under wine)
+#   windows-package.yml  ubuntu-22.04   cross    (validated under wine)
 #
 # Each carries its own gate, so the exact same build+validation runs whether
 # you dispatch it standalone or through a release. This workflow only picks
@@ -44,7 +44,7 @@ jobs:
   # The date is resolved ONCE here and passed down: apio derives the asset
   # date from the release TAG, so tag and every asset name must match.
   prepare:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     outputs:
       date: ${{ steps.d.outputs.date }}
       skip: ${{ steps.nc.outputs.skip }}
@@ -128,7 +128,7 @@ jobs:
   publish:
     needs: [prepare, linux, darwin, windows]
     if: needs.prepare.outputs.skip != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - uses: actions/checkout@v7    # scripts/ for chipdb-assets + asset-check
 
