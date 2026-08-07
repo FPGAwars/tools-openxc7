@@ -62,7 +62,9 @@ def deterministic_tgz(src, dst, arcname):
     """tar.gz with fixed metadata: same bin, same asset bytes."""
     import tarfile
     with open(dst, "wb") as fo:
-        with gzip.GzipFile(fileobj=fo, mode="wb", mtime=0) as gz:
+        # filename="": keep the destination name out of the gzip header
+        # (FNAME) so the bytes depend only on the bin content
+        with gzip.GzipFile(filename="", fileobj=fo, mode="wb", mtime=0) as gz:
             with tarfile.open(fileobj=gz, mode="w") as tar:
                 info = tar.gettarinfo(str(src), arcname=arcname)
                 info.mtime = 0
