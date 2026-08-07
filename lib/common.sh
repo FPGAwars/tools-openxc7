@@ -13,7 +13,7 @@
 # prereleases are excluded on purpose) and match what apio installs via its
 # remote-config. scripts/check-pins.sh verifies all three agree.
 OSS_CAD_SUITE_DATE="${OSS_CAD_SUITE_DATE:-2026-03-24}"
-OPENXC7_DATE="${OPENXC7_DATE:-2026-07-31}"
+OPENXC7_DATE="${OPENXC7_DATE:-2026-08-07}"
 
 # -- Upstream repos
 OSS_CAD_SUITE_REPO="https://github.com/FPGAwars/tools-oss-cad-suite"
