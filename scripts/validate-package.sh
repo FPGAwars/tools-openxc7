@@ -127,6 +127,14 @@ while read -r family part; do
 done < "$SCRATCH/parts.txt"
 ok "chipdb: all $NPARTS manifest parts present (with their family dbs)"
 
+# --- bundled tools ----------------------------------------------------------
+[ -f "$PKG/bin/xc7pll" ] || fail "xc7pll missing from bin/"
+if [ "$PLAT" != "windows-amd64" ]; then
+    PLL_OUT=$(python3 "$PKG/bin/xc7pll" -i 100 -o 65 2>&1)         || fail "xc7pll does not run: $PLL_OUT"
+    echo "$PLL_OUT" | grep -q "CLKFBOUT_MULT:    13"         || fail "xc7pll produced unexpected output"
+fi
+ok "xc7pll: present and functional"
+
 # --- feature markers inside the packaged binary -----------------------------
 MARKERS=$(grep -a -c reportClockFmaxJson "$NEXTPNR_BIN" || true)
 [ "${MARKERS:-0}" -ge 1 ] || fail "marker reportClockFmaxJson NOT in the packaged nextpnr (stale binary?)"

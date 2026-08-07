@@ -637,4 +637,17 @@ def install_components():
     # -------- prjxray tool
     process_binaries("fasm2frames")
     run_phase3_prjxray()
+
+    # -------- xc7pll (PLL parameter calculator; pure-stdlib python, so a
+    # -------- plain `#!/usr/bin/env python3` shebang works everywhere and
+    # -------- no relocation or wrapper is needed)
+    print()
+    print(f"{ansi.GREEN}────────────────────────────────────────")
+    print("  xc7pll")
+    print(f"{ansi.GREEN}────────────────────────────────────────")
+    print(ansi.DEFAULT, end='', flush=True)
+    dst = Path(DIST) / BIN / "xc7pll"
+    shutil.copy("xc7pll", dst)
+    dst.chmod(dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    print("  xc7pll -> bin/xc7pll")
     print()
