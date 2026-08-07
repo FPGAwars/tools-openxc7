@@ -7,8 +7,13 @@
 # assets next to the full platform tarballs, plus an index that apio's
 # upcoming on-demand loader can resolve and verify against:
 #
-#   chipdb-<part>-<YYYYMMDD>.bin.gz     one per manifest part
-#   chipdb-index-<YYYYMMDD>.json        part -> family, sizes, sha256s
+#   apio-xilinx-chipdb-<part>-<YYYYMMDD>.bin.tgz   one per manifest part
+#   apio-xilinx-chipdb-index-<YYYYMMDD>.json        part -> family, sizes, sha256s
+#
+# Naming and format agreed with the apio maintainer (apio#897/#900): the
+# apio-xilinx-chipdb- prefix groups after the three platform packages in
+# the release listing; .bin.tgz = a deterministic tar.gz containing
+# <part>.bin at its root (apio reuses its package-archive handling).
 #
 # Every asset carries the tag's date (house rule: a mistagged asset must
 # be impossible to fetch by accident). The index records the sha256 of
@@ -53,38 +58,50 @@ def sha256(path):
     return h.hexdigest()
 
 
+def deterministic_tgz(src, dst, arcname):
+    """tar.gz with fixed metadata: same bin, same asset bytes."""
+    import tarfile
+    with open(dst, "wb") as fo:
+        with gzip.GzipFile(fileobj=fo, mode="wb", mtime=0) as gz:
+            with tarfile.open(fileobj=gz, mode="w") as tar:
+                info = tar.gettarinfo(str(src), arcname=arcname)
+                info.mtime = 0
+                info.uid = info.gid = 0
+                info.uname = info.gname = ""
+                info.mode = 0o644
+                with open(src, "rb") as fi:
+                    tar.addfile(info, fi)
+
+
 entries = []
 for part in parts:
     src = chipdb / f"{part}.bin"
     if not src.exists():
         sys.exit(f"❌ manifest part without bin: {src}")
-    asset = f"chipdb-{part}-{date}.bin.gz"
+    asset = f"apio-xilinx-chipdb-{part}-{date}.bin.tgz"
     dst = out / asset
-    # mtime=0: deterministic gzip -- same bin, same asset bytes
-    with open(src, "rb") as fi, open(dst, "wb") as fo:
-        with gzip.GzipFile(fileobj=fo, mode="wb", mtime=0) as gz:
-            shutil.copyfileobj(fi, gz)
+    deterministic_tgz(src, dst, f"{part}.bin")
     entries.append({
         "part": part,
         "family": family_of(part),
         "asset": asset,
         "size": src.stat().st_size,
         "sha256": sha256(src),
-        "gz_size": dst.stat().st_size,
-        "gz_sha256": sha256(dst),
+        "tgz_size": dst.stat().st_size,
+        "tgz_sha256": sha256(dst),
     })
-    print(f"  {asset}  ({entries[-1]['size'] / 1e6:.0f} MB -> {entries[-1]['gz_size'] / 1e6:.0f} MB)")
+    print(f"  {asset}  ({entries[-1]['size'] / 1e6:.0f} MB -> {entries[-1]['tgz_size'] / 1e6:.0f} MB)")
 
 index = {
     "date": date,
     "chipdb_id": stamp,
     "note": "chipdb .bin files are platform-independent; sha256 is the "
-            "UNCOMPRESSED bin the loader must end up with, gz_sha256 the "
-            "downloaded asset. Bins are only valid with the openxc7 "
-            "package of the SAME release tag (content changes across "
-            "releases under the same file names).",
+            "UNCOMPRESSED bin the loader must end up with, tgz_sha256 the "
+            "downloaded asset (a tar.gz with <part>.bin at its root). Bins "
+            "are only valid with the openxc7 package of the SAME release "
+            "tag (content changes across releases under the same names).",
     "parts": entries,
 }
-(out / f"chipdb-index-{date}.json").write_text(json.dumps(index, indent=2) + "\n")
-print(f"index: chipdb-index-{date}.json ({len(entries)} parts, chipdb_id {stamp})")
+(out / f"apio-xilinx-chipdb-index-{date}.json").write_text(json.dumps(index, indent=2) + "\n")
+print(f"index: apio-xilinx-chipdb-index-{date}.json ({len(entries)} parts, chipdb_id {stamp})")
 PYEOF
