@@ -1,16 +1,31 @@
 {
   "description": "Congestion bench, neighbour ring (STRIDE=1): the control leg",
-  "exercises": ["router at ~60% utilisation", "short-hop channel traffic"],
+  "exercises": [
+    "router at ~60% utilisation",
+    "short-hop channel traffic"
+  ],
   "tier": 2,
-  "tags": ["scale"],
+  "tags": [
+    "scale"
+  ],
   "top": "congestion",
-  "parameters": { "N": 192, "W": 64, "MUL": 1, "ADD": 3 },
+  "parameters": {
+    "N": 192,
+    "W": 64,
+    "MUL": 1,
+    "ADD": 3
+  },
   "expect": {
-    "primitives": { "FDRE": ">=12288" }
+    "primitives": {
+      "FDRE": ">=12288"
+    }
   },
   "metrics": {
     "tolerances": {
-      "pnr_seconds": { "warn": 0.3, "fail": 1.0 }
+      "pnr_seconds": {
+        "warn": 1.0,
+        "fail": 3.0
+      }
     }
   }
 }

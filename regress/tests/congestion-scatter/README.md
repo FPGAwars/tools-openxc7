@@ -33,9 +33,9 @@ The differential reading is the point:
 ## Expected result
 
 Routes — slower than `local` in both pnr time and fmax, and that gap is
-healthy and expected. `pnr_seconds` has real tolerances here (warn +30%,
-fail +100%); the baseline gap between the two legs on each platform is the
-number worth knowing by heart.
+healthy and expected. `pnr_seconds` here is a coarse thrash detector (warn 2x, fail 4x —
+wall-clock varies wildly across machines); the robust congestion signal
+is the fmax gap between the two legs, which is deterministic.
 
 ## Reading a failure
 

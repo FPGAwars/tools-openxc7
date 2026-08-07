@@ -19,7 +19,11 @@ DEFAULT_TOLERANCES = {
     "brams": (0.10, 0.20),
     "dsps": (0.10, 0.20),
     "bit_bytes": (0.0, None),      # any change is worth a look, never fatal
-    "pnr_seconds": (0.50, None),   # runners vary far too much to ever fail
+    # Wall-clock is a property of the MACHINE, not the toolchain: baselines
+    # recorded on the build server or a dev mac made slower CI runners WARN
+    # on half the suite for nothing. Informational by default; tests that
+    # want a coarse thrash detector opt in with explicit tolerances.
+    "pnr_seconds": (None, None),
 }
 HIGHER_IS_BETTER = {"fmax_mhz"}
 

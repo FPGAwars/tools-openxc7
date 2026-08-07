@@ -23,9 +23,9 @@ fixed and locality is the knob:
 - both regress together → something global (placer, timing model, costs).
 
 High utilisation is also the regime where router2's rip-up/cost machinery
-actually works — none of the small property tests reach it. `pnr_seconds`
-carries real tolerances here (warn +30%, fail +100%): at this size, router
-effort IS the signal.
+actually works — none of the small property tests reach it. `pnr_seconds` here is only a coarse thrash detector (warn 2x, fail 4x):
+wall-clock varies wildly across machines, so the robust signal is the
+deterministic fmax gap between the legs.
 
 ## Two collapses this bench survived at birth (both caught by its own FDRE assertion)
 

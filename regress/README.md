@@ -132,7 +132,7 @@ design. A big opaque design would buy realism at the cost of diagnosis — when
 |---|---|---|
 | `fmax_mhz` | Worst clock from the post-route timing report | −5% fails |
 | `luts`, `ffs`, `brams`, `dsps` | Utilisation, counted from the bound bels | +10% warns, +20% fails |
-| `pnr_seconds` | Place & route wall clock | ×1.5 warns (never fails: runners vary) |
+| `pnr_seconds` | Router+placer wall time | informational (machine-dependent); congestion pair opts into 2x/4x thrash detection |
 | `bit_bytes` | Bitstream size | any change warns |
 
 Baselines live in `baselines/<platform>.json` and are only refreshed with
