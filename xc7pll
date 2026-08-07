@@ -96,12 +96,17 @@ def module(fin, targets, div, mult, odivs, vco, name):
     ports = "\n".join(
         f"    output wire clk_out{n},   // {vco / o:.6g} MHz"
         for n, o in enumerate(odivs))
-    params = "\n".join(
-        f"        .CLKOUT{n}_DIVIDE({o}),"
+    # last parameter in the instantiation: no trailing comma after the
+    # final CLKOUTn_DIVIDE (strict Verilog rejects it)
+    params = ",\n".join(
+        f"        .CLKOUT{n}_DIVIDE({o})"
         for n, o in enumerate(odivs))
+    # unused CLKOUT pins are connected empty so the module passes
+    # apio lint out of the box (icepll/ecppll leave them out and fail,
+    # see apio issues 669/670)
     conns = "\n".join(
-        f"        .CLKOUT{n}(clk_out{n}_unbuf),"
-        for n in range(len(targets)))
+        f"        .CLKOUT{n}({f'clk_out{n}_unbuf' if n < len(targets) else ''}),"
+        for n in range(6))
     bufgs = "\n".join(
         f"    BUFG bufg_out{n} (.I(clk_out{n}_unbuf), .O(clk_out{n}));"
         for n in range(len(targets)))
