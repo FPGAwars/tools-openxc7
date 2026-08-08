@@ -46,6 +46,34 @@ class TestSolver(unittest.TestCase):
             xc7pll.main(["-v"])
         self.assertEqual(ctx.exception.code, 0)
 
+    def test_cli_default_emits_module(self):
+        # apio#915: module by default, like ecppll/gowin_pll
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            self.assertEqual(xc7pll.main(["-i", "100", "-o", "65"]), 0)
+        self.assertIn("PLLE2_BASE", buf.getvalue())
+
+    def test_cli_report_flag(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            self.assertEqual(
+                xc7pll.main(["-i", "100", "-o", "65", "--report"]), 0)
+        out = buf.getvalue()
+        self.assertIn("CLKFBOUT_MULT", out)
+        self.assertNotIn("PLLE2_BASE", out)
+
+    def test_cli_deprecated_module_flag_still_accepted(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            self.assertEqual(xc7pll.main(["-i", "100", "-o", "65", "-m"]), 0)
+        self.assertIn("PLLE2_BASE", buf.getvalue())
+
     def test_cli_rejects_mmcm_territory(self):
         with self.assertRaises(SystemExit):
             xc7pll.main(["-i", "12", "-o", "48"])

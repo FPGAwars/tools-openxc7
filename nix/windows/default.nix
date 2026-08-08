@@ -200,9 +200,13 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
          $out/lib/python3.11/lib2to3 $out/lib/python3.11/ensurepip
   find $out/lib/python3.11 -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
-  # -- xc7pll (stdlib python; runs under any python3, e.g. oss-cad-suite's)
-  cp ${../../xc7pll} $out/bin/xc7pll
-  chmod +x $out/bin/xc7pll
+  # -- xc7pll (stdlib python). Shipped in libexec + .cmd launcher like
+  # -- fasm2frames/bit2fasm: a bare shebang script in bin/ does not launch
+  # -- from CMD/PowerShell (apio#914) — the launcher runs it under the
+  # -- Windows python already on apio's PATH (oss-cad-suite's, the same
+  # -- one the xilinx build flow uses for fasm2frames).
+  cp ${../../xc7pll} $out/libexec/xc7pll
+  chmod u+w $out/libexec/xc7pll
 
   # -- chipdb (the parts from chipdb-parts.json, like openxc7-pack.py) + data
   ${lib.concatMapStringsSep "\n  " (family:
@@ -242,6 +246,7 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
   # -- Windows launchers (apio/oss-cad-suite provides the Windows python)
   ${cmdLauncher "fasm2frames"}
   ${cmdLauncher "bit2fasm"}
+  ${cmdLauncher "xc7pll"}
 
   echo "windows-amd64" > $out/VERSION.platform
   chmod -R u+w $out

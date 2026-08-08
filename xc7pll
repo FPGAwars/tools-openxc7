@@ -4,7 +4,8 @@
 The xc7 counterpart of icepll (ice40) and ecppll (ecp5): given the input
 clock and up to six requested output frequencies, search the legal
 (DIVCLK_DIVIDE, CLKFBOUT_MULT, CLKOUT*_DIVIDE) space of a PLLE2 and emit
-either a report or a ready-to-instantiate Verilog module.
+a ready-to-instantiate Verilog module (default, like ecppll/gowin_pll)
+or a parameter report (--report).
 
 Hard limits implemented (7-series, conservative -1 speed grade; DS181):
 
@@ -27,7 +28,7 @@ Usage:
 import argparse
 import sys
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 CREDITS = (
     f"xc7pll {VERSION} — PLL parameter calculator for Xilinx 7-series\n"
     "Part of tools-openxc7 (FPGAwars), the openXC7 toolchain package for apio.\n"
@@ -154,8 +155,13 @@ def main(argv=None):
     p.add_argument("-o", "--output", type=float, action="append",
                    required=True, metavar="MHZ",
                    help="requested output frequency (repeatable, up to 6)")
+    p.add_argument("-r", "--report", action="store_true",
+                   help="print the parameter report instead of the module")
+    # Deprecated no-op: the module is now the default output (apio#915,
+    # consistency with ecppll/gowin_pll); kept so the 2026-08-07 usage
+    # keeps working.
     p.add_argument("-m", "--module", action="store_true",
-                   help="emit a Verilog module instead of a report")
+                   help=argparse.SUPPRESS)
     p.add_argument("-n", "--name", default="pll",
                    help="module name (default: pll)")
     p.add_argument("-f", "--file", metavar="PATH",
@@ -181,8 +187,8 @@ def main(argv=None):
         p.error("no legal PLLE2 configuration found for that combination")
     div, mult, odivs, vco = got
 
-    text = (module(fin, targets, div, mult, odivs, vco, args.name)
-            if args.module else report(fin, targets, div, mult, odivs, vco))
+    text = (report(fin, targets, div, mult, odivs, vco)
+            if args.report else module(fin, targets, div, mult, odivs, vco, args.name))
     if args.file:
         with open(args.file, "w") as fh:
             fh.write(text if text.endswith("\n") else text + "\n")

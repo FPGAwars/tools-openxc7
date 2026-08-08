@@ -128,10 +128,20 @@ done < "$SCRATCH/parts.txt"
 ok "chipdb: all $NPARTS manifest parts present (with their family dbs)"
 
 # --- bundled tools ----------------------------------------------------------
-[ -f "$PKG/bin/xc7pll" ] || fail "xc7pll missing from bin/"
-if [ "$PLAT" != "windows-amd64" ]; then
-    PLL_OUT=$(python3 "$PKG/bin/xc7pll" -i 100 -o 65 2>&1)         || fail "xc7pll does not run: $PLL_OUT"
-    echo "$PLL_OUT" | grep -q "CLKFBOUT_MULT:    13"         || fail "xc7pll produced unexpected output"
+if [ "$PLAT" = "windows-amd64" ]; then
+    # bare shebang scripts do not launch from CMD/PowerShell (apio#914):
+    # windows ships libexec/ + a .cmd launcher, like fasm2frames
+    [ -f "$PKG/bin/xc7pll.cmd" ]   || fail "xc7pll.cmd launcher missing from bin/"
+    [ -f "$PKG/libexec/xc7pll" ]   || fail "xc7pll missing from libexec/"
+    PLL_OUT=$(python3 "$PKG/libexec/xc7pll" -i 100 -o 65 --report 2>&1) || fail "xc7pll does not run: $PLL_OUT"
+else
+    [ -f "$PKG/bin/xc7pll" ]       || fail "xc7pll missing from bin/"
+    PLL_OUT=$(python3 "$PKG/bin/xc7pll" -i 100 -o 65 --report 2>&1) || fail "xc7pll does not run: $PLL_OUT"
+fi
+echo "$PLL_OUT" | grep -q "CLKFBOUT_MULT:    13"         || fail "xc7pll produced unexpected output"
+# module output is the DEFAULT since 1.1.0 (apio#915, parity with ecppll)
+if echo "$PLL_OUT" | grep -q "PLLE2_BASE"; then
+    fail "xc7pll --report unexpectedly emitted a module"
 fi
 ok "xc7pll: present and functional"
 
