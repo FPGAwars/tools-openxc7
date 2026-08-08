@@ -222,10 +222,18 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
   # -- pure-python tools (strip native extensions -> Windows uses textX fallback)
   # dirs/files copied from the store come read-only -> chmod like the
   # python3.11 stdlib above, or the find -delete and the util.py replace fail
-  cp -r ${pyEnv}/lib/python3.12/site-packages/. $out/lib/python3.12/site-packages/
+  # -rL: pyEnv is a python.withPackages SYMLINK forest -- a plain cp -r
+  # copies the per-package links pointing into the read-only store, so
+  # (a) the find -delete below never actually stripped the native .so's
+  # (find does not descend into symlinked dirs; the dead linux binaries
+  # rode along dereferenced at tar time) and (b) the fasm parser patch
+  # below dies with EACCES writing through the link (CI 2026-08-08).
+  cp -rL ${pyEnv}/lib/python3.12/site-packages/. $out/lib/python3.12/site-packages/
   chmod -R u+w $out/lib/python3.12/site-packages
   find $out/lib/python3.12/site-packages \
        \( -name '*.so' -o -name '*.dylib' -o -name '*.pyd' -o -name 'libparse_fasm*' \) -delete
+  leftover=$(find $out/lib/python3.12/site-packages \( -name '*.so' -o -name '*.pyd' \) -print -quit)
+  [ -z "$leftover" ] || { echo "native extension survived the strip: $leftover"; exit 1; }
   # -- With the antlr natives gone, fasm's parser __init__ would emit a
   # -- RuntimeWarning on EVERY fasm2frames run (apio#913). textX is the
   # -- INTENDED parser on Windows (the antlr extension is not cross-built;
