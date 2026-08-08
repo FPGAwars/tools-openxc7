@@ -226,6 +226,27 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
   chmod -R u+w $out/lib/python3.12/site-packages
   find $out/lib/python3.12/site-packages \
        \( -name '*.so' -o -name '*.dylib' -o -name '*.pyd' -o -name 'libparse_fasm*' \) -delete
+  # -- With the antlr natives gone, fasm's parser __init__ would emit a
+  # -- RuntimeWarning on EVERY fasm2frames run (apio#913). textX is the
+  # -- INTENDED parser on Windows (the antlr extension is not cross-built;
+  # -- PyPI fasm wheels stop at cp39, useless for this 3.12): import it
+  # -- directly. The assert fails the build if upstream's file drifts.
+  ${pyEnv}/bin/python3 - <<PYEOF
+p = "$out/lib/python3.12/site-packages/fasm/parser/__init__.py"
+s = open(p).read()
+assert "from fasm.parser.antlr import" in s, "fasm parser __init__ drifted"
+start = s.index("try:")
+end = s.index("# The textx parser is available as a fallback.")
+new = (
+    "# openxc7 windows package: the antlr native extension is not\n"
+    "# cross-built for mingw, so textX is the INTENDED parser here.\n"
+    "# Import it directly -- the upstream try/except emitted a\n"
+    "# RuntimeWarning on every fasm2frames run (apio#913).\n"
+    "from fasm.parser.textx import parse_fasm_filename, parse_fasm_string, implementation  # noqa: E501\n\n"
+)
+open(p, "w").write(s[:start] + new + s[end:])
+print("fasm parser: antlr fallback warning silenced (textX direct)")
+PYEOF
   # prjxray python module + the python tool scripts
   cp -r ${prjxray}/usr/share/python3/prjxray $out/lib/python3.12/site-packages/
   chmod -R u+w $out/lib/python3.12/site-packages/prjxray

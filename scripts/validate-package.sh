@@ -133,6 +133,10 @@ if [ "$PLAT" = "windows-amd64" ]; then
     # windows ships libexec/ + a .cmd launcher, like fasm2frames
     [ -f "$PKG/bin/xc7pll.cmd" ]   || fail "xc7pll.cmd launcher missing from bin/"
     [ -f "$PKG/libexec/xc7pll" ]   || fail "xc7pll missing from libexec/"
+    # fasm's antlr-fallback RuntimeWarning must be silenced (apio#913):
+    # textX is the intended parser on windows, imported directly
+    grep -q "INTENDED parser" "$PKG/lib/python3.12/site-packages/fasm/parser/__init__.py" \
+        || fail "fasm parser __init__ not patched (apio#913 warning would fire)"
     PLL_OUT=$(python3 "$PKG/libexec/xc7pll" -i 100 -o 65 --report 2>&1) || fail "xc7pll does not run: $PLL_OUT"
 else
     [ -f "$PKG/bin/xc7pll" ]       || fail "xc7pll missing from bin/"
