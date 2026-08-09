@@ -29,9 +29,9 @@ on:
       date:
         description: "Release date YYYY-MM-DD (default: today, UTC)"
         required: false
-  push:
-    tags:
-      - '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]'   # dated tags, e.g. 2026-06-20
+  # NOTE: no push-tags trigger. It was redundant with dispatch, and the
+  # release step now creates the tag with a PAT (see below) — a PAT-created
+  # tag WOULD fire a tags trigger, recursing into this very workflow.
 
 permissions:
   contents: write
@@ -57,9 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            DATE="${GITHUB_REF_NAME}"
-          elif [ -n "${{ github.event.inputs.date }}" ]; then
+          if [ -n "${{ github.event.inputs.date }}" ]; then
             DATE="${{ github.event.inputs.date }}"
           else
             DATE="$RELEASE_TAG"
@@ -162,7 +160,15 @@ jobs:
 
       - name: Create the dated prerelease (never latest) and upload assets
         env:
-          GH_TOKEN: ${{ github.token }}
+          # PAT, not github.token: the integration token CANNOT create a
+          # ref (the release tag, via --target) that points at a commit
+          # whose diff touches .github/workflows/** — known GitHub
+          # limitation ("Resource not accessible by integration", hit
+          # 2026-08-09 the first time a deploy batch's tip was a workflow
+          # commit; the deletes in the steps above work fine with it).
+          # The push-tags trigger is removed above, so the PAT-created tag
+          # cannot recurse into this workflow.
+          GH_TOKEN: ${{ secrets.APIO_PR_TOKEN }}
           DATE: ${{ needs.prepare.outputs.date }}
         run: |
           ls -la apio-openxc7-*.tgz
