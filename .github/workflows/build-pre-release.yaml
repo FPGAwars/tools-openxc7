@@ -47,7 +47,6 @@ jobs:
     runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     outputs:
       date: ${{ steps.d.outputs.date }}
-      skip: ${{ steps.nc.outputs.skip }}
     steps:
       - name: Get release and package tags (ecosystem convention)
         uses: fpgawars/apio-workflows/.github/actions/get-release-and-package-tags@main
@@ -67,25 +66,11 @@ jobs:
           fi
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
           echo "Release date: $DATE"
-      # Scheduled runs only build when there is something new: if the last
-      # published release was built from this same commit, stop here (three
-      # platform builds and a release that would be byte-identical noise).
-      # Dispatch and tag-push runs always build (explicit intent).
-      - name: No-change guard (schedule only)
-        id: nc
-        if: github.event_name == 'schedule'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          LAST_TAG=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1             --json tagName -q '.[0].tagName' 2>/dev/null || true)
-          LAST_SHA=""
-          [ -n "$LAST_TAG" ] && LAST_SHA=$(gh release view "$LAST_TAG"             --repo "$GITHUB_REPOSITORY" --json targetCommitish -q .targetCommitish || true)
-          if [ -n "$LAST_SHA" ] && [ "$LAST_SHA" = "$GITHUB_SHA" ]; then
-            echo "no changes since release $LAST_TAG ($LAST_SHA) — skipping"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+      # NOTE: scheduled runs build UNCONDITIONALLY, even with no new commits
+      # (ecosystem convention, zapta 2026-08-09: a daily build also catches
+      # breakage coming from the github action tools themselves; it is what
+      # every other apio package does).  The former no-change guard lived
+      # here; cleanup-old-prereleases (keep-5) absorbs the extra releases.
 
       # Fail FAST if today's tag already exists as a stable release — before
       # spending 3 platform builds on a run that must not publish.
@@ -104,7 +89,6 @@ jobs:
 
   linux:
     needs: prepare
-    if: needs.prepare.outputs.skip != 'true'
     uses: ./.github/workflows/linux-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
@@ -112,7 +96,6 @@ jobs:
   # After linux: it publishes the chipdb-bins artifact this job seeds from.
   darwin:
     needs: [prepare, linux]
-    if: needs.prepare.outputs.skip != 'true'
     uses: ./.github/workflows/darwin-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
@@ -120,14 +103,12 @@ jobs:
 
   windows:
     needs: prepare
-    if: needs.prepare.outputs.skip != 'true'
     uses: ./.github/workflows/windows-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
 
   publish:
     needs: [prepare, linux, darwin, windows]
-    if: needs.prepare.outputs.skip != 'true'
     runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - uses: actions/checkout@v7    # scripts/ for chipdb-assets + asset-check
