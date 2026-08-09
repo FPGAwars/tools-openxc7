@@ -172,7 +172,12 @@ let
     printf '@echo off\r\nset "PKG=%%~dp0.."\r\nset "PYTHONPATH=%%PKG%%\\lib\\python3.12\\site-packages;%%PYTHONPATH%%"\r\npython "%%PKG%%\\libexec\\${name}" %%*\r\n' > $out/bin/${name}.cmd
   '';
 
-in pkgs.runCommand "apio-openxc7-windows-amd64" { } ''
+in pkgs.runCommand "apio-openxc7-windows-amd64" {
+  # The cross-compiled binaries, buildable WITHOUT dragging in the chipdb
+  # generation (hours of bbaexport): the per-commit test workflow builds
+  # .#openxc7-windows-amd64.nextpnr / .prjxray as its windows compile gate.
+  passthru = { nextpnr = nextpnrWin; prjxray = prjxrayWin; };
+} ''
   mkdir -p $out/bin $out/chipdb $out/libexec
   mkdir -p $out/share/nextpnr/external/prjxray-db $out/lib/python3.12/site-packages
 

@@ -1,0 +1,102 @@
+# Per-commit compile test (ecosystem convention: named `test`, like the
+# other apio packages — zapta 2026-08-09).
+#
+# Three INDEPENDENT native-compile jobs, one per shipped architecture (no
+# cross Linux<->macOS in nixpkgs; windows is a mingw cross FROM linux):
+#
+#   linux    x86_64-linux    ubuntu-22.04  nextpnr-xilinx / prjxray / fasm
+#   macos    aarch64-darwin  macos-14      nextpnr-xilinx / prjxray / fasm
+#   windows  mingw cross     ubuntu-22.04  nextpnr.exe / prjxray .exe tools
+#                                          (passthru outputs — WITHOUT the
+#                                          chipdb generation, which is hours
+#                                          of bbaexport and belongs to the
+#                                          nightly build-pre-release)
+#
+# Go/nogo: a green job IS the report (no step summaries). The full package
+# assembly + L1/L2 validation runs in build-pre-release nightly.
+name: test
+
+on:
+  push:
+    branches: [ main, "feat/**" ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: linux (x86_64-linux)
+    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          summarize: false          # no branded gantt/Discord footer
+          diagnostic-endpoint: ""   # no telemetry
+
+      - name: Evaluate the flake (exercises the platform guards)
+        run: nix flake show --all-systems
+
+      - name: Build nextpnr-xilinx
+        run: nix build -L .#nextpnr-xilinx
+
+      - name: Build prjxray
+        run: nix build -L .#prjxray
+
+      - name: Build fasm
+        run: nix build -L .#fasm
+
+  macos:
+    name: macos (aarch64-darwin)
+    runs-on: macos-14            # Apple Silicon runner => aarch64-darwin
+    # HARD gate since 2026-08-06: the F0-era "exploratory, continue-on-error"
+    # relaxation let the very first public run show GREEN while nextpnr
+    # failed to compile (impure Python.h). macOS is a first-class platform;
+    # a red build must be a red job.
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          summarize: false          # no branded gantt/Discord footer
+          diagnostic-endpoint: ""   # no telemetry
+
+      - name: Flake evaluates on darwin
+        run: nix flake show
+
+      # One step per derivation so a failure names its culprit directly.
+      - name: Build nextpnr-xilinx
+        run: nix build -L .#nextpnr-xilinx
+
+      - name: Build prjxray
+        run: nix build -L .#prjxray
+
+      - name: Build fasm
+        run: nix build -L .#fasm
+
+  windows:
+    name: windows (mingw cross from x86_64-linux)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          summarize: false          # no branded gantt/Discord footer
+          diagnostic-endpoint: ""   # no telemetry
+
+      # The passthru outputs compile the shipped .exe binaries without
+      # forcing the chipdb (nightly territory). Same one-step-per-culprit
+      # layout as the native jobs.
+      - name: Build nextpnr-xilinx.exe (mingw)
+        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64.nextpnr
+
+      - name: Build prjxray tools .exe (mingw)
+        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64.prjxray

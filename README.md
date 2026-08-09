@@ -262,7 +262,7 @@ single package or for a full release:
 
 | Workflow | What it does |
 |---|---|
-| `build.yml` | Compiles the toolchain derivations (push/PR guard) |
+| `test.yaml` | Per-commit compile test: linux, macos and windows-cross jobs (push/PR guard) |
 | `smoke.yml` | Installs the macOS package like a user and builds the LED example |
 | `linux-package.yml` | Builds + validates `linux-x86-64` (and owns the chipdb) |
 | `darwin-package.yml` | Builds + validates `darwin-arm64` |
