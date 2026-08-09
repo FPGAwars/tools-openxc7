@@ -184,10 +184,10 @@ jobs:
           after a few days unless it is marked as a stable release. To make it
           stable:
           * Open the release for editing.
-          * Turn off the \\`Set as a pre-release\\` checkbox.
-          * (optional) Turn on the \\`Set as the latest release\\` checkbox.
+          * Turn off the \`Set as a pre-release\` checkbox.
+          * (optional) Turn on the \`Set as the latest release\` checkbox.
           * Remove this pre-release note; then Update Release.
-          * Then bump \\`OPENXC7_DATE\\` in lib/common.sh and the openxc7 tag in
+          * Then bump \`OPENXC7_DATE\` in lib/common.sh and the openxc7 tag in
             apio's remote-config, and run scripts/check-pins.sh (see the job
             summary checklist).
           EOFBODY
