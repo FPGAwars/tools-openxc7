@@ -13,20 +13,13 @@
 # pin-keyed cache that linux-package.yml populates.
 name: smoke
 
+# Manual tool since 2026-08-09 (ecosystem alignment): the everyday guards
+# are test.yaml (per-commit compile) and build-pre-release (nightly full
+# packages + L1/L2). Dispatch this one before releases that touch the
+# INSTALL path (install*.sh / lib/ / start) — the one property nothing
+# else exercises end to end as a user would.
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'openxc7-pack.py'
-      - 'pack/**'
-      - 'macpack.py'
-      - 'flake.nix'
-      - 'nix/**'
-      - 'example/**'
-      - 'config/**'
-      - 'lib/**'
-      - 'install*.sh'
-      - 'start'
 
 jobs:
   macos-e2e:
