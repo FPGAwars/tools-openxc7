@@ -13,14 +13,6 @@ on:
         description: "Package date YYYY-MM-DD (default: today, UTC)"
         required: false
         type: string
-  push:
-    branches: [ main, "feat/**" ]
-    paths:
-      - 'nix/**'
-      - 'flake.nix'
-      - 'flake.lock'
-      - 'chipdb-parts.json'
-      - '.github/workflows/windows-package.yml'   # changes to this file validate themselves
 
 jobs:
   build:
