@@ -8,8 +8,8 @@ let
   upstream = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr-xilinx";
-    rev = "a70ae4a8dea19423ec50b4f7e255c1b6724644ba";
-    hash = "sha256-gQ5k/DyEQudDvW5IHsNnJytxaLcMrb4qjoEdO9UE2iI=";
+    rev = "09f239364327dcc990727fe6ec5afdc52d56b632";
+    hash = "sha256-eSePU0os8CGrLZorYEIKdjbmoumsVDWMntNFHfHZ1s8=";
     fetchSubmodules = true;
   };
 in
