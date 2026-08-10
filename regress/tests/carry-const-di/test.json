@@ -1,9 +1,9 @@
 {
-  "description": "KNOWN GAP: carry chain with const-GND DI + CO fabric fanout is unplaceable (shared GND buffer lands in the chain 5LUT)",
-  "exercises": ["the packer const-DI gap behind the HeAP legalise hang/unplaceable class", "harness timeout (hang-class guard)"],
-  "why": "Bisected upstream by Hans Baier to bf78fccf (PR #105): the restored validity check correctly rejects a packing where the design-wide $PACKER_GND_NET feed-through (multi-user) occupies a chain slice 5LUT while CO fans out to fabric. On our pin (pre fail-fast guards 369038ed/4a3d7e12) this HANGS in legalise_placement_strict, hence the tight timeout. Fix is packer-side: dedicated single-user const feed-through per chain slice. Flips to positive when it lands.",
-  "tags": ["structural", "carry", "xfail"],
+  "description": "carry chain with const-GND DI + CO fabric fanout places and routes (Hans Baier's class, fixed by the carry-O relocation + our split fixes)",
+  "exercises": ["the carry-O relocation transform (split + sum duplication) on the const-DI class", "harness timeout (hang-class guard)"],
+  "why": "Bisected upstream by Hans Baier to bf78fccf (PR #105): the restored validity check correctly rejects a packing where the design-wide $PACKER_GND_NET feed-through (multi-user) occupies a chain slice 5LUT while CO fans out to fabric. GRADUATED at the a70ae4a8 re-pin (2026-08-11): the carry-O relocation transform (Hans) plus the split/legaliser fix series (ours) place and route this class — the expected-fail guard tripped 'loudly' exactly as designed during the fix validation. The tight timeout stays as a hang-class guard: on a regression this must FAIL fast, not freeze CI.",
+  "tags": ["structural", "carry"],
   "top": "carry_const_di",
   "timeout": 120,
-  "expect": { "status": "fail" }
+  "expect": { "status": "pass" }
 }

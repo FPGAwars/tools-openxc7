@@ -1,4 +1,12 @@
-# carry-const-di — a known packer gap, kept on the record (expected-fail)
+# carry-const-di — Hans Baier's const-DI class, GRADUATED (expect: pass)
+
+> Until the a70ae4a8 re-pin (2026-08-11) this was an expected-fail
+> guard for a known packer gap. The carry-O relocation transform (Hans)
+> plus the split/legaliser fix series (ours, upstream PRs) fixed the
+> class; the guard tripped "loudly" during validation exactly as
+> designed, and the test now expects the flow to complete. The tight
+> timeout stays: on a regression this must fail FAST, not freeze CI.
+> Original gap description below, kept for the record.
 
 ## What it probes
 
