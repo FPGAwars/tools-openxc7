@@ -103,7 +103,7 @@ Both tools can be installed separately (`./install-oss-cad-suite.sh`,
 The release each installer downloads, and where it installs, are pinned in
 `lib/common.sh`. Those pins track the latest **promoted** release of each
 tool — nightly prereleases are excluded on purpose — and match what apio
-installs for its users; `scripts/check-pins.sh` asserts the three agree.
+installs for its users; `scripts/check-versions.sh` asserts the three agree.
 They can be overridden from the environment:
 
 | Variable | Meaning |
@@ -251,7 +251,7 @@ scripts/regress.sh <pkg> --test srl --json report.json
 A third check keeps the installers honest about what is actually published:
 
 ```bash
-scripts/check-pins.sh            # installer pins vs promoted releases vs apio
+scripts/check-versions.sh            # installer pins vs promoted releases vs apio
 ```
 
 ## Releases and CI
@@ -269,7 +269,7 @@ single package or for a full release:
 | `windows-package.yml` | Cross-builds + validates `windows-amd64` under wine |
 | `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): builds the three only when there are new commits, then publishes |
 | `on-release-promoted.yml` | Fires when a prerelease is promoted: re-verifies it, bumps the installer pin, opens the apio remote-config PR |
-| `monitor-pins.yml` | Daily alarm: installer, latest promoted release and apio's remote-config must agree |
+| `monitor-versions.yml` | Daily alarm: installer, latest promoted release and apio's remote-config must agree |
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,

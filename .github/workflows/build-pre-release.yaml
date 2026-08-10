@@ -187,15 +187,13 @@ jobs:
 
           ### Pre-release note
           This daily release was created as a pre-release and will be deleted
-          after a few days unless it is marked as a stable release. To make it
-          stable:
-          * Open the release for editing.
-          * Turn off the \`Set as a pre-release\` checkbox.
-          * (optional) Turn on the \`Set as the latest release\` checkbox.
-          * Remove this pre-release note; then Update Release.
-          * Then bump \`OPENXC7_DATE\` in lib/common.sh and the openxc7 tag in
-            apio's remote-config, and run scripts/check-pins.sh (see the job
-            summary checklist).
+          after a few days.
+          * To KEEP it around for longer testing: uncheck \`Set as a
+            pre-release\` (no side effects — it just survives the cleanup).
+          * To PUBLISH it (after testing it for real): run the \`promote\`
+            workflow with this tag. It verifies the assets, marks the release
+            stable + latest, bumps the standalone installer, and opens the
+            apio remote-config PR — then merge that PR.
           EOFBODY
           gh release create "$DATE" --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
@@ -226,7 +224,7 @@ jobs:
 
       # Promotion stays a human decision; these are the steps it involves,
       # including the pin bumps that keep installers and apio aligned with
-      # what is actually published (scripts/check-pins.sh asserts it).
+      # what is actually published (scripts/check-versions.sh asserts it).
       - name: Promotion checklist
         env:
           DATE: ${{ needs.prepare.outputs.date }}
@@ -234,11 +232,8 @@ jobs:
           {
             echo "## Release candidate \`$DATE\` published (prerelease, not latest)"
             echo
-            echo "To promote it:"
-            echo
             echo "1. Try it for real (\`apio\` install from the tag, board test if it applies)."
-            echo "2. \`gh release edit $DATE --prerelease=false --latest\`"
-            echo "3. Bump \`OPENXC7_DATE\` in \`lib/common.sh\` to \`$DATE\`."
-            echo "4. Bump the \`openxc7\` tag in apio's \`remote-config/apio-1.5.x.jsonc\`."
-            echo "5. \`scripts/check-pins.sh\` must come back green."
+            echo "2. (optional) Uncheck \`pre-release\` to keep it beyond the cleanup window while testing."
+            echo "3. To PUBLISH: run the \`promote\` workflow with tag \`$DATE\` (verifies, marks stable+latest, bumps the installer, opens the apio remote-config PR) and merge that PR."
+            echo "4. \`scripts/check-versions.sh\` must come back green afterwards."
           } >> "$GITHUB_STEP_SUMMARY"

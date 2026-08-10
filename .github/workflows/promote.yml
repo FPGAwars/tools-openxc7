@@ -1,64 +1,76 @@
-# Promotion propagation — the automatic tail of the release flow.
+# Promotion to production — an EXPLICIT human action, never a side effect.
 #
-# Human flow: the daily build-pre-release publishes a dated PRERELEASE;
-# a human tries it and PROMOTES it (unchecks "pre-release" on GitHub).
-# That promotion fires this workflow (release event, type `released`),
-# which does everything that used to be a memory-dependent checklist:
+# Ecosystem release states (FPGAwars convention):
+#   1. pre-release          nightly, garbage-collected after a few days
+#   2. stable (uncheck box) "keep this one around" — for longer testing.
+#                           Marking stable has NO side effects here.
+#   3. published            fully tested AND pinned in apio's remote-config
+#   4. was-published        replaced by a newer published release
 #
-#   1. re-verify the promoted release the way apio will fetch it
-#      (scripts/asset-check.sh) — a broken promotion stops HERE;
-#   2. bump OPENXC7_DATE in lib/common.sh (what ./install.sh downloads)
+# This workflow is the 2→3 transition, run BY HAND when a release is
+# deemed production-ready (Actions → promote → Run workflow, tag input):
+#
+#   1. re-verify the release the way apio will fetch it
+#      (scripts/asset-check.sh) — a broken candidate stops HERE;
+#   2. mark it stable + latest on GitHub (idempotent if already done);
+#   3. bump OPENXC7_DATE in lib/common.sh (what ./install.sh downloads)
 #      and commit it to the default branch;
-#   3. open a PR against FPGAwars/apio bumping remote-config's openxc7
+#   4. open a PR against FPGAwars/apio bumping remote-config's openxc7
 #      tag — and the definitions tag in the SAME PR (both pointers move
 #      atomically; a board without its chipdb cannot happen). Needs the
-#      APIO_PR_TOKEN secret (fine-grained PAT: apio repo, Contents RW +
-#      Pull requests RW); without it, the diff lands in the job summary
-#      for a manual PR instead of failing.
+#      APIO_PR_TOKEN secret (fine-grained PAT: apio + tools-openxc7,
+#      Contents RW + Pull requests RW); without it, the diff lands in
+#      the job summary for a manual PR instead of failing.
 #
-# The remaining human steps: promote (one click) and merge the apio PR
-# (one click, with review). scripts/check-pins.sh (see monitor-pins.yml)
-# stands guard for drift in between.
-name: on-release-promoted
+# Publishing therefore stays two deliberate human actions: this dispatch
+# and merging the apio PR. scripts/check-versions.sh (see
+# monitor-versions.yml) stands guard for drift in between.
+name: promote
 
 on:
-  release:
-    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Dated release tag to promote (YYYY-MM-DD)"
+        required: true
 
 permissions:
   contents: write
 
 jobs:
-  propagate:
+  promote:
     runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - name: Guard — only dated release tags
-        id: guard
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${{ inputs.tag }}"
           case "$TAG" in
-            20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]) echo "ok=true" >> "$GITHUB_OUTPUT" ;;
-            *) echo "tag '$TAG' is not a dated release; nothing to propagate"
-               echo "ok=false" >> "$GITHUB_OUTPUT" ;;
+            20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]) echo "tag OK: $TAG" ;;
+            *) echo "::error::'$TAG' is not a dated release tag (YYYY-MM-DD)"; exit 1 ;;
           esac
 
       - uses: actions/checkout@v7
-        if: steps.guard.outputs.ok == 'true'
         with:
           ref: ${{ github.event.repository.default_branch }}
 
-      - name: Verify the promoted release (asset-check)
-        if: steps.guard.outputs.ok == 'true'
+      - name: Verify the release (asset-check)
         env:
           GH_TOKEN: ${{ github.token }}
           ASSET_CHECK_REPO: ${{ github.repository }}
-        run: bash scripts/asset-check.sh "${{ github.event.release.tag_name }}"
+        run: bash scripts/asset-check.sh "${{ inputs.tag }}"
+
+      - name: Mark the release stable + latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" \
+            --prerelease=false --latest
+          echo "release ${{ inputs.tag }} is now stable and latest"
 
       - name: Bump OPENXC7_DATE in lib/common.sh and push
-        if: steps.guard.outputs.ok == 'true'
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          # the pin is env-overridable: OPENXC7_DATE="${OPENXC7_DATE:-<date>}"
+          TAG="${{ inputs.tag }}"
+          # the pinned version is env-overridable: OPENXC7_DATE="${OPENXC7_DATE:-<date>}"
           sed -i -E "s/(OPENXC7_DATE:-)[0-9-]+\}/\1${TAG}}/" lib/common.sh
           grep "^OPENXC7_DATE=" lib/common.sh
           if git diff --quiet lib/common.sh; then
@@ -73,9 +85,8 @@ jobs:
           fi
 
       - name: Open (or prepare) the apio remote-config PR
-        if: steps.guard.outputs.ok == 'true'
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ inputs.tag }}
           APIO_PR_TOKEN: ${{ secrets.APIO_PR_TOKEN }}
           GH_TOKEN: ${{ github.token }}
         run: |

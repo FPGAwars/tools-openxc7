@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# check-pins.sh -- assert the installer pins are aligned with reality.
+# check-versions.sh -- assert the installer pins are aligned with reality.
 #
 # Three sources must agree for every tool this repo installs:
 #
@@ -12,8 +12,8 @@
 #   3. apio's remote-config   what apio installs for end users
 #
 # Usage:
-#   scripts/check-pins.sh              # exit != 0 if anything drifted
-#   scripts/check-pins.sh --report     # print the table, always exit 0
+#   scripts/check-versions.sh              # exit != 0 if anything drifted
+#   scripts/check-versions.sh --report     # print the table, always exit 0
 #
 # Env: APIO_REMOTE_CONFIG_URL to point at another remote-config;
 #      GH_TOKEN / GITHUB_TOKEN are used if set (API rate limits).
@@ -46,7 +46,7 @@ TOOLS = {
 
 
 def get(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "tools-openxc7-check-pins"})
+    req = urllib.request.Request(url, headers={"User-Agent": "tools-openxc7-check-versions"})
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if token and "api.github.com" in url:
         req.add_header("Authorization", f"Bearer {token}")

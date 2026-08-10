@@ -11,7 +11,7 @@
 # ---------------------------------------------------------------------------
 # They must track the latest PROMOTED release of each repo (nightly
 # prereleases are excluded on purpose) and match what apio installs via its
-# remote-config. scripts/check-pins.sh verifies all three agree.
+# remote-config. scripts/check-versions.sh verifies all three agree.
 OSS_CAD_SUITE_DATE="${OSS_CAD_SUITE_DATE:-2026-08-07}"
 OPENXC7_DATE="${OPENXC7_DATE:-2026-08-07}"
 
