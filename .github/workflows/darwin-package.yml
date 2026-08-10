@@ -4,7 +4,7 @@
 #
 # Reusable (workflow_call) and standalone (workflow_dispatch), like
 # linux-package.yml. No push trigger on purpose (packing is a deliverable,
-# not a guard; smoke.yml is the macOS push guard).
+# not a guard; test.yaml is the per-commit guard).
 #
 # The chipdb is NEVER generated here: this runner has 7 GB of RAM and cannot
 # build the big parts (xc7a200t). It is seeded either from the linux job of
@@ -98,11 +98,11 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
+          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
 
       - name: Install oss-cad-suite (the user env, via our own installer)
         run: |
-          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash ./install-oss-cad-suite.sh
+          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
 
       - name: Validate the package inside the tarball (L1 gate)
         run: |

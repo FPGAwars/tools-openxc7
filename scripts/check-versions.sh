@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 #
-# check-versions.sh -- assert the installer pins are aligned with reality.
+# check-versions.sh -- assert the published versions are aligned.
 #
-# Three sources must agree for every tool this repo installs:
+# Sources compared (this repo is an apio package; apio's remote-config is
+# the single authority on what users install):
 #
-#   1. lib/common.sh          what ./install.sh actually downloads
-#   2. GitHub releases/latest the latest PROMOTED release (nightly
-#                             prereleases are excluded by design, which is
-#                             exactly why releases are published with
-#                             --prerelease --latest=false until validated)
-#   3. apio's remote-config   what apio installs for end users
+#   openxc7        latest PROMOTED release  <->  apio's remote-config tag
+#                  (nightly prereleases are excluded by design: releases
+#                  are published --prerelease --latest=false until a human
+#                  promotes one)
+#   oss-cad-suite  the version our CI VALIDATES the package against
+#                  (scripts/ci-install-oss-cad-suite.sh)  <->  apio's
+#                  remote-config tag -- a drift here means L1/L2 validate
+#                  with different tools than users actually get
 #
 # Usage:
 #   scripts/check-versions.sh              # exit != 0 if anything drifted
@@ -24,7 +27,7 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 MODE="check"
 case "${1:-}" in
     --report) MODE="report" ;;
-    -h|--help) sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     "") ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
 esac
@@ -38,11 +41,6 @@ REMOTE_CONFIG = os.environ.get(
     "APIO_REMOTE_CONFIG_URL",
     "https://raw.githubusercontent.com/FPGAwars/apio/main/remote-config/apio-1.5.x.jsonc",
 )
-# pin name in lib/common.sh -> (github repo, key in apio's remote-config)
-TOOLS = {
-    "OPENXC7_DATE": ("FPGAwars/tools-openxc7", "openxc7"),
-    "OSS_CAD_SUITE_DATE": ("FPGAwars/tools-oss-cad-suite", "oss-cad-suite"),
-}
 
 
 def get(url):
@@ -54,57 +52,58 @@ def get(url):
         return r.read().decode()
 
 
-def local_pins():
-    """Read the defaults out of lib/common.sh (VAR="${VAR:-YYYY-MM-DD}")."""
-    text = open(os.path.join(repo_root, "lib", "common.sh")).read()
-    pins = {}
-    for var in TOOLS:
-        m = re.search(rf'^{var}=.*?(\d{{4}}-\d{{2}}-\d{{2}})', text, re.M)
-        if m:
-            pins[var] = m.group(1)
-    return pins
+def ci_oss_cad_suite_version():
+    """The version scripts/ci-install-oss-cad-suite.sh validates against."""
+    text = open(os.path.join(repo_root, "scripts", "ci-install-oss-cad-suite.sh")).read()
+    m = re.search(r'^OSS_CAD_SUITE_DATE=.*?(\d{4}-\d{2}-\d{2})', text, re.M)
+    return m.group(1) if m else "?"
 
 
-def apio_pins():
+def apio_versions():
     """packages.<key>.release.tag from apio's remote-config (jsonc)."""
     raw = get(REMOTE_CONFIG)
     stripped = "\n".join(
         "" if ln.lstrip().startswith("//") else ln for ln in raw.splitlines()
     )
     data = json.loads(stripped)["packages"]
-    return {key: data[key]["release"]["tag"] for _, key in TOOLS.values()}
+    return {key: data[key]["release"]["tag"] for key in ("openxc7", "oss-cad-suite")}
 
 
 try:
-    local = local_pins()
-    apio = apio_pins()
-    promoted = {
-        repo: json.loads(get(f"https://api.github.com/repos/{repo}/releases/latest"))["tag_name"]
-        for repo, _ in TOOLS.values()
-    }
+    apio = apio_versions()
+    promoted_openxc7 = json.loads(
+        get("https://api.github.com/repos/FPGAwars/tools-openxc7/releases/latest")
+    )["tag_name"]
+    ci_ocs = ci_oss_cad_suite_version()
 except (urllib.error.URLError, urllib.error.HTTPError, KeyError, ValueError) as e:
     print(f"could not resolve the published state: {e}", file=sys.stderr)
     sys.exit(0 if mode == "report" else 2)
 
-print(f"{'tool':<22} {'installer':<12} {'promoted':<12} {'apio':<12} status")
+rows = [
+    # (tool, ours, ours-label, apio's remote-config tag)
+    ("openxc7", promoted_openxc7, "promoted", apio["openxc7"]),
+    ("oss-cad-suite", ci_ocs, "ci-validates", apio["oss-cad-suite"]),
+]
+
+print(f"{'tool':<16} {'ours':<12} {'(source)':<14} {'apio':<12} status")
 drift = []
-for var, (repo, key) in TOOLS.items():
-    got, pub, ap = local.get(var, "?"), promoted[repo], apio[key]
-    aligned = got == pub == ap
+for tool, ours, label, ap in rows:
+    aligned = ours == ap
     if not aligned:
-        drift.append((var, got, pub, ap))
-    print(f"{key:<22} {got:<12} {pub:<12} {ap:<12} {'OK' if aligned else 'DRIFT'}")
+        drift.append((tool, ours, label, ap))
+    print(f"{tool:<16} {ours:<12} {label:<14} {ap:<12} {'OK' if aligned else 'DRIFT'}")
 
 if not drift:
-    print("\nall pins aligned")
+    print("\nall versions aligned")
     sys.exit(0)
 
 print("", file=sys.stderr)
-for var, got, pub, ap in drift:
-    print(f"DRIFT {var}: installer={got} promoted={pub} apio={ap}", file=sys.stderr)
+for tool, ours, label, ap in drift:
+    print(f"DRIFT {tool}: {label}={ours} apio-remote-config={ap}", file=sys.stderr)
 print(
-    "\nAfter promoting a release candidate, bump lib/common.sh and apio's "
-    "remote-config to the promoted tag.",
+    "\nopenxc7 drift: promote (or fix remote-config). oss-cad-suite drift: "
+    "bump scripts/ci-install-oss-cad-suite.sh so CI validates with the same "
+    "tools users get.",
     file=sys.stderr,
 )
 sys.exit(0 if mode == "report" else 1)

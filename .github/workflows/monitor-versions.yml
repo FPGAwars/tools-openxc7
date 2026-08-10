@@ -1,6 +1,6 @@
 # The standing alarm that replaces human memory in the release flow:
 # scripts/check-versions.sh asserts that the three version sources agree —
-# lib/common.sh (what ./install.sh downloads), the latest PROMOTED
+# the CI-validation oss-cad-suite version, the latest PROMOTED
 # GitHub release, and apio's remote-config (what apio installs). Any
 # drift (an unmerged bump PR, a manual promotion, a revert) turns this
 # workflow red until resolved. Badge-able, like the other FPGAwars

@@ -13,9 +13,7 @@
 #   1. re-verify the release the way apio will fetch it
 #      (scripts/asset-check.sh) — a broken candidate stops HERE;
 #   2. mark it stable + latest on GitHub (idempotent if already done);
-#   3. bump OPENXC7_DATE in lib/common.sh (what ./install.sh downloads)
-#      and commit it to the default branch;
-#   4. open a PR against FPGAwars/apio bumping remote-config's openxc7
+#   3. open a PR against FPGAwars/apio bumping remote-config's openxc7
 #      tag — and the definitions tag in the SAME PR (both pointers move
 #      atomically; a board without its chipdb cannot happen). Needs the
 #      APIO_PR_TOKEN secret (fine-grained PAT: apio + tools-openxc7,
@@ -66,23 +64,6 @@ jobs:
           gh release edit "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" \
             --prerelease=false --latest
           echo "release ${{ inputs.tag }} is now stable and latest"
-
-      - name: Bump OPENXC7_DATE in lib/common.sh and push
-        run: |
-          TAG="${{ inputs.tag }}"
-          # the pinned version is env-overridable: OPENXC7_DATE="${OPENXC7_DATE:-<date>}"
-          sed -i -E "s/(OPENXC7_DATE:-)[0-9-]+\}/\1${TAG}}/" lib/common.sh
-          grep "^OPENXC7_DATE=" lib/common.sh
-          if git diff --quiet lib/common.sh; then
-            echo "installer already at $TAG"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add lib/common.sh
-            git commit -m "installer: OPENXC7_DATE -> $TAG (release promoted)"
-            git pull --rebase origin "${{ github.event.repository.default_branch }}"
-            git push origin "${{ github.event.repository.default_branch }}"
-          fi
 
       - name: Open (or prepare) the apio remote-config PR
         env:

@@ -137,11 +137,11 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('lib/common.sh') }}
+          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
 
       - name: Install oss-cad-suite (the user env, via our own installer)
         run: |
-          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash ./install-oss-cad-suite.sh
+          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
 
       - name: Fetch the pinned third-party trees (regress/lock.json)
         run: bash scripts/fetch-demos.sh

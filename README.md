@@ -78,90 +78,17 @@ live in [apio-definitions](https://github.com/FPGAwars/apio-definitions).
 This is also the only supported path on **Windows**, where the shell installers
 below do not apply.
 
-## Using the toolchain without apio (Linux / macOS)
+## Using the toolchain without apio
 
-### 1. Clone this repository
+This repository is an **apio package**: apio is the supported way to install
+and use it on every platform. If you want the openXC7 toolchain standalone,
+use the upstream [openXC7](https://github.com/openXC7) project directly.
 
-```bash
-git clone https://github.com/FPGAwars/tools-openxc7.git
-cd tools-openxc7
-```
-
-### 2. Install the toolchain (oss-cad-suite + openxc7)
-
-```bash
-./install.sh
-```
-
-It auto-detects your OS/arch, downloads the matching `.tgz` packages and
-extracts them into `~/.local/oss-cad-suite` and `~/.local/openxc7`. On macOS
-the quarantine attribute is stripped so the binaries can run.
-
-Both tools can be installed separately (`./install-oss-cad-suite.sh`,
-`./install-openxc7.sh`) and removed with the matching `uninstall*.sh` scripts.
-
-The release each installer downloads, and where it installs, are pinned in
-`lib/common.sh`. Those pins track the latest **promoted** release of each
-tool — nightly prereleases are excluded on purpose — and match what apio
-installs for its users; `scripts/check-versions.sh` asserts the three agree.
-They can be overridden from the environment:
-
-| Variable | Meaning |
-|---|---|
-| `OSS_CAD_SUITE_DATE`, `OPENXC7_DATE` | Release dates to download (`YYYY-MM-DD`) |
-| `OSS_CAD_SUITE_PATH`, `OPENXC7_INSTALL_PATH` | Installation prefixes |
-
-### 3. Enter the environment
-
-```bash
-source start
-```
-
-This puts `yosys`, `nextpnr-xilinx`, `fasm2frames`, `xc7frames2bit`,
-`openFPGALoader` and the rest on your `PATH`, and exports `TOOLS_OPENXC7` and
-`OSS_CAD_SUITE`, from which a project locates the chipdb and the prjxray
-database. If you installed to custom prefixes, edit the two paths at the top
-of `start`.
-
-### 4. Build the "hello world" (LED on)
-
-```bash
-cd example
-make
-```
-
-The Makefile runs the four stages and leaves the bitstream in `ledon.bit`:
-
-```
-yosys           ledon.v    -> ledon.json     (synthesis)
-nextpnr-xilinx  ledon.json -> ledon.fasm     (place & route, chipdb xc7a35tcpg236)
-fasm2frames     ledon.fasm -> ledon.frames   (FASM -> configuration frames)
-xc7frames2bit   ledon.frames -> ledon.bit    (bitstream)
-```
-
-### 5. Upload it to the board
-
-**On Linux, install the USB rules first** — otherwise the device node belongs
-to `root` and programming fails with a permission error, however correct the
-rest of the installation is. Root is needed once, not on every use:
-
-```bash
-sudo cp udev/99-openfpgaloader.rules /etc/udev/rules.d/
-sudo udevadm control --reload-rules && sudo udevadm trigger
-```
-
-Then unplug and replug the board. See [`udev/README.md`](udev/README.md) for
-what the file is and why `sudo openFPGALoader` is the wrong way out. macOS
-needs nothing; Windows needs a driver (typically WinUSB via Zadig) instead.
-
-```bash
-make prog
-```
-
-The example targets a **Digilent Basys3** (`xc7a35tcpg236`); the bitstream is
-loaded into RAM with `openFPGALoader --board basys3` and LED 15 turns on. To
-target another board, change `PART` in `example/Makefile` and provide its
-`.xdc` constraints — the Basys3 one lives in `config/basys3.xdc`.
+> The former shell installers (`install*.sh`, `start`, `uninstall*.sh`) are
+> preserved on the
+> [`archive/standalone-installers`](../../tree/archive/standalone-installers)
+> branch — they predate apio's Xilinx support and are no longer maintained
+> on `main`.
 
 ## Building the packages from source (developers)
 
@@ -263,7 +190,6 @@ single package or for a full release:
 | Workflow | What it does |
 |---|---|
 | `test.yaml` | Per-commit compile test: linux, macos and windows-cross jobs (push/PR guard) |
-| `smoke.yml` | Installs the macOS package like a user and builds the LED example |
 | `linux-package.yml` | Builds + validates `linux-x86-64` (and owns the chipdb) |
 | `darwin-package.yml` | Builds + validates `darwin-arm64` |
 | `windows-package.yml` | Cross-builds + validates `windows-amd64` under wine |
@@ -292,7 +218,7 @@ into a 404 at install time.
 | `chipdb-parts.json` | The part manifest (family → footprints) — one line here per new part |
 | `regress/` | The declarative regression suite (tests, baselines, pinned third-party demos) |
 | `scripts/`, `e2e/` | Validation you can run locally, and the multi-part end-to-end |
-| `install*.sh`, `uninstall*.sh`, `start`, `lib/` | End-user installation and environment |
+| — | End-user install scripts live on `archive/standalone-installers` (this is an apio package) |
 | `udev/` | USB rules needed to program boards on Linux (copy of openFPGALoader's) |
 | `example/`, `config/` | The Basys3 LED example and board constraint files |
 | `.github/workflows/` | CI: guards, per-platform packages, release |
