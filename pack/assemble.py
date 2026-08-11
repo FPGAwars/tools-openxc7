@@ -76,6 +76,16 @@ def write_env():
     print(msg)
     print()
 
+    # -- Ecosystem convention: every apio package carries a BUILD-INFO.json
+    # -- at its root. CI composes it (scripts/build-info.sh) and points
+    # -- OPENXC7_BUILD_INFO at it; a local build without the variable
+    # -- simply ships without the file.
+    build_info = os.environ.get("OPENXC7_BUILD_INFO")
+    if build_info:
+        shutil.copy(build_info, dst / "BUILD-INFO.json")
+        print(f"🔵 ✅BUILD-INFO.json ({build_info})")
+        print()
+
 
 # -----------------------------------
 # -- Return the current date in

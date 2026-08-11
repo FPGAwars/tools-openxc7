@@ -107,6 +107,25 @@ if [ -n "$TARBALL" ]; then
     fi
 fi
 
+# --- BUILD-INFO.json (ecosystem convention) ---------------------------------
+if [ -f "$PKG/BUILD-INFO.json" ]; then
+    if python3 - "$PKG/BUILD-INFO.json" "$PLAT" <<'PYEOF'
+import json, sys
+info = json.load(open(sys.argv[1]))
+plat = info.get("target-platform")
+if plat != sys.argv[2]:
+    raise SystemExit(f"target-platform {plat!r} != {sys.argv[2]!r}")
+for key in ("package-name", "release-tag", "apio-oss-cad-suite-release-tag"):
+    if not info.get(key):
+        raise SystemExit(f"missing field: {key}")
+PYEOF
+    then ok "BUILD-INFO.json present and coherent"
+    else fail "BUILD-INFO.json invalid (bad JSON, platform mismatch or missing fields)"
+    fi
+else
+    note "BUILD-INFO.json missing (pre-convention package)"
+fi
+
 # --- chipdb completeness vs the manifest ------------------------------------
 python3 - "$REPO_ROOT/chipdb-parts.json" > "$SCRATCH/parts.txt" <<'PYEOF'
 import json, sys

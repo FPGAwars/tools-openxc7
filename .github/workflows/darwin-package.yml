@@ -82,11 +82,18 @@ jobs:
           fi
           echo "chipdb seed: $n bins"
 
+      - name: Compose BUILD-INFO.json (ecosystem convention)
+        run: |
+          DATE="${{ steps.d.outputs.date }}"
+          bash scripts/build-info.sh darwin-arm64 "$DATE" \
+            "apio-openxc7-darwin-arm64-${DATE//-/}.tgz" BUILD-INFO.json
+
       - name: Build the openXC7 package
         id: pack
         env:
           OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
           OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-cache
+          OPENXC7_BUILD_INFO: ${{ github.workspace }}/BUILD-INFO.json
         run: |
           rm -rf dist   # stale-dist guard (see linux-package.yml)
           nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'

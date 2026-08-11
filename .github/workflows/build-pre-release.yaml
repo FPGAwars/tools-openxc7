@@ -181,9 +181,18 @@ jobs:
           done
           sha256sum apio-openxc7-*.tgz > SHA256SUMS
           cat SHA256SUMS
+          OCS=$(sed -n 's/^OSS_CAD_SUITE_DATE="\${OSS_CAD_SUITE_DATE:-\(.*\)}"$/\1/p' scripts/ci-install-oss-cad-suite.sh)
           cat > RELEASE-BODY.md <<EOFBODY
           openXC7 toolchain — $DATE. Validated by CI (package gate, regression
           suite on the three platforms, linux/windows chipdb parity).
+
+          ### Build info
+          Each package carries a \`BUILD-INFO.json\` at its root (ecosystem
+          convention; also exported to the platform job summaries).
+          * apio oss-cad-suite dependency: \`$OCS\` (the release the gates
+            validate against)
+          * commit: \`$GITHUB_SHA\`
+          * workflow run: $GITHUB_RUN_ID (#$GITHUB_RUN_NUMBER)
 
           ### Pre-release note
           This daily release was created as a pre-release and will be deleted
@@ -192,8 +201,8 @@ jobs:
             pre-release\` (no side effects — it just survives the cleanup).
           * To PUBLISH it (after testing it for real): run the \`promote\`
             workflow with this tag. It verifies the assets, marks the release
-            stable + latest, bumps the standalone installer, and opens the
-            apio remote-config PR — then merge that PR.
+            stable + latest, and opens the apio remote-config PR — then merge
+            that PR.
           EOFBODY
           gh release create "$DATE" --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \

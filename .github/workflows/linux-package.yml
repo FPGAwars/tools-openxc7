@@ -59,13 +59,21 @@ jobs:
           path: chipdb-cache
           key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
 
+      - name: Compose BUILD-INFO.json (ecosystem convention)
+        run: |
+          DATE="${{ steps.d.outputs.date }}"
+          bash scripts/build-info.sh linux-x86-64 "$DATE" \
+            "apio-openxc7-linux-x86-64-${DATE//-/}.tgz" BUILD-INFO.json
+
       - name: Build the openXC7 package
         id: pack
         env:
           OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
+          OPENXC7_BUILD_INFO: ${{ github.workspace }}/BUILD-INFO.json
         run: |
-          # stale-dist guard: only the pin-keyed cache may seed the chipdb
-          # (a dist/ from another pin ships bins with mismatched constids)
+          # stale-dist guard: only the version-keyed cache may seed the chipdb
+          # (a dist/ from another toolchain revision ships bins with
+          # mismatched constids)
           rm -rf dist
           if [ -n "$(ls -A chipdb-cache 2>/dev/null || true)" ]; then
             export OPENXC7_CHIPDB_SEED="$PWD/chipdb-cache"

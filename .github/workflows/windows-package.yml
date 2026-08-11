@@ -49,10 +49,12 @@ jobs:
           DATE="${{ inputs.date }}"
           [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
           NAME="apio-openxc7-windows-amd64-${DATE//-/}.tgz"
+          # ecosystem convention: BUILD-INFO.json at the package root
+          bash scripts/build-info.sh windows-amd64 "$DATE" "$NAME" BUILD-INFO.json
           # --mode=u+w: the nix store tree is read-only; without it Windows
           # extracts the files with the READONLY attribute and apio cannot
           # delete/reinstall the package (PermissionError on --force/upgrade)
-          tar czhf "$NAME" --mode=u+w -C result-win .
+          tar czhf "$NAME" --mode=u+w -C result-win . -C "$PWD" BUILD-INFO.json
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           ls -la "$NAME"
 
