@@ -41,6 +41,19 @@ jobs:
             ls -la "result-win/chipdb/$p.bin"
           done < /tmp/chipdb-parts.txt
 
+      # Installed BEFORE the tar step: build-info.sh re-exports the
+      # yosys-release-tag from the installed package's own BUILD-INFO.json
+      # (the runtime matching key, apio#927).
+      - name: Cache the oss-cad-suite validation env
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/oss-cad-suite
+          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
+
+      - name: Install oss-cad-suite (the user env, via our own installer)
+        run: |
+          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
+
       - name: Tar with date
         id: tar
         run: |
@@ -135,16 +148,6 @@ jobs:
       # below exercises them and the whole catalogue against the tarball,
       # with fasm2frames under the WINDOWS python (the real apio path; the
       # harness finds the mingw interpreter in the store, E2E_WINPY overrides).
-      - name: Cache the oss-cad-suite validation env
-        uses: actions/cache@v6
-        with:
-          path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
-
-      - name: Install oss-cad-suite (the user env, via our own installer)
-        run: |
-          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
-
       - name: Fetch the pinned third-party trees (regress/lock.json)
         run: bash scripts/fetch-demos.sh
 

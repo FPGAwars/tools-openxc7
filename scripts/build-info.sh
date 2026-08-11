@@ -26,6 +26,25 @@ REPO_ROOT=$(cd "$HERE/.." && pwd)
 OCS=${OSS_CAD_SUITE_DATE:-$(sed -n 's/^OSS_CAD_SUITE_DATE="\${OSS_CAD_SUITE_DATE:-\(.*\)}"$/\1/p' "$HERE/ci-install-oss-cad-suite.sh")}
 [ -n "$OCS" ] || { echo "could not resolve the apio oss-cad-suite tag from ci-install-oss-cad-suite.sh" >&2; exit 1; }
 
+# The upstream YosysHQ oss-cad-suite release, re-exported from the installed
+# apio oss-cad-suite package's own BUILD-INFO.json (its declared field, so
+# the match semantics are exact). This is the version-matching key apio
+# checks at runtime across packages (apio#927): repackaging bumps of the
+# apio oss-cad-suite that keep the same upstream yosys do not invalidate
+# this package.
+OCS_ROOT="${OSS_CAD_SUITE_PATH:-$HOME/.local/oss-cad-suite}"
+YOSYS_TAG="unknown"
+if [ -f "$OCS_ROOT/BUILD-INFO.json" ]; then
+    YOSYS_TAG=$(python3 -c "
+import json, sys
+try:
+    print(json.load(open(sys.argv[1])).get('yosys-release-tag') or 'unknown')
+except Exception:
+    print('unknown')" "$OCS_ROOT/BUILD-INFO.json")
+else
+    echo "warning: $OCS_ROOT/BUILD-INFO.json not found; yosys-release-tag=unknown" >&2
+fi
+
 NEXTPNR_REV=$(sed -n 's/.*rev = "\([0-9a-f]\{7,40\}\)".*/\1/p' "$REPO_ROOT/nix/nextpnr-xilinx.nix" | head -1)
 
 COMMIT=${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)}
@@ -36,6 +55,7 @@ cat > "$OUT" <<EOF
   "description"                    : "openXC7 toolchain for Xilinx 7-series FPGAs",
   "release-tag"                    : "$DATE",
   "apio-oss-cad-suite-release-tag" : "$OCS",
+  "yosys-release-tag"              : "$YOSYS_TAG",
   "nextpnr-xilinx-revision"        : "${NEXTPNR_REV:-unknown}",
   "build-repo"                     : "${GITHUB_REPOSITORY:-local}",
   "build-workflow"                 : "${GITHUB_WORKFLOW:-local}",

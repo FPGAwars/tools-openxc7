@@ -82,6 +82,19 @@ jobs:
           fi
           echo "chipdb seed: $n bins"
 
+      # Installed BEFORE composing BUILD-INFO: build-info.sh re-exports the
+      # yosys-release-tag from the installed package's own BUILD-INFO.json
+      # (the runtime matching key, apio#927).
+      - name: Cache the oss-cad-suite validation env
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/oss-cad-suite
+          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
+
+      - name: Install oss-cad-suite (the user env, via our own installer)
+        run: |
+          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
+
       - name: Compose BUILD-INFO.json (ecosystem convention)
         run: |
           DATE="${{ steps.d.outputs.date }}"
@@ -100,16 +113,6 @@ jobs:
           TGZ=$(ls apio-openxc7-darwin-arm64-*.tgz)
           echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
           ls -la "$TGZ"
-
-      - name: Cache the oss-cad-suite validation env
-        uses: actions/cache@v6
-        with:
-          path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
-
-      - name: Install oss-cad-suite (the user env, via our own installer)
-        run: |
-          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
 
       - name: Validate the package inside the tarball (L1 gate)
         run: |

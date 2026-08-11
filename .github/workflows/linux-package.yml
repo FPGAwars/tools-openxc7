@@ -59,6 +59,19 @@ jobs:
           path: chipdb-cache
           key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
 
+      # Installed BEFORE composing BUILD-INFO: build-info.sh re-exports the
+      # yosys-release-tag from the installed package's own BUILD-INFO.json
+      # (the runtime matching key, apio#927).
+      - name: Cache the oss-cad-suite validation env
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/oss-cad-suite
+          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
+
+      - name: Install oss-cad-suite (the user env, via our own installer)
+        run: |
+          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
+
       - name: Compose BUILD-INFO.json (ecosystem convention)
         run: |
           DATE="${{ steps.d.outputs.date }}"
@@ -89,16 +102,6 @@ jobs:
           # darwin rechaza el seed (y con él, un seed de otro pin también)
           mkdir -p chipdb-cache
           cp dist/chipdb/*.bin dist/chipdb/chipdb-id.txt chipdb-cache/
-
-      - name: Cache the oss-cad-suite validation env
-        uses: actions/cache@v6
-        with:
-          path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
-
-      - name: Install oss-cad-suite (the user env, via our own installer)
-        run: |
-          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
 
       - name: Validate the package inside the tarball (L1 gate)
         run: |
