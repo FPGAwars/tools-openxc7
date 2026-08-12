@@ -33,6 +33,15 @@ on:
   # release step now creates the tag with a PAT (see below) — a PAT-created
   # tag WOULD fire a tags trigger, recursing into this very workflow.
 
+# The upstream YosysHQ oss-cad-suite release this package expects at
+# runtime (the cross-package matching key apio checks, apio#927). Declared
+# here, at the top, following the ecosystem convention
+# (tools-oss-cad-suite build-pre-release.yaml); propagated to the platform
+# workflows, asserted against the validation environment they install, and
+# exported into every package's BUILD-INFO.json as "yosys-release-tag".
+env:
+  YOSYS_RELEASE_TAG: "2026-03-24"
+
 permissions:
   contents: write
 
@@ -90,6 +99,7 @@ jobs:
     uses: ./.github/workflows/linux-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
+      yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
 
   # After linux: it publishes the chipdb-bins artifact this job seeds from.
   darwin:
@@ -97,6 +107,7 @@ jobs:
     uses: ./.github/workflows/darwin-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
+      yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
       seed_from_artifact: true
 
   windows:
@@ -104,6 +115,7 @@ jobs:
     uses: ./.github/workflows/windows-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
+      yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
 
   publish:
     needs: [prepare, linux, darwin, windows]
@@ -181,18 +193,24 @@ jobs:
           done
           sha256sum apio-openxc7-*.tgz > SHA256SUMS
           cat SHA256SUMS
-          OCS=$(sed -n 's/^OSS_CAD_SUITE_DATE="\${OSS_CAD_SUITE_DATE:-\(.*\)}"$/\1/p' scripts/ci-install-oss-cad-suite.sh)
+          # full BUILD-INFO of each package into the release text
+          # (ecosystem convention, apio#927)
+          : > BUILD-INFOS.md
+          for f in apio-openxc7-*.tgz; do
+            {
+              echo "**\`$f\`**"
+              echo '```json'
+              tar xzf "$f" -O BUILD-INFO.json 2>/dev/null || echo '{ "missing": true }'
+              echo '```'
+              echo
+            } >> BUILD-INFOS.md
+          done
           cat > RELEASE-BODY.md <<EOFBODY
           openXC7 toolchain — $DATE. Validated by CI (package gate, regression
           suite on the three platforms, linux/windows chipdb parity).
 
           ### Build info
-          Each package carries a \`BUILD-INFO.json\` at its root (ecosystem
-          convention; also exported to the platform job summaries).
-          * apio oss-cad-suite dependency: \`$OCS\` (the release the gates
-            validate against)
-          * commit: \`$GITHUB_SHA\`
-          * workflow run: $GITHUB_RUN_ID (#$GITHUB_RUN_NUMBER)
+          $(cat BUILD-INFOS.md)
 
           ### Pre-release note
           This daily release was created as a pre-release and will be deleted

@@ -24,6 +24,11 @@ on:
         description: "Package date YYYY-MM-DD (default: today, UTC)"
         required: false
         type: string
+      yosys_release_tag:
+        description: "Upstream YosysHQ oss-cad-suite release this package expects at runtime (BUILD-INFO matching key)"
+        required: false
+        default: ""
+        type: string
       seed_from_artifact:
         description: "Take the chipdb from the chipdb-bins artifact of this run (release flow)"
         required: false
@@ -94,8 +99,21 @@ jobs:
       - name: Install oss-cad-suite (the user env, via our own installer)
         run: |
           [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
+          # the validation env must BE the declared runtime expectation:
+          # assert the installed apio oss-cad-suite repackages exactly the
+          # yosys release this package will declare in BUILD-INFO (apio#927)
+          DECLARED="${{ inputs.yosys_release_tag }}"
+          if [ -n "$DECLARED" ]; then
+            GOT=$(python3 -c "import json;print(json.load(open('$HOME/.local/oss-cad-suite/BUILD-INFO.json')).get('yosys-release-tag','?'))" 2>/dev/null || echo "?")
+            if [ "$GOT" != "$DECLARED" ]; then
+              echo "::error::validation env yosys release ($GOT) != declared yosys_release_tag ($DECLARED)"
+              exit 1
+            fi
+          fi
 
       - name: Compose BUILD-INFO.json (ecosystem convention)
+        env:
+          YOSYS_RELEASE_TAG: ${{ inputs.yosys_release_tag }}
         run: |
           DATE="${{ steps.d.outputs.date }}"
           bash scripts/build-info.sh darwin-arm64 "$DATE" \

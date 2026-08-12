@@ -13,6 +13,11 @@ on:
         description: "Package date YYYY-MM-DD (default: today, UTC)"
         required: false
         type: string
+      yosys_release_tag:
+        description: "Upstream YosysHQ oss-cad-suite release this package expects at runtime (BUILD-INFO matching key)"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   build:
@@ -53,6 +58,15 @@ jobs:
       - name: Install oss-cad-suite (the user env, via our own installer)
         run: |
           [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
+          # the validation env must BE the declared runtime expectation (apio#927)
+          DECLARED="${{ inputs.yosys_release_tag }}"
+          if [ -n "$DECLARED" ]; then
+            GOT=$(python3 -c "import json;print(json.load(open('$HOME/.local/oss-cad-suite/BUILD-INFO.json')).get('yosys-release-tag','?'))" 2>/dev/null || echo "?")
+            if [ "$GOT" != "$DECLARED" ]; then
+              echo "::error::validation env yosys release ($GOT) != declared yosys_release_tag ($DECLARED)"
+              exit 1
+            fi
+          fi
 
       - name: Tar with date
         id: tar
@@ -63,7 +77,8 @@ jobs:
           [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
           NAME="apio-openxc7-windows-amd64-${DATE//-/}.tgz"
           # ecosystem convention: BUILD-INFO.json at the package root
-          bash scripts/build-info.sh windows-amd64 "$DATE" "$NAME" BUILD-INFO.json
+          YOSYS_RELEASE_TAG="${{ inputs.yosys_release_tag }}" \
+            bash scripts/build-info.sh windows-amd64 "$DATE" "$NAME" BUILD-INFO.json
           # --mode=u+w: the nix store tree is read-only; without it Windows
           # extracts the files with the READONLY attribute and apio cannot
           # delete/reinstall the package (PermissionError on --force/upgrade)

@@ -75,20 +75,9 @@ footprint already exists in the prjxray database is a one-line change there.
 you, wires the environment, and runs the whole flow. Board and FPGA definitions
 live in [apio-definitions](https://github.com/FPGAwars/apio-definitions).
 
-This is also the only supported path on **Windows**, where the shell installers
-below do not apply.
-
-## Using the toolchain without apio
-
 This repository is an **apio package**: apio is the supported way to install
 and use it on every platform. If you want the openXC7 toolchain standalone,
 use the upstream [openXC7](https://github.com/openXC7) project directly.
-
-> The former shell installers (`install*.sh`, `start`, `uninstall*.sh`) are
-> preserved on the
-> [`archive/standalone-installers`](../../tree/archive/standalone-installers)
-> branch — they predate apio's Xilinx support and are no longer maintained
-> on `main`.
 
 ## Building the packages from source (developers)
 
