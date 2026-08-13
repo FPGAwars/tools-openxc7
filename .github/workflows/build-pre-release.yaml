@@ -195,12 +195,18 @@ jobs:
           cat SHA256SUMS
           # full BUILD-INFO of each package into the release text
           # (ecosystem convention, apio#927)
+          # Member naming differs per platform (the linux/darwin packer tars
+          # "-C dist ." -> "./BUILD-INFO.json"; the windows job appends the
+          # bare "BUILD-INFO.json"), so resolve the actual member name from
+          # the listing instead of hardcoding one form (2026-08-13 body
+          # showed '{ "missing": true }' for two of the three packages).
           : > BUILD-INFOS.md
           for f in apio-openxc7-*.tgz; do
+            M=$(tar tzf "$f" | grep -Ex '(\./)?BUILD-INFO\.json' | head -1 || true)
             {
               echo "**\`$f\`**"
               echo '```json'
-              tar xzf "$f" -O BUILD-INFO.json 2>/dev/null || echo '{ "missing": true }'
+              if [ -n "$M" ]; then tar xzf "$f" -O "$M"; else echo '{ "missing": true }'; fi
               echo '```'
               echo
             } >> BUILD-INFOS.md
