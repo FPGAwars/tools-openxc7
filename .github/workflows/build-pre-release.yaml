@@ -53,7 +53,7 @@ jobs:
   # The date is resolved ONCE here and passed down: apio derives the asset
   # date from the release TAG, so tag and every asset name must match.
   prepare:
-    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     outputs:
       date: ${{ steps.d.outputs.date }}
     steps:
@@ -119,7 +119,7 @@ jobs:
 
   publish:
     needs: [prepare, linux, darwin, windows]
-    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - uses: actions/checkout@v7    # scripts/ for chipdb-assets + asset-check
 
@@ -250,7 +250,7 @@ jobs:
           exit 1
 
       # Promotion stays a human decision; these are the steps it involves,
-      # including the pin bumps that keep installers and apio aligned with
+      # including the version bumps that keep apio aligned with
       # what is actually published (scripts/check-versions.sh asserts it).
       - name: Promotion checklist
         env:

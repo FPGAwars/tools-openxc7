@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# fetch-demos.sh -- materialise the third-party trees pinned in
-# regress/lock.json under regress/external/ (gitignored: pinned, fetched,
+# fetch-demos.sh -- materialise the third-party trees locked in
+# regress/lock.json under regress/external/ (gitignored: locked, fetched,
 # never committed).
 #
 # Idempotent: a tree already at the locked rev is left alone. Needs GitHub

@@ -15,13 +15,13 @@
 #   --keep                 keep the scratch directory for inspection
 #
 # Checks: package layout, chipdb completeness vs chipdb-parts.json, feature
-# markers inside the packaged nextpnr binary, --version == the rev pinned in
+# markers inside the packaged nextpnr binary, --version == the rev recorded in
 # nix/, platform extras on darwin (ad-hoc codesign + zero residual /nix/store
 # references), and the multi-part E2E (e2e/run-parts.sh) against the
 # extracted package.
 #
 # Requirements: yosys + python3 on PATH for the E2E (per the reproducibility
-# norm, from the pinned oss-cad-suite); wine64 on PATH for --wine.
+# norm, from the required oss-cad-suite version); wine64 on PATH for --wine.
 # Exit code != 0 means the package is INVALID.
 
 set -euo pipefail
@@ -173,20 +173,20 @@ MARKERS=$(grep -a -c reportClockFmaxJson "$NEXTPNR_BIN" || true)
 [ "${MARKERS:-0}" -ge 1 ] || fail "marker reportClockFmaxJson NOT in the packaged nextpnr (stale binary?)"
 ok "markers: reportClockFmaxJson present in the packaged binary"
 
-# --- --version must be the pinned rev ---------------------------------------
-PINNED=$(sed -n 's/.*rev = "\([0-9a-f]\{40\}\)".*/\1/p' "$REPO_ROOT/nix/nextpnr-xilinx.nix" | head -1)
-[ -n "$PINNED" ] || fail "cannot parse the pinned nextpnr rev from nix/nextpnr-xilinx.nix"
+# --- --version must be the expected rev ---------------------------------------
+EXPECTED_REV=$(sed -n 's/.*rev = "\([0-9a-f]\{40\}\)".*/\1/p' "$REPO_ROOT/nix/nextpnr-xilinx.nix" | head -1)
+[ -n "$EXPECTED_REV" ] || fail "cannot parse the expected nextpnr rev from nix/nextpnr-xilinx.nix"
 if [ "$WINE" = 1 ]; then
     VOUT=$(WINEDEBUG=-all wine64 "$NEXTPNR_BIN" --version </dev/null 2>&1 || true)
 else
     VOUT=$("$PKG/bin/nextpnr-xilinx" --version 2>&1 || true)
 fi
 # The nix build stamps the SHORT rev (7 hex chars) into --version.
-if printf '%s' "$VOUT" | grep -q "${PINNED:0:7}"; then
-    ok "--version matches the pinned rev (${PINNED:0:7})"
+if printf '%s' "$VOUT" | grep -q "${EXPECTED_REV:0:7}"; then
+    ok "--version matches the expected rev (${EXPECTED_REV:0:7})"
 else
     printf '%s\n' "$VOUT" | head -5 >&2
-    fail "--version does not contain the pinned rev ${PINNED:0:7}"
+    fail "--version does not contain the expected rev ${EXPECTED_REV:0:7}"
 fi
 
 # --- darwin extras: codesign + no residual /nix/store refs ------------------
@@ -220,7 +220,7 @@ fi
 if [ "$SKIP_E2E" = 1 ]; then
     note "E2E SKIPPED (--skip-e2e): this does NOT meet the release bar"
 else
-    command -v yosys >/dev/null 2>&1 || fail "yosys not on PATH (install the pinned oss-cad-suite)"
+    command -v yosys >/dev/null 2>&1 || fail "yosys not on PATH (install the required oss-cad-suite version)"
     WORK="$SCRATCH/e2e"
     if [ -n "$PARTS" ]; then
         export E2E_PARTS="$PARTS"

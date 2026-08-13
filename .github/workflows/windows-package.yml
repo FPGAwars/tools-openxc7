@@ -22,7 +22,7 @@ on:
 jobs:
   build:
     name: build + validate windows-amd64 (cross from linux)
-    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22
@@ -163,7 +163,7 @@ jobs:
       # below exercises them and the whole catalogue against the tarball,
       # with fasm2frames under the WINDOWS python (the real apio path; the
       # harness finds the mingw interpreter in the store, E2E_WINPY overrides).
-      - name: Fetch the pinned third-party trees (regress/lock.json)
+      - name: Fetch the locked third-party trees (regress/lock.json)
         run: bash scripts/fetch-demos.sh
 
       - name: Regression suite against the tarball under wine (L2 gate)

@@ -4,7 +4,7 @@
 #   1. pre-release          nightly, garbage-collected after a few days
 #   2. stable (uncheck box) "keep this one around" — for longer testing.
 #                           Marking stable has NO side effects here.
-#   3. published            fully tested AND pinned in apio's remote-config
+#   3. published            fully tested AND set as the tag in apio's remote-config
 #   4. was-published        replaced by a newer published release
 #
 # This workflow is the 2→3 transition, run BY HAND when a release is
@@ -37,7 +37,7 @@ permissions:
 
 jobs:
   promote:
-    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - name: Guard — only dated release tags
         run: |
@@ -100,7 +100,7 @@ jobs:
           {
             printf 'Automated bump after promoting [tools-openxc7 %s](https://github.com/%s/releases/tag/%s).' \
               "$TAG" "${{ github.repository }}" "$TAG"
-            [ -n "$DEFTAG" ] && printf ' Also pins definitions %s (released boards ride with their toolchain).' "$DEFTAG"
+            [ -n "$DEFTAG" ] && printf ' Also bumps definitions %s (released boards ride with their toolchain).' "$DEFTAG"
             printf '\n'
           } > /tmp/pr-body.md
           GH_TOKEN="$APIO_PR_TOKEN" gh pr create --repo FPGAwars/apio \

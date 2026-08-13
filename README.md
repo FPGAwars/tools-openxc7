@@ -81,7 +81,7 @@ use the upstream [openXC7](https://github.com/openXC7) project directly.
 
 ## Building the packages from source (developers)
 
-The build is reproducible with **Nix** (pinned flake). There is no
+The build is reproducible with **Nix** (locked flake). There is no
 cross-compilation between Linux and macOS — each is built natively on its own
 machine — while the Windows package **is** cross-compiled from Linux, because
 Nix does not run on Windows.
@@ -108,7 +108,7 @@ generated once and reused:
 | `OPENXC7_CHIPDB_SEED` | Directory of prebuilt `.bin` files to reuse |
 | `OPENXC7_CHIPDB_JOBS` | Parallel chipdb jobs (memory hungry — raise with care) |
 
-> **Caveat:** when you change the pinned toolchain revisions, remove `dist/`
+> **Caveat:** when you bump the toolchain revisions, remove `dist/`
 > before packing (`rm -rf dist`). Chipdb files built against a different
 > revision are silently incompatible and the toolchain rejects them at runtime
 > with an "internal IDs inconsistent" error.
@@ -159,7 +159,7 @@ congestion pair, and the untouched upstream demo projects — and compare
 fmax/utilisation/router-time against per-platform baselines:
 
 ```bash
-scripts/fetch-demos.sh                     # pinned third-party sources
+scripts/fetch-demos.sh                     # locked third-party sources
 scripts/regress.sh <package.tgz>           # the whole catalogue
 scripts/regress.sh <pkg> --test srl --json report.json
 ```
@@ -167,7 +167,7 @@ scripts/regress.sh <pkg> --test srl --json report.json
 A third check keeps the installers honest about what is actually published:
 
 ```bash
-scripts/check-versions.sh            # installer pins vs promoted releases vs apio
+scripts/check-versions.sh            # promoted release vs apio's remote-config
 ```
 
 ## Releases and CI
@@ -183,8 +183,8 @@ single package or for a full release:
 | `darwin-package.yml` | Builds + validates `darwin-arm64` |
 | `windows-package.yml` | Cross-builds + validates `windows-amd64` under wine |
 | `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): builds the three only when there are new commits, then publishes |
-| `on-release-promoted.yml` | Fires when a prerelease is promoted: re-verifies it, bumps the installer pin, opens the apio remote-config PR |
-| `monitor-versions.yml` | Daily alarm: installer, latest promoted release and apio's remote-config must agree |
+| `promote.yml` | Manual dispatch: re-verifies a candidate, marks it stable + latest, opens the apio remote-config PR |
+| `monitor-versions.yml` | Daily alarm: the latest promoted release and apio's remote-config must agree |
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,
@@ -205,7 +205,7 @@ into a 404 at install time.
 | `flake.nix`, `nix/` | The reproducible build: every package, the dev shells and the Windows cross recipe |
 | `openxc7-pack.py`, `pack/`, `macpack.py` | The packer: a thin CLI over the `pack/` modules (unit-tested in `tests/`); the macOS backend relocates Mach-O libraries and re-signs them |
 | `chipdb-parts.json` | The part manifest (family → footprints) — one line here per new part |
-| `regress/` | The declarative regression suite (tests, baselines, pinned third-party demos) |
+| `regress/` | The declarative regression suite (tests, baselines, locked third-party demos) |
 | `scripts/`, `e2e/` | Validation you can run locally, and the multi-part end-to-end |
 | — | End-user install scripts live on `archive/standalone-installers` (this is an apio package) |
 | `udev/` | USB rules needed to program boards on Linux (copy of openFPGALoader's) |

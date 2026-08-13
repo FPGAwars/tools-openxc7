@@ -7,7 +7,7 @@
 # are test.yaml and the nightly build-pre-release.
 #
 # This is also the job that OWNS the chipdb: it generates every .bin of
-# chipdb-parts.json (or restores them from the pin-keyed cache) and shares
+# chipdb-parts.json (or restores them from the version-keyed cache) and shares
 # them with the darwin job, whose runner cannot regenerate the big parts.
 name: linux-package
 
@@ -36,7 +36,7 @@ on:
 jobs:
   build:
     name: build + validate linux-x86-64 (native)
-    runs-on: ubuntu-22.04            # ecosystem pin (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     outputs:
       tarball: ${{ steps.pack.outputs.tarball }}
     steps:
@@ -58,7 +58,7 @@ jobs:
       # The .bin are platform-independent and byte-identical per
       # (nextpnr, prjxray, manifest) -> that tuple IS the cache key.
       # KEEP THE FILE LIST IN SYNC with darwin-package.yml.
-      - name: Restore the chipdb cache (keyed by pins + manifest)
+      - name: Restore the chipdb cache (keyed by revisions + manifest)
         uses: actions/cache@v6
         with:
           path: chipdb-cache
@@ -115,7 +115,7 @@ jobs:
           echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
           ls -la "$TGZ"
           # el sello chipdb-id.txt viaja con los .bin: sin él, el pack de
-          # darwin rechaza el seed (y con él, un seed de otro pin también)
+          # darwin rechaza el seed (y con él, un seed de otra revisión también)
           mkdir -p chipdb-cache
           cp dist/chipdb/*.bin dist/chipdb/chipdb-id.txt chipdb-cache/
 
@@ -128,7 +128,7 @@ jobs:
       # Same environment as L1 (the user env): the baselines carry the tool
       # versions they were recorded with, so a different yosys would drown
       # the report in version-mismatch warnings.
-      - name: Fetch the pinned third-party trees (regress/lock.json)
+      - name: Fetch the locked third-party trees (regress/lock.json)
         run: bash scripts/fetch-demos.sh
 
       - name: Regression suite against the tarball (L2 gate)

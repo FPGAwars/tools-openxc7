@@ -18,7 +18,7 @@
 # A test is a directory under regress/tests/ with a test.json declaration —
 # see regress/README.md. Adding one never requires touching code.
 #
-# Needs yosys on PATH — from the pinned oss-cad-suite, the same one apio
+# Needs yosys on PATH — from the required oss-cad-suite version, the same one apio
 # installs, so that measurements are comparable with what users get.
 
 set -euo pipefail
@@ -31,7 +31,7 @@ case " $* " in
 esac
 
 if ! command -v yosys >/dev/null 2>&1; then
-    echo "❌ yosys not on PATH (install the pinned oss-cad-suite and re-run)" >&2
+    echo "❌ yosys not on PATH (install the required oss-cad-suite version and re-run)" >&2
     exit 1
 fi
 
