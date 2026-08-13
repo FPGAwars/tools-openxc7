@@ -91,12 +91,21 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          # The commit is created through the GitHub API (scripts/
+          # create-signed-commit.sh) rather than git commit+push: API
+          # commits are signed by GitHub and carry the "Verified" badge,
+          # which apio's "commits must have verified signatures" rule
+          # requires — no signing key in secrets, authorship goes to the
+          # owner of APIO_PR_TOKEN.
           BRANCH="bump/openxc7-$TAG"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git commit -am "remote-config: openxc7 -> $TAG${DEFTAG:+, definitions -> $DEFTAG}"
-          git push -f "https://x-access-token:${APIO_PR_TOKEN}@github.com/FPGAwars/apio" "$BRANCH"
+          export GH_TOKEN="$APIO_PR_TOKEN"
+          BASE=$(gh api repos/FPGAwars/apio --jq .default_branch)
+          COMMIT=$(bash "$GITHUB_WORKSPACE/scripts/create-signed-commit.sh" \
+            FPGAwars/apio "$BRANCH" "$BASE" \
+            remote-config/apio-1.5.x.jsonc \
+            /tmp/apio/remote-config/apio-1.5.x.jsonc \
+            "remote-config: openxc7 -> $TAG${DEFTAG:+, definitions -> $DEFTAG}")
+          echo "verified commit: $COMMIT" | tee -a "$GITHUB_STEP_SUMMARY"
           {
             printf 'Automated bump after promoting [tools-openxc7 %s](https://github.com/%s/releases/tag/%s).' \
               "$TAG" "${{ github.repository }}" "$TAG"
