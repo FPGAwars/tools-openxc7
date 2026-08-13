@@ -21,8 +21,10 @@
 #      the job summary for a manual PR instead of failing.
 #
 # Publishing therefore stays two deliberate human actions: this dispatch
-# and merging the apio PR. scripts/check-versions.sh (see
-# monitor-versions.yml) stands guard for drift in between.
+# and merging the apio PR. scripts/check-versions.sh remains available
+# as a local/manual drift check; the standing enforcement now lives in
+# apio's own tests, which fail on a yosys-release-tag mismatch between
+# the installed packages (apio#927).
 name: promote
 
 on:

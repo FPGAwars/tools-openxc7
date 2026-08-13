@@ -184,7 +184,6 @@ single package or for a full release:
 | `windows-package.yml` | Cross-builds + validates `windows-amd64` under wine |
 | `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): builds the three only when there are new commits, then publishes |
 | `promote.yml` | Manual dispatch: re-verifies a candidate, marks it stable + latest, opens the apio remote-config PR |
-| `monitor-versions.yml` | Daily alarm: the latest promoted release and apio's remote-config must agree |
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,
