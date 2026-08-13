@@ -183,7 +183,7 @@ single package or for a full release:
 | `darwin-package.yml` | Builds + validates `darwin-arm64` |
 | `windows-package.yml` | Cross-builds + validates `windows-amd64` under wine |
 | `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): builds the three only when there are new commits, then publishes |
-| `promote.yml` | Manual dispatch: re-verifies a candidate, marks it stable + latest, opens the apio remote-config PR |
+| `publish-release.yaml` | Manual dispatch: re-verifies a candidate and marks it stable + latest (apio's remote-config is then updated by hand) |
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,

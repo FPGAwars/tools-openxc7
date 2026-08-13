@@ -223,10 +223,10 @@ jobs:
           after a few days.
           * To KEEP it around for longer testing: uncheck \`Set as a
             pre-release\` (no side effects — it just survives the cleanup).
-          * To PUBLISH it (after testing it for real): run the \`promote\`
-            workflow with this tag. It verifies the assets, marks the release
-            stable + latest, and opens the apio remote-config PR — then merge
-            that PR.
+          * To PUBLISH it (after testing it for real): run the
+            \`publish-release\` workflow with this tag (verifies the assets,
+            marks the release stable + latest), then update apio's
+            remote-config by hand (apio#927).
           EOFBODY
           gh release create "$DATE" --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
@@ -267,6 +267,6 @@ jobs:
             echo
             echo "1. Try it for real (\`apio\` install from the tag, board test if it applies)."
             echo "2. (optional) Uncheck \`pre-release\` to keep it beyond the cleanup window while testing."
-            echo "3. To PUBLISH: run the \`promote\` workflow with tag \`$DATE\` (verifies, marks stable+latest, bumps the installer, opens the apio remote-config PR) and merge that PR."
+            echo "3. To PUBLISH: run the \`publish-release\` workflow with tag \`$DATE\` (verifies, marks stable+latest), then update apio's remote-config by hand (scripts/bump-remote-config.sh helps)."
             echo "4. \`scripts/check-versions.sh\` must come back green afterwards."
           } >> "$GITHUB_STEP_SUMMARY"

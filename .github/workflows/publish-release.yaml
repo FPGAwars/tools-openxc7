@@ -1,0 +1,81 @@
+# Publishing a release — an EXPLICIT human action, never a side effect.
+#
+# Ecosystem release states (FPGAwars convention):
+#   1. pre-release          nightly, garbage-collected after a few days
+#   2. stable (uncheck box) "keep this one around" — for longer testing.
+#                           Marking stable has NO side effects here.
+#   3. published            fully tested AND set as the tag in apio's remote-config
+#   4. was-published        replaced by a newer published release
+#
+# This workflow is the 2→3 transition, run BY HAND when a release is
+# deemed production-ready (Actions → publish-release → Run workflow,
+# tag input):
+#
+#   1. re-verify the release the way apio will fetch it
+#      (scripts/asset-check.sh) — a broken candidate stops HERE;
+#   2. mark it stable + latest on GitHub (idempotent if already done).
+#
+# Updating apio's remote-config is deliberately NOT automated here: the
+# apio maintainer prefers editing it by hand, often bumping several
+# packages at once, and any future automation belongs in the apio repo
+# itself (apio#927). For the manual bump, scripts/bump-remote-config.sh
+# edits the jsonc safely and scripts/create-signed-commit.sh creates
+# the commit through the GitHub API so it carries the Verified badge —
+# both runnable locally. scripts/check-versions.sh remains the
+# local/manual drift check; the standing enforcement lives in apio's
+# own tests, which fail on a yosys-release-tag mismatch between the
+# installed packages.
+name: publish-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Dated release tag to publish (YYYY-MM-DD)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+    steps:
+      - name: Guard — only dated release tags
+        run: |
+          TAG="${{ inputs.tag }}"
+          case "$TAG" in
+            20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]) echo "tag OK: $TAG" ;;
+            *) echo "::error::'$TAG' is not a dated release tag (YYYY-MM-DD)"; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Verify the release (asset-check)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_CHECK_REPO: ${{ github.repository }}
+        run: bash scripts/asset-check.sh "${{ inputs.tag }}"
+
+      - name: Mark the release stable + latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" \
+            --prerelease=false --latest
+          echo "release ${{ inputs.tag }} is now stable and latest"
+
+      - name: Remote-config reminder (manual step)
+        run: |
+          {
+            echo "## Release ${{ inputs.tag }} published"
+            echo
+            echo "Remote-config is updated BY HAND in the apio repo (apio#927)."
+            echo "Suggested local sequence:"
+            echo '```'
+            echo "bash scripts/bump-remote-config.sh <apio>/remote-config/apio-1.5.x.jsonc openxc7=${{ inputs.tag }} [definitions=<tag>]"
+            echo "# commit + push in the apio clone (or use scripts/create-signed-commit.sh for a Verified commit)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

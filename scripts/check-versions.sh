@@ -101,7 +101,7 @@ print("", file=sys.stderr)
 for tool, ours, label, ap in drift:
     print(f"DRIFT {tool}: {label}={ours} apio-remote-config={ap}", file=sys.stderr)
 print(
-    "\nopenxc7 drift: promote (or fix remote-config). oss-cad-suite drift: "
+    "\nopenxc7 drift: publish-release (or fix remote-config). oss-cad-suite drift: "
     "bump scripts/ci-install-oss-cad-suite.sh so CI validates with the same "
     "tools users get.",
     file=sys.stderr,
