@@ -117,7 +117,7 @@ jobs:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
 
-  publish:
+  pre-release:
     needs: [prepare, linux, darwin, windows]
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
