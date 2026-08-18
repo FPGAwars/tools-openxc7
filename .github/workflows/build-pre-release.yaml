@@ -99,8 +99,8 @@ jobs:
 
   # The chipdb is generated ONCE (platform-independent bins, revision-keyed
   # cache) and every platform package seeds from it: linux and darwin from
-  # the chipdb-bins artifact, windows from the same nix derivation. publish
-  # asserts the three packages carry byte-identical bins.
+  # the chipdb-bins artifact, windows from the same nix derivation. The
+  # pre-release job asserts the three packages carry byte-identical bins.
   chipdb:
     needs: prepare
     uses: ./.github/workflows/chipdb.yml
@@ -128,7 +128,7 @@ jobs:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
 
-  publish:
+  pre-release:
     needs: [prepare, chipdb, linux, darwin, windows]
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
