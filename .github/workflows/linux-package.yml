@@ -6,9 +6,10 @@
 # packing is expensive (it is a deliverable, not a guard); the push guards
 # are test.yaml and the nightly build-pre-release.
 #
-# This is also the job that OWNS the chipdb: it generates every .bin of
-# chipdb-parts.json (or restores them from the version-keyed cache) and shares
-# them with the darwin job, whose runner cannot regenerate the big parts.
+# The chipdb is NOT generated here: chipdb.yml owns it (generated once,
+# platform-independent). Orchestrated from build-pre-release this job seeds
+# from the run's `chipdb-bins` artifact; standalone it seeds from the shared
+# revision-keyed cache and only regenerates on a cache miss.
 name: linux-package
 
 on:
@@ -28,6 +29,11 @@ on:
         required: false
         default: ""
         type: string
+      seed_from_artifact:
+        description: "Take the chipdb from the chipdb-bins artifact of this run (release flow)"
+        required: false
+        default: false
+        type: boolean
     outputs:
       tarball:
         description: "Name of the built tarball"
@@ -55,11 +61,19 @@ jobs:
           echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Package date: $DATE"
 
-      # The .bin are platform-independent and byte-identical per
-      # (nextpnr, prjxray, manifest) -> that tuple IS the cache key.
-      # KEEP THE FILE LIST IN SYNC with darwin-package.yml.
-      - name: Restore the chipdb cache (keyed by revisions + manifest)
-        uses: actions/cache@v6
+      - name: Seed the chipdb from the chipdb job of this run
+        if: inputs.seed_from_artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: chipdb-bins
+          path: chipdb-cache
+
+      # Standalone runs reuse the cache chipdb.yml populated (caches are
+      # shared across workflows of the repo). KEEP THE FILE LIST IN SYNC
+      # with chipdb.yml and darwin-package.yml.
+      - name: Seed the chipdb from the shared cache (standalone)
+        if: ${{ !inputs.seed_from_artifact }}
+        uses: actions/cache/restore@v6
         with:
           path: chipdb-cache
           key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
@@ -114,10 +128,6 @@ jobs:
           TGZ=$(ls apio-openxc7-linux-x86-64-*.tgz)
           echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
           ls -la "$TGZ"
-          # el sello chipdb-id.txt viaja con los .bin: sin él, el pack de
-          # darwin rechaza el seed (y con él, un seed de otra revisión también)
-          mkdir -p chipdb-cache
-          cp dist/chipdb/*.bin dist/chipdb/chipdb-id.txt chipdb-cache/
 
       - name: Validate the package inside the tarball (L1 gate)
         run: |
@@ -155,13 +165,3 @@ jobs:
           path: ${{ steps.pack.outputs.tarball }}
           if-no-files-found: error
 
-      # Consumed by darwin-package.yml when orchestrated from release.yml.
-      - name: Share the chipdb bins with the darwin job
-        uses: actions/upload-artifact@v7
-        with:
-          name: chipdb-bins
-          path: |
-            dist/chipdb/*.bin
-            dist/chipdb/chipdb-id.txt
-          compression-level: 1     # already dense binary data
-          retention-days: 7

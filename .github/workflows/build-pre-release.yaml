@@ -1,16 +1,19 @@
 # Release pipeline v2 — thin orchestrator.
 #
-# Every platform is built and validated by its OWN reusable workflow, on its
-# own native runner (windows is cross-built from linux; nixpkgs cannot cross
-# Linux<->macOS, and Nix does not run on Windows):
+# The chipdb is generated ONCE (it is platform-independent), then every
+# platform is built and validated by its OWN reusable workflow, in parallel,
+# on its own native runner (windows is cross-built from linux; nixpkgs cannot
+# cross Linux<->macOS, and Nix does not run on Windows):
 #
-#   linux-package.yml    ubuntu-22.04   native   (also owns the chipdb)
-#   darwin-package.yml   macos-14        native   (seeded from linux)
-#   windows-package.yml  ubuntu-22.04   cross    (validated under wine)
+#   chipdb.yml           ubuntu-22.04   generates/caches the chipdb bins
+#   linux-package.yml    ubuntu-22.04   native   (seeds from chipdb)
+#   darwin-package.yml   macos-14        native   (seeds from chipdb)
+#   windows-package.yml  ubuntu-22.04   cross    (same nix derivation; wine)
 #
 # Each carries its own gate, so the exact same build+validation runs whether
 # you dispatch it standalone or through a release. This workflow only picks
-# the date, wires the chipdb seed, and — if EVERYTHING is green — publishes.
+# the date, wires the chipdb seed, asserts the three packages carry
+# byte-identical chipdb, and — if EVERYTHING is green — publishes.
 #
 # The release is created at the END, as a dated PRERELEASE (never latest),
 # following the FPGAwars ecosystem convention (fpgawars/apio-workflows):
@@ -94,16 +97,24 @@ jobs:
           release-tag: ${{ steps.d.outputs.date }}
           just-check: "true"
 
-  linux:
+  # The chipdb is generated ONCE (platform-independent bins, revision-keyed
+  # cache) and every platform package seeds from it: linux and darwin from
+  # the chipdb-bins artifact, windows from the same nix derivation. publish
+  # asserts the three packages carry byte-identical bins.
+  chipdb:
     needs: prepare
+    uses: ./.github/workflows/chipdb.yml
+
+  linux:
+    needs: [prepare, chipdb]
     uses: ./.github/workflows/linux-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
+      seed_from_artifact: true
 
-  # After linux: it publishes the chipdb-bins artifact this job seeds from.
   darwin:
-    needs: [prepare, linux]
+    needs: [prepare, chipdb]
     uses: ./.github/workflows/darwin-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
@@ -111,14 +122,14 @@ jobs:
       seed_from_artifact: true
 
   windows:
-    needs: prepare
+    needs: [prepare, chipdb]
     uses: ./.github/workflows/windows-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
 
   publish:
-    needs: [prepare, linux, darwin, windows]
+    needs: [prepare, chipdb, linux, darwin, windows]
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - uses: actions/checkout@v7    # scripts/ for chipdb-assets + asset-check
@@ -141,19 +152,34 @@ jobs:
           D="${{ needs.prepare.outputs.date }}"
           bash scripts/chipdb-assets.sh chipdb-bins chipdb-assets "${D//-/}" && ls -la chipdb-assets | head -5
 
-      - name: Assert the chipdb is byte-identical linux<->windows
+      # The chipdb is generated once (chipdb job) and platform-independent;
+      # this proves, per build, that the THREE packages carry byte-identical
+      # bins (linux and darwin seed from the artifact, windows is assembled
+      # from the same nix derivation) - and that they are the ones the
+      # chipdb job produced (index of name/size/sha256 in the summary).
+      - name: Assert the chipdb is byte-identical linux<->darwin<->windows
         run: |
-          mkdir lin win
+          mkdir lin mac win
           tar xzf apio-openxc7-linux-x86-64-*.tgz -C lin
+          tar xzf apio-openxc7-darwin-arm64-*.tgz -C mac
           tar xzf apio-openxc7-windows-amd64-*.tgz -C win
           n=0
-          for f in lin/chipdb/*.bin; do
+          for f in chipdb-bins/*.bin; do
             b=$(basename "$f")
-            cmp "$f" "win/chipdb/$b" || { echo "chipdb differs: $b"; exit 1; }
+            for p in lin mac win; do
+              cmp "$f" "$p/chipdb/$b" || { echo "::error::chipdb differs from the chipdb job: $p/chipdb/$b"; exit 1; }
+            done
             n=$((n + 1))
           done
-          echo "chipdb parity OK ($n bins byte-identical)"
-          rm -rf lin win
+          echo "chipdb parity OK ($n bins byte-identical across linux, darwin, windows and the chipdb job)"
+          {
+            echo "### chipdb parity (per build)"
+            echo "identity: \`$(cat chipdb-bins/chipdb-id.txt)\` — $n bins byte-identical in the three packages"
+            echo ""
+            echo "| part | bytes | sha256 |"; echo "|---|---|---|"
+            for f in chipdb-bins/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm -rf lin mac win
 
       # Ecosystem convention (fpgawars/apio-workflows): keep only the newest
       # pre-releases, then replace today's pre-release if it exists — and FAIL

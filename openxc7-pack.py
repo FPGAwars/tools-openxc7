@@ -8,6 +8,7 @@
 # -- The implementation lives in pack/ (platform, families, relocate,
 # -- components, chipdb, assemble); macpack.py is the Darwin backend.
 
+import sys
 from pathlib import Path
 
 import ansi
@@ -26,6 +27,12 @@ from pack.platform import IS_DARWIN
 if IS_DARWIN:
     # -- The macOS (Mach-O) packaging backend, only importable on Darwin
     from pack.relocate import macpack
+
+# -- `--chipdb-only`: stop after the chipdb is generated (or seeded) and
+# -- stamped, leaving dist/chipdb/*.bin + chipdb-id.txt in place. This is
+# -- what the CI `chipdb` job runs: the .bin files are platform-independent
+# -- and generated once, then every platform package seeds from them.
+CHIPDB_ONLY = "--chipdb-only" in sys.argv[1:]
 
 # -----------------
 #    MAIN
@@ -55,6 +62,10 @@ if IS_DARWIN:
 # --- Generation of the database
 # --- One <part>.bin per part of chipdb-parts.json
 build_chipdb()
+
+if CHIPDB_ONLY:
+    print(f"{ansi.GREEN}chipdb-only: dist/chipdb generated and stamped; stopping here.{ansi.DEFAULT}")
+    sys.exit(0)
 
 # -- Final configuration
 write_env()

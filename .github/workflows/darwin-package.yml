@@ -7,9 +7,9 @@
 # not a guard; test.yaml is the per-commit guard).
 #
 # The chipdb is NEVER generated here: this runner has 7 GB of RAM and cannot
-# build the big parts (xc7a200t). It is seeded either from the linux job of
-# the same release run (artifact) or, standalone, from the shared version-keyed
-# cache that linux-package populates.
+# build the big parts (xc7a200t). It is seeded either from the chipdb job of
+# the same build-pre-release run (artifact) or, standalone, from the shared
+# revision-keyed cache that chipdb.yml populates.
 name: darwin-package
 
 on:
@@ -61,16 +61,16 @@ jobs:
           echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Package date: $DATE"
 
-      - name: Seed the chipdb from the linux job of this run
+      - name: Seed the chipdb from the chipdb job of this run
         if: inputs.seed_from_artifact
         uses: actions/download-artifact@v8
         with:
           name: chipdb-bins
           path: chipdb-cache
 
-      # Standalone runs reuse the cache linux-package populated (caches are
+      # Standalone runs reuse the cache chipdb.yml populated (caches are
       # shared across workflows of the repo). KEEP THE FILE LIST IN SYNC
-      # with linux-package.yml.
+      # with chipdb.yml and linux-package.yml.
       - name: Seed the chipdb from the shared cache (standalone)
         if: ${{ !inputs.seed_from_artifact }}
         uses: actions/cache/restore@v6
@@ -82,7 +82,7 @@ jobs:
         run: |
           n=$(ls chipdb-cache/*.bin 2>/dev/null | wc -l | tr -d ' ')
           if [ "$n" = "0" ]; then
-            echo "::error::No chipdb seed. This runner cannot regenerate the big parts (7 GB RAM). Run linux-package first (it populates the shared chipdb cache for these toolchain revisions), or launch the release workflow, which wires the seed automatically."
+            echo "::error::No chipdb seed. This runner cannot regenerate the big parts (7 GB RAM). Run the chipdb workflow first (it populates the shared chipdb cache for these toolchain revisions), or launch build-pre-release, which wires the seed automatically."
             exit 1
           fi
           echo "chipdb seed: $n bins"

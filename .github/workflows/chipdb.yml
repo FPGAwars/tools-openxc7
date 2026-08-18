@@ -1,0 +1,89 @@
+# Generate (or restore) the chipdb once, for every platform.
+#
+# The chipdb .bin files are a deterministic serialization of prjxray-db
+# (bbaexport.py + bbasm): platform-independent by construction, and measured
+# byte-identical across linux / darwin / mingw since 2026-07. Generating them
+# is the slow, memory-heavy step of the whole build (the big parts need more
+# RAM than a hosted macOS runner has and hours of its 3 vCPUs), so it happens
+# ONCE here, on a linux runner, and every platform package seeds from the
+# result: linux and darwin through the `chipdb-bins` artifact of the run,
+# windows through the same nix derivation the .bin come from. The publish
+# job then asserts the three packages carry byte-identical chipdb.
+#
+# Owns the revision-keyed cache: a cache hit makes this job a few minutes; a
+# miss (toolchain revision or manifest change) regenerates every part of
+# chipdb-parts.json and refreshes the cache. The .bin travel with their
+# identity stamp (chipdb-id.txt): a seed from another toolchain revision is
+# rejected by the packer instead of silently reused.
+name: chipdb
+
+on:
+  workflow_call:
+    outputs:
+      identity:
+        description: "chipdb identity stamp (chipdb-id.txt) of the produced bins"
+        value: ${{ jobs.chipdb.outputs.identity }}
+  workflow_dispatch:
+
+jobs:
+  chipdb:
+    name: chipdb (generate once, seed every platform)
+    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+    outputs:
+      identity: ${{ steps.stamp.outputs.identity }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: DeterminateSystems/nix-installer-action@v22
+        with:
+          summarize: false          # no branded gantt/Discord footer
+          diagnostic-endpoint: ""   # no telemetry
+
+      # The .bin are byte-identical per (nextpnr, prjxray, chipdb derivation,
+      # manifest) -> that tuple IS the cache key. It is the same definition
+      # the packer uses for the identity stamp (pack/chipdb.py).
+      - name: Restore the chipdb cache (keyed by revisions + manifest)
+        uses: actions/cache@v6
+        with:
+          path: chipdb-cache
+          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
+
+      - name: Generate the chipdb (or seed it from the cache)
+        run: |
+          rm -rf dist   # stale-dist guard (see pack/chipdb.py)
+          if [ -n "$(ls -A chipdb-cache 2>/dev/null || true)" ]; then
+            export OPENXC7_CHIPDB_SEED="$PWD/chipdb-cache"
+            echo "chipdb: seeding from cache ($(ls chipdb-cache/*.bin | wc -l) bins)"
+          else
+            echo "chipdb: cache miss, generating every manifest part from scratch (slow)"
+          fi
+          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py --chipdb-only'
+          # refresh the cache content from what was produced (bins + stamp)
+          mkdir -p chipdb-cache
+          cp dist/chipdb/*.bin dist/chipdb/chipdb-id.txt chipdb-cache/
+          ls -la chipdb-cache
+
+      - name: Assert every manifest part is present
+        run: |
+          jq -r 'to_entries[] | .value[]' chipdb-parts.json | while read -r p; do
+            test -f "dist/chipdb/$p.bin" || { echo "::error::chipdb missing: $p.bin"; exit 1; }
+          done
+          echo "chipdb complete: $(ls dist/chipdb/*.bin | wc -l) parts"
+
+      - name: Export the identity stamp
+        id: stamp
+        run: |
+          ID=$(cat dist/chipdb/chipdb-id.txt)
+          echo "identity=$ID" >> "$GITHUB_OUTPUT"
+          echo "chipdb identity: $ID"
+
+      # Consumed by linux-package.yml and darwin-package.yml of this run.
+      - name: Publish the chipdb bins for the platform jobs
+        uses: actions/upload-artifact@v7
+        with:
+          name: chipdb-bins
+          path: |
+            dist/chipdb/*.bin
+            dist/chipdb/chipdb-id.txt
+          compression-level: 1     # already dense binary data
+          retention-days: 7
+          if-no-files-found: error
