@@ -3,62 +3,44 @@
 > **Note:** Please **do not** open issues in this repository.
 > For any questions, discussions, or bug reports, use the [main Apio repository](https://github.com/FPGAwars/apio).
 
-Apio package with selected binaries from the [openXC7 project](https://github.com/openxc7):
-an open source toolchain for **Xilinx 7-series FPGAs** (Artix-7 and friends).
+This Apio package contains the Xiling architecture support of Apio. It is based on selected binaries from the [openXC7 project](https://github.com/openxc7):
+an open source toolchain for **Xilinx 7-series FPGAs** (Artix-7 and friends) and is not intended for standalone
+operation but as part of [Apio](https://github.com/FPGAwars/apio).
 
 This repository does not develop the toolchain itself — it **builds and packages**
-it reproducibly with [Nix](https://nixos.org), publishes one tarball per platform,
-and provides the scripts to install and use it, with or without
-[apio](https://github.com/FPGAwars/apio).
+using [Nix](https://nixos.org), and publish one Apio package tarball per Apio supported platform,
 
 ## What is inside a package
 
-| Component | Upstream | Role in the flow |
-|---|---|---|
-| `nextpnr-xilinx` | [openXC7](https://github.com/openXC7/nextpnr-xilinx) | Place & route, and FASM output |
-| `xc7frames2bit`, `bitread`, `xc7patch` | [Project X-Ray](https://github.com/f4pga/prjxray) | Frames → bitstream, and bitstream inspection |
-| `fasm2frames` + the `fasm` Python library | [openXC7 fasm](https://github.com/openxc7/fasm) | FASM → configuration frames |
-| `chipdb/<part>.bin` | built here | Per-part device database used by nextpnr |
-| `share/nextpnr/external/prjxray-db` | Project X-Ray database | Pin/part data (`part.yaml`, `package_pins.csv`, …) |
+| Component                                 | Upstream                                             | Role in the flow                                   |
+| ----------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| `nextpnr-xilinx`                          | [openXC7](https://github.com/openXC7/nextpnr-xilinx) | Place & route, and FASM output                     |
+| `xc7frames2bit`, `bitread`, `xc7patch`    | [Project X-Ray](https://github.com/f4pga/prjxray)    | Frames → bitstream, and bitstream inspection       |
+| `fasm2frames` + the `fasm` Python library | [openXC7 fasm](https://github.com/openxc7/fasm)      | FASM → configuration frames                        |
+| `chipdb/<part>.bin`                       | built here                                           | Per-part device database used by nextpnr           |
+| `share/nextpnr/external/prjxray-db`       | Project X-Ray database                               | Pin/part data (`part.yaml`, `package_pins.csv`, …) |
 
 Synthesis is **not** part of this package: it comes from `yosys`, shipped by
 [oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite).
 
-## Supported platforms
+## Supported Boards and FPGAs
 
-| OS | Arch | Platform token | Status |
-|---|---|---|---|
-| Linux | x86_64 | `linux-x86-64` | ✅ built and published |
-| macOS | Apple Silicon | `darwin-arm64` | ✅ built and published (native, ad-hoc signed) |
-| Windows | x86_64 | `windows-amd64` | ✅ built and published (cross-compiled from Linux, validated under wine) |
-| macOS | Intel | `darwin-x86-64` | ⛔ not built yet |
-| Linux | aarch64 | `linux-aarch64` | ⛔ not built yet |
-
-The last two tokens are recognized by the installer scripts, but no packages are
-published for them yet, so installation would fail with a download error.
-
-Packages coexist as assets of the same dated release:
-
-```
-apio-openxc7-linux-x86-64-<YYYYMMDD>.tgz
-apio-openxc7-darwin-arm64-<YYYYMMDD>.tgz
-apio-openxc7-windows-amd64-<YYYYMMDD>.tgz
-```
-
-## Supported FPGA parts
+For latest information see [Apio supported boards](https://fpgawars.github.io/apio/docs/supported-boards/) and
+[Apio supported FPGAs](https://fpgawars.github.io/apio/docs/supported-fpgas/). FPGAs that are supported by
+Openxc7 but not by Apio can easily be added in the [Apio Definition Package repo](https://github.com/fpgawars/apio-definitions).
 
 Every package ships a chipdb (and the matching prjxray database) for three
 7-series families:
 
-| Family | Device | Footprints | Boards (examples) |
-|---|---|---|---|
-| Artix-7 | xc7a35t | `cpg236`, `csg324`, `fgg484`, `ftg256` | Basys3, Arty A7-35, Cmod A7 |
-| Artix-7 | xc7a50t | `csg324`, `fgg484` | |
-| Artix-7 | xc7a100t | `csg324`, `ftg256`, `fgg484`, `fgg676` | Arty A7-100, Nexys |
-| Artix-7 | xc7a200t | `fbg484` | |
-| Spartan-7 | xc7s50 | `csga324` | Arty S7-50 |
-| Zynq-7000 (PL) | xc7z010 | `clg400` | Zybo Z7-10, EBAZ4205 |
-| Zynq-7000 (PL) | xc7z020 | `clg400`, `clg484` | Pynq-Z1/Z2, Arty Z7-20, Zybo Z7-20, ZedBoard |
+| Family         | Device   | Footprints                             | Boards (examples)                            |
+| -------------- | -------- | -------------------------------------- | -------------------------------------------- |
+| Artix-7        | xc7a35t  | `cpg236`, `csg324`, `fgg484`, `ftg256` | Basys3, Arty A7-35, Cmod A7                  |
+| Artix-7        | xc7a50t  | `csg324`, `fgg484`                     |                                              |
+| Artix-7        | xc7a100t | `csg324`, `ftg256`, `fgg484`, `fgg676` | Arty A7-100, Nexys                           |
+| Artix-7        | xc7a200t | `fbg484`                               |                                              |
+| Spartan-7      | xc7s50   | `csga324`                              | Arty S7-50                                   |
+| Zynq-7000 (PL) | xc7z010  | `clg400`                               | Zybo Z7-10, EBAZ4205                         |
+| Zynq-7000 (PL) | xc7z020  | `clg400`, `clg484`                     | Pynq-Z1/Z2, Arty Z7-20, Zybo Z7-20, ZedBoard |
 
 Zynq support is **PL-only**: the toolchain produces the fabric bitstream
 (loaded over JTAG); the ARM PS boots on its own. The Arty S7-25 cannot be
@@ -69,19 +51,9 @@ work in progress (its differential-input bits are missing upstream).
 the packer, by the Windows build and by the CI assertions. Adding a board whose
 footprint already exists in the prjxray database is a one-line change there.
 
-## Using the toolchain with apio (recommended)
-
-[apio](https://github.com/FPGAwars/apio) downloads and installs this package for
-you, wires the environment, and runs the whole flow. Board and FPGA definitions
-live in [apio-definitions](https://github.com/FPGAwars/apio-definitions).
-
-This repository is an **apio package**: apio is the supported way to install
-and use it on every platform. If you want the openXC7 toolchain standalone,
-use the upstream [openXC7](https://github.com/openXC7) project directly.
-
 ## Building the packages from source (developers)
 
-The build is reproducible with **Nix** (locked flake). There is no
+The build is reproducible with **Nix** (pinned flake). There is no
 cross-compilation between Linux and macOS — each is built natively on its own
 machine — while the Windows package **is** cross-compiled from Linux, because
 Nix does not run on Windows.
@@ -102,13 +74,13 @@ Generating the chipdb is the slow part (one `bbaexport` per part, RAM hungry).
 The `.bin` files are **platform independent and byte-identical**, so they can be
 generated once and reused:
 
-| Variable | Meaning |
-|---|---|
-| `OPENXC7_PACK_DATE` | Force the package date (`YYYY-MM-DD`), instead of today |
-| `OPENXC7_CHIPDB_SEED` | Directory of prebuilt `.bin` files to reuse |
-| `OPENXC7_CHIPDB_JOBS` | Parallel chipdb jobs (memory hungry — raise with care) |
+| Variable              | Meaning                                                 |
+| --------------------- | ------------------------------------------------------- |
+| `OPENXC7_PACK_DATE`   | Force the package date (`YYYY-MM-DD`), instead of today |
+| `OPENXC7_CHIPDB_SEED` | Directory of prebuilt `.bin` files to reuse             |
+| `OPENXC7_CHIPDB_JOBS` | Parallel chipdb jobs (memory hungry — raise with care)  |
 
-> **Caveat:** when you bump the toolchain revisions, remove `dist/`
+> **Caveat:** when you change the pinned toolchain revisions, remove `dist/`
 > before packing (`rm -rf dist`). Chipdb files built against a different
 > revision are silently incompatible and the toolchain rejects them at runtime
 > with an "internal IDs inconsistent" error.
