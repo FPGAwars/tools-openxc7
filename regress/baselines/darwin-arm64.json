@@ -5,28 +5,28 @@
       "brams": 1,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 26,
       "fmax_mhz": 645.58,
       "luts": 31,
-      "pnr_seconds": 2.86
+      "pnr_seconds": 3.36
     }
   },
   "carry-const-di": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192209,
+      "bit_bytes": 2192219,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 7,
       "fmax_mhz": 404.53,
       "luts": 20,
-      "pnr_seconds": 1.72
+      "pnr_seconds": 1.68
     }
   },
   "carry64": {
@@ -35,13 +35,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 128,
       "fmax_mhz": 223.56,
       "luts": 257,
-      "pnr_seconds": 1.64
+      "pnr_seconds": 1.67
     }
   },
   "congestion-local": {
@@ -50,13 +50,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 12288,
       "fmax_mhz": 410.85,
       "luts": 12324,
-      "pnr_seconds": 17.58
+      "pnr_seconds": 18.44
     }
   },
   "congestion-scatter": {
@@ -65,13 +65,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 12288,
       "fmax_mhz": 299.94,
       "luts": 12324,
-      "pnr_seconds": 25.04
+      "pnr_seconds": 27.01
     }
   },
   "constant": {
@@ -80,195 +80,195 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 8.72
+      "pnr_seconds": 8.47
     },
     "xc7a100tfgg484": {
       "bit_bytes": 3825991,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 8.49
+      "pnr_seconds": 8.38
     },
     "xc7a100tfgg676": {
       "bit_bytes": 3825991,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 8.74
+      "pnr_seconds": 8.4
     },
     "xc7a100tftg256": {
       "bit_bytes": 3825991,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 8.25
+      "pnr_seconds": 8.12
     },
     "xc7a200tfbg484": {
       "bit_bytes": 9730855,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 18.84
+      "pnr_seconds": 19.16
     },
     "xc7a35tcpg236": {
       "bit_bytes": 2192213,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 1.49
+      "pnr_seconds": 1.46
     },
     "xc7a35tcsg324": {
       "bit_bytes": 2192213,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 5.23
+      "pnr_seconds": 4.63
     },
     "xc7a35tfgg484": {
       "bit_bytes": 2192213,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.4
+      "pnr_seconds": 4.18
     },
     "xc7a35tftg256": {
       "bit_bytes": 2192213,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.66
+      "pnr_seconds": 4.83
     },
     "xc7a50tcsg324": {
       "bit_bytes": 2192213,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.89
+      "pnr_seconds": 4.75
     },
     "xc7a50tfgg484": {
       "bit_bytes": 2192213,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 4.57
+      "pnr_seconds": 4.36
     },
     "xc7s50csga324": {
       "bit_bytes": 2192213,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 5.35
+      "pnr_seconds": 5.09
     },
     "xc7z010clg400": {
       "bit_bytes": 2083941,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 1.44
+      "pnr_seconds": 1.33
     },
     "xc7z020clg400": {
       "bit_bytes": 4045765,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 3.5
+      "pnr_seconds": 2.94
     },
     "xc7z020clg484": {
       "bit_bytes": 4045765,
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
       "fmax_mhz": 2865.33,
       "luts": 1,
-      "pnr_seconds": 7.05
+      "pnr_seconds": 7.45
     }
   },
   "demo-arty": {
@@ -277,13 +277,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 25,
       "fmax_mhz": 429.92,
       "luts": 56,
-      "pnr_seconds": 1.83
+      "pnr_seconds": 1.82
     }
   },
   "demo-basys3": {
@@ -292,13 +292,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 25,
       "fmax_mhz": 429.37,
       "luts": 56,
-      "pnr_seconds": 2.17
+      "pnr_seconds": 1.72
     }
   },
   "demo-zybo": {
@@ -307,28 +307,28 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 25,
       "fmax_mhz": 429.92,
       "luts": 56,
-      "pnr_seconds": 1.04
+      "pnr_seconds": 0.96
     }
   },
   "dsp48": {
     "xc7a35tcpg236": {
       "bit_bytes": 2192210,
       "brams": 0,
-      "dsps": 0,
+      "dsps": 1,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 36,
       "fmax_mhz": 387.9,
       "luts": 81,
-      "pnr_seconds": 2.0
+      "pnr_seconds": 1.65
     }
   },
   "fanout": {
@@ -337,13 +337,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 257,
       "fmax_mhz": 364.03,
       "luts": 393,
-      "pnr_seconds": 2.24
+      "pnr_seconds": 2.1
     }
   },
   "hier": {
@@ -352,13 +352,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 22,
       "fmax_mhz": 391.08,
       "luts": 8,
-      "pnr_seconds": 1.74
+      "pnr_seconds": 1.49
     }
   },
   "lutram": {
@@ -367,13 +367,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 28,
       "fmax_mhz": 554.63,
       "luts": 49,
-      "pnr_seconds": 1.75
+      "pnr_seconds": 1.67
     }
   },
   "pll": {
@@ -382,13 +382,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 22,
       "fmax_mhz": 451.06,
       "luts": 49,
-      "pnr_seconds": 1.68
+      "pnr_seconds": 1.65
     }
   },
   "spartan7-blinky": {
@@ -397,13 +397,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 24,
       "fmax_mhz": 453.93,
       "luts": 48,
-      "pnr_seconds": 4.78
+      "pnr_seconds": 4.57
     }
   },
   "srl": {
@@ -412,13 +412,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 0,
       "fmax_mhz": null,
       "luts": 1,
-      "pnr_seconds": 1.65
+      "pnr_seconds": 1.52
     }
   },
   "srl-cascade": {
@@ -427,13 +427,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 0,
       "fmax_mhz": null,
       "luts": 4,
-      "pnr_seconds": 1.58
+      "pnr_seconds": 1.46
     }
   },
   "srl-cascade-deep": {
@@ -442,13 +442,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 0,
       "fmax_mhz": null,
       "luts": 8,
-      "pnr_seconds": 1.54
+      "pnr_seconds": 1.53
     }
   },
   "tristate": {
@@ -457,13 +457,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 24,
       "fmax_mhz": 451.06,
       "luts": 49,
-      "pnr_seconds": 1.62
+      "pnr_seconds": 1.52
     }
   },
   "vclk": {
@@ -472,13 +472,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 24,
       "fmax_mhz": 451.06,
       "luts": 48,
-      "pnr_seconds": 1.73
+      "pnr_seconds": 1.5
     }
   },
   "widemux": {
@@ -487,13 +487,13 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 09f2393)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 38,
       "fmax_mhz": 369.0,
       "luts": 35,
-      "pnr_seconds": 1.59
+      "pnr_seconds": 1.53
     }
   }
 }
