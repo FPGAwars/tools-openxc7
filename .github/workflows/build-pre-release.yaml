@@ -32,6 +32,11 @@ on:
       date:
         description: "Release date YYYY-MM-DD (default: today, UTC)"
         required: false
+      regenerate_chipdb:
+        description: "Ignore the chipdb cache and generate every part from scratch (tests the generation path)"
+        required: false
+        default: false
+        type: boolean
   # NOTE: no push-tags trigger. It was redundant with dispatch, and the
   # release step now creates the tag with a PAT (see below) — a PAT-created
   # tag WOULD fire a tags trigger, recursing into this very workflow.
@@ -104,6 +109,8 @@ jobs:
   chipdb:
     needs: prepare
     uses: ./.github/workflows/chipdb.yml
+    with:
+      regenerate: ${{ github.event.inputs.regenerate_chipdb == 'true' }}
 
   linux:
     needs: [prepare, chipdb]

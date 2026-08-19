@@ -19,11 +19,23 @@ name: chipdb
 
 on:
   workflow_call:
+    inputs:
+      regenerate:
+        description: "Ignore the cache and generate every part from scratch (exercises the generation path even when nothing changed)"
+        required: false
+        default: false
+        type: boolean
     outputs:
       identity:
         description: "chipdb identity stamp (chipdb-id.txt) of the produced bins"
         value: ${{ jobs.chipdb.outputs.identity }}
   workflow_dispatch:
+    inputs:
+      regenerate:
+        description: "Ignore the cache and generate every part from scratch"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   chipdb:
@@ -41,20 +53,31 @@ jobs:
       # The .bin are byte-identical per (nextpnr, prjxray, chipdb derivation,
       # manifest) -> that tuple IS the cache key. It is the same definition
       # the packer uses for the identity stamp (pack/chipdb.py).
+      # `regenerate` skips the restore: the run must then produce every part
+      # from scratch, which is how the generation path itself gets tested
+      # without waiting for a toolchain revision change.
       - name: Restore the chipdb cache (keyed by revisions + manifest)
+        if: ${{ !inputs.regenerate }}
         uses: actions/cache@v6
         with:
           path: chipdb-cache
           key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
 
       - name: Generate the chipdb (or seed it from the cache)
+        id: gen
         run: |
           rm -rf dist   # stale-dist guard (see pack/chipdb.py)
+          if [ "${{ inputs.regenerate }}" = "true" ]; then
+            rm -rf chipdb-cache
+            echo "chipdb: regenerate requested, ignoring the cache"
+          fi
           if [ -n "$(ls -A chipdb-cache 2>/dev/null || true)" ]; then
             export OPENXC7_CHIPDB_SEED="$PWD/chipdb-cache"
             echo "chipdb: seeding from cache ($(ls chipdb-cache/*.bin | wc -l) bins)"
+            echo "mode=restored-from-cache" >> "$GITHUB_OUTPUT"
           else
-            echo "chipdb: cache miss, generating every manifest part from scratch (slow)"
+            echo "chipdb: generating every manifest part from scratch (slow)"
+            echo "mode=generated" >> "$GITHUB_OUTPUT"
           fi
           nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py --chipdb-only'
           # refresh the cache content from what was produced (bins + stamp)
@@ -75,6 +98,13 @@ jobs:
           ID=$(cat dist/chipdb/chipdb-id.txt)
           echo "identity=$ID" >> "$GITHUB_OUTPUT"
           echo "chipdb identity: $ID"
+          {
+            echo "### chipdb"
+            echo "mode: **${{ steps.gen.outputs.mode }}** · identity: \`$ID\` · $(ls dist/chipdb/*.bin | wc -l) parts"
+            echo ""
+            echo "| part | bytes | sha256 |"; echo "|---|---|---|"
+            for f in dist/chipdb/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Consumed by linux-package.yml and darwin-package.yml of this run.
       - name: Publish the chipdb bins for the platform jobs
