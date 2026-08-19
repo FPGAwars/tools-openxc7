@@ -124,7 +124,7 @@ let
   };
 
   prjxrayWin = cross.stdenv.mkDerivation {
-    pname = "prjxray-win"; version = "78d98b98";
+    pname = "prjxray-win"; version = "ef5203e9";
     src = prjxraySrc;
     nativeBuildInputs = [ pkgs.cmake pkgs.git pkgs.pkg-config python ];
     buildInputs = [ boostPy cross.eigen cross.windows.mingw_w64_pthreads ];

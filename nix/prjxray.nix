@@ -2,18 +2,18 @@
 , ... }:
 stdenv.mkDerivation rec {
   pname = "prjxray";
-  version = "78d98b98dc189a89cd1def61cee7c938f51bc6e5";
+  version = "ef5203e9d06e9ffda79168439723579217ca8110";
 
-  # openXC7/prjxray: a fork of jrrk2/prjxray (itself f4pga plus modern-gcc
-  # build fixes, a gflags bump and the openxc7 fasm submodule) that now also
-  # carries the Windows/ODR work we used to patch in locally — merged upstream
-  # 2026-08-02 as PR #5. A strict superset of the previous jrrk2 pin.
+  # openXC7/prjxray master 2026-08-18: on top of the previous revision (our
+  # Windows/ODR work, PR #5) it carries our bitread use-after-free fix (PR #6:
+  # bit2fasm works again), the OSERDES DATA_WIDTH 10/14 fuzzing, and regymm's
+  # Zynq 7030/7035/7045/7100 support.
   src = fetchFromGitHub {
     owner = "openXC7";
     repo = "prjxray";
-    rev = "78d98b98dc189a89cd1def61cee7c938f51bc6e5";
+    rev = "ef5203e9d06e9ffda79168439723579217ca8110";
     fetchSubmodules = true;
-    hash = "sha256-KrPYNm8ooh49WGiJOqZD1dYgptUYNRP/jKU9C4gvgiw=";
+    hash = "sha256-lSj5bMPbLPD3Eu8ZZlebA0K14w9XelBAWqFbWRB77t4=";
   };
 
   nativeBuildInputs = [ cmake git ];

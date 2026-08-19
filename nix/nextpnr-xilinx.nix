@@ -8,19 +8,23 @@ let
   upstream = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr-xilinx";
-    rev = "09f239364327dcc990727fe6ec5afdc52d56b632";
-    hash = "sha256-eSePU0os8CGrLZorYEIKdjbmoumsVDWMntNFHfHZ1s8=";
+    rev = "68aeeb39f92e39bfb239c7e4a44dd93451fc1889";
+    hash = "sha256-+ZGrahxZsTV0LYH9LmDluuRScZSWILSoaK5B3tdt/bY=";
     fetchSubmodules = true;
   };
 in
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
-  version = "unstable-2026-08-03";
+  version = "0.9.3";
 
-  # stable-backports tip (2026-08-05): our PRs #105 (slice validation
-  # strength marker) and #106 (SRL cascade packing + DI1MUX fasm names)
-  # merged upstream — ZERO local patches for the first time. PRs #102/#104
-  # took the previous eight.
+  # Upstream release 0.9.3 (2026-08-18) = tip of the development branch
+  # (renamed stable-backports -> main the same day). Everything of ours is
+  # merged: #102/#104/#105/#106/#116/#138/#139/#140/#144/#146 and the ddr3
+  # series; plus #134 (carry fanout), #148 (LUT6_2 UAF), #150 (SDP BRAM
+  # widths), #151 (BUFR config), #153 (fasm run-identity header: comments,
+  # which our canonical-fasm tooling strips). ZERO local patches. constids
+  # and bba untouched since the previous revision: same chipdb content, new
+  # identity stamp (CI regenerates; old seeds are rejected, as designed).
   src = upstream;
 
   # 0.9.x detects eigen via pkg-config (upstream 77911357)
