@@ -44,6 +44,22 @@ except Exception:
     fi
 fi
 
+# Provenance of the chipdb bins inside the package (apio#940 follow-up,
+# asked by zapta): how they were obtained in THIS build and the identity
+# stamp that pins down their content regardless of how they were obtained.
+#   CHIPDB_SOURCE  generated | restored-from-cache   (unknown if unset)
+#   CHIPDB_ID      the chipdb-id.txt stamp (hash of everything that
+#                  determines the bins' content)  (unknown if unset)
+# use-cached-chipdb is the boolean view of CHIPDB_SOURCE (name chosen by the
+# apio maintainer): true only when the bins were restored from the
+# revision-keyed CI cache instead of generated.
+CHIPDB_SOURCE="${CHIPDB_SOURCE:-unknown}"
+CHIPDB_ID="${CHIPDB_ID:-unknown}"
+case "$CHIPDB_SOURCE" in
+    restored-from-cache) CHIPDB_CACHE_USED=true ;;
+    *)                   CHIPDB_CACHE_USED=false ;;
+esac
+
 NEXTPNR_REV=$(sed -n 's/.*rev = "\([0-9a-f]\{7,40\}\)".*/\1/p' "$REPO_ROOT/nix/nextpnr-xilinx.nix" | head -1)
 
 COMMIT=${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)}
@@ -55,6 +71,9 @@ cat > "$OUT" <<EOF
   "release-tag"                    : "$DATE",
   "yosys-release-tag"              : "$YOSYS_TAG",
   "nextpnr-xilinx-revision"        : "${NEXTPNR_REV:-unknown}",
+  "chipdb-source"                  : "$CHIPDB_SOURCE",
+  "use-cached-chipdb"              : $CHIPDB_CACHE_USED,
+  "chipdb-id"                      : "$CHIPDB_ID",
   "build-repo"                     : "${GITHUB_REPOSITORY:-local}",
   "build-workflow"                 : "${GITHUB_WORKFLOW:-local}",
   "workflow-run-id"                : "${GITHUB_RUN_ID:-local}",

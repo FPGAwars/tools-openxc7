@@ -29,6 +29,9 @@ on:
       identity:
         description: "chipdb identity stamp (chipdb-id.txt) of the produced bins"
         value: ${{ jobs.chipdb.outputs.identity }}
+      mode:
+        description: "How the bins were obtained in this run: generated | restored-from-cache (recorded in every package's BUILD-INFO)"
+        value: ${{ jobs.chipdb.outputs.mode }}
   workflow_dispatch:
     inputs:
       regenerate:
@@ -43,6 +46,7 @@ jobs:
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     outputs:
       identity: ${{ steps.stamp.outputs.identity }}
+      mode: ${{ steps.gen.outputs.mode }}
     steps:
       - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22

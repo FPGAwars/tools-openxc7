@@ -34,6 +34,16 @@ on:
         required: false
         default: false
         type: boolean
+      chipdb_source:
+        description: "How the chipdb job obtained the bins (generated | restored-from-cache); recorded in BUILD-INFO. Standalone runs derive it themselves."
+        required: false
+        default: ""
+        type: string
+      chipdb_id:
+        description: "chipdb identity stamp of the seeded bins; recorded in BUILD-INFO"
+        required: false
+        default: ""
+        type: string
     outputs:
       tarball:
         description: "Name of the built tarball"
@@ -100,10 +110,27 @@ jobs:
             fi
           fi
 
+      # chipdb provenance for BUILD-INFO (apio#940 follow-up): orchestrated
+      # runs get it from the chipdb job; a standalone run seeds from the
+      # shared cache when it hits (else linux regenerates, darwin stops).
       - name: Compose BUILD-INFO.json (ecosystem convention)
         env:
           YOSYS_RELEASE_TAG: ${{ inputs.yosys_release_tag }}
+          CHIPDB_SOURCE_IN: ${{ inputs.chipdb_source }}
+          CHIPDB_ID_IN: ${{ inputs.chipdb_id }}
         run: |
+          if [ -n "$CHIPDB_SOURCE_IN" ]; then
+            export CHIPDB_SOURCE="$CHIPDB_SOURCE_IN"
+          elif [ -n "$(ls chipdb-cache/*.bin 2>/dev/null || true)" ]; then
+            export CHIPDB_SOURCE=restored-from-cache
+          else
+            export CHIPDB_SOURCE=generated
+          fi
+          if [ -n "$CHIPDB_ID_IN" ]; then
+            export CHIPDB_ID="$CHIPDB_ID_IN"
+          elif [ -f chipdb-cache/chipdb-id.txt ]; then
+            export CHIPDB_ID=$(cat chipdb-cache/chipdb-id.txt)
+          fi
           DATE="${{ steps.d.outputs.date }}"
           bash scripts/build-info.sh linux-x86-64 "$DATE" \
             "apio-openxc7-linux-x86-64-${DATE//-/}.tgz" BUILD-INFO.json

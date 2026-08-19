@@ -18,6 +18,11 @@ on:
         required: false
         default: ""
         type: string
+      chipdb_id:
+        description: "chipdb identity stamp from the chipdb job (the pre-release job asserts the nix-built bins are byte-identical to it); recorded in BUILD-INFO"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   build:
@@ -76,8 +81,13 @@ jobs:
           DATE="${{ inputs.date }}"
           [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
           NAME="apio-openxc7-windows-amd64-${DATE//-/}.tgz"
-          # ecosystem convention: BUILD-INFO.json at the package root
+          # ecosystem convention: BUILD-INFO.json at the package root.
+          # chipdb provenance: the Windows bins are always built in this
+          # run by the nix derivation (no CI cache on this path); the
+          # pre-release job asserts they are byte-identical to the chipdb
+          # job's, so its identity stamp describes them too.
           YOSYS_RELEASE_TAG="${{ inputs.yosys_release_tag }}" \
+          CHIPDB_SOURCE=generated CHIPDB_ID="${{ inputs.chipdb_id }}" \
             bash scripts/build-info.sh windows-amd64 "$DATE" "$NAME" BUILD-INFO.json
           # --mode=u+w: the nix store tree is read-only; without it Windows
           # extracts the files with the READONLY attribute and apio cannot
