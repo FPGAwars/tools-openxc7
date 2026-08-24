@@ -3,7 +3,7 @@
 # create-signed-commit.sh -- commit ONE file to a repo branch through the
 # GitHub GraphQL API (createCommitOnBranch) instead of git commit+push.
 # Local tool (no workflow calls it): typical use is the MANUAL apio
-# remote-config bump after publish-release (apio#927).
+# remote-config bump after make-pre-release-stable (apio#927).
 #
 # Why: commits created through the API are signed by GitHub itself and
 # show up as "Verified", which satisfies branch rules like apio's

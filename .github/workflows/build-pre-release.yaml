@@ -262,7 +262,7 @@ jobs:
           * To KEEP it around for longer testing: uncheck \`Set as a
             pre-release\` (no side effects — it just survives the cleanup).
           * To PUBLISH it (after testing it for real): run the
-            \`publish-release\` workflow with this tag (verifies the assets,
+            \`make-pre-release-stable\` workflow with this tag (verifies the assets,
             marks the release stable + latest), then update apio's
             remote-config by hand (apio#927).
           EOFBODY
@@ -305,6 +305,6 @@ jobs:
             echo
             echo "1. Try it for real (\`apio\` install from the tag, board test if it applies)."
             echo "2. (optional) Uncheck \`pre-release\` to keep it beyond the cleanup window while testing."
-            echo "3. To PUBLISH: run the \`publish-release\` workflow with tag \`$DATE\` (verifies, marks stable+latest), then update apio's remote-config by hand (scripts/bump-remote-config.sh helps)."
+            echo "3. To PUBLISH: run the \`make-pre-release-stable\` workflow with tag \`$DATE\` (verifies, marks stable+latest), then update apio's remote-config by hand (scripts/bump-remote-config.sh helps)."
             echo "4. \`scripts/check-versions.sh\` must come back green afterwards."
           } >> "$GITHUB_STEP_SUMMARY"
