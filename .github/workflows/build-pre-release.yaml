@@ -187,6 +187,7 @@ jobs:
           {
             echo "### chipdb parity (per build)"
             echo "identity: \`$(cat chipdb-bins/chipdb-id.txt)\` — $n bins byte-identical in the three packages"
+            echo "linux and darwin package the bins from the chipdb job (generated or restored from the revision-keyed cache); windows regenerates its own inside its nix derivation — so this check is a continuous proof that the cached bins equal a fresh generation."
             echo ""
             echo "| part | bytes | sha256 |"; echo "|---|---|---|"
             for f in chipdb-bins/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
@@ -251,7 +252,8 @@ jobs:
           done
           cat > RELEASE-BODY.md <<EOFBODY
           openXC7 toolchain — $DATE. Validated by CI (package gate, regression
-          suite on the three platforms, linux/windows chipdb parity).
+          suite on the three platforms, three-way chipdb parity — linux, darwin,
+          windows and the chipdb job).
 
           ### Build info
           $(cat BUILD-INFOS.md)
