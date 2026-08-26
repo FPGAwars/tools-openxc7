@@ -48,7 +48,9 @@ jobs:
     if: ${{ !inputs.seed_from_artifact }}
     uses: ./.github/workflows/chipdb.yml
     with:
-      regenerate: ${{ inputs.regenerate_chipdb }}
+      # dispatch-only input: null in a workflow_call run, and the
+      # reusable workflow declares it boolean
+      regenerate: ${{ inputs.regenerate_chipdb || false }}
 
   build:
     name: build + validate windows-amd64 (cross from linux)
@@ -108,7 +110,11 @@ jobs:
             || { echo "::error::chipdb artifact identity differs from caller input"; exit 1; }
 
           cp chipdb-bins/*.bin chipdb-bins/chipdb-id.txt package-win/chipdb/
+          # the bins now live in package-win; the runner disk also has to
+          # hold the tarball and the L1/L2 extractions of it
+          rm -rf chipdb-bins
           echo "injected $ACTUAL verified chipdb bins (identity $ARTIFACT_ID)"
+          df -h . | tail -1
 
       # Installed BEFORE the tar step: build-info.sh re-exports the
       # yosys-release-tag from the installed package's own BUILD-INFO.json
@@ -154,6 +160,7 @@ jobs:
           # delete/reinstall the package (PermissionError on --force/upgrade)
           tar czhf "$NAME" --mode=u+w -C package-win .
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           ls -la "$NAME"
 
       - name: Smoke — run the .exe under wine + import the python tools
@@ -240,7 +247,8 @@ jobs:
             [ -n "$E2E_WINPY" ] && [ -x "$E2E_WINPY/bin/python3.exe" ] \
               || { echo "mingw Python required for the Windows package gate"; exit 1; }
             export E2E_WINPY
-            bash scripts/validate-package.sh "${{ steps.tar.outputs.name }}" --wine
+            bash scripts/validate-package.sh "${{ steps.tar.outputs.name }}" --wine \
+              --expect-date "${{ steps.tar.outputs.dateid }}"
           '
 
       # The exe-parity design checks that used to live inline here (virtual
