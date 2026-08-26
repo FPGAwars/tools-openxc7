@@ -48,7 +48,7 @@ supported yet (`xc7s25` is not in the prjxray database), and Kintex-7 is
 work in progress (its differential-input bits are missing upstream).
 
 `chipdb-parts.json` is the **single source of truth** for that list: it is read by
-the packer, by the Windows build and by the CI assertions. Adding a board whose
+the packer and by the CI assertions. Adding a board whose
 footprint already exists in the prjxray database is a one-line change there.
 
 ## Building the packages from source (developers)
@@ -88,12 +88,27 @@ generated once and reused:
 ### Windows (cross-compiled from Linux)
 
 ```bash
-nix build .#packages.x86_64-linux.openxc7-windows-amd64
+nix build .#packages.x86_64-linux.openxc7-windows-amd64-tools
 ```
 
-The result is the package **tree**; CI tars it with the release date. The
-`nextpnr-xilinx.exe` embeds a Python interpreter, so `--post-route` scripts
-(and therefore `apio report`) work exactly like on Linux/macOS.
+The result is deliberately a **tools-only tree** without `chipdb/`. CI downloads
+the verified bins and their `chipdb-id.txt` from the single `chipdb.yml` job — one
+per part of `chipdb-parts.json`, the same ones the Linux and macOS packages
+carry — injects them into a writable copy, and only then creates and validates
+the package tarball. To reproduce that assembly locally:
+
+```bash
+cp -aL result package-win && chmod -R u+w package-win
+mkdir package-win/chipdb
+cp /path/to/chipdb-bins/*.bin /path/to/chipdb-bins/chipdb-id.txt package-win/chipdb/
+CHIPDB_SOURCE=restored-from-cache CHIPDB_ID="$(cat package-win/chipdb/chipdb-id.txt)" \
+  bash scripts/build-info.sh windows-amd64 YYYY-MM-DD \
+  apio-openxc7-windows-amd64-YYYYMMDD.tgz package-win/BUILD-INFO.json
+tar czhf apio-openxc7-windows-amd64-YYYYMMDD.tgz --mode=u+w -C package-win .
+```
+
+The `nextpnr-xilinx.exe` in the tools tree embeds a Python interpreter, so
+`--post-route` scripts (and therefore `apio report`) work like on Linux/macOS.
 
 ## Validating a package
 
