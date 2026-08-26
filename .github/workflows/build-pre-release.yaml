@@ -8,12 +8,14 @@
 #   chipdb.yml           ubuntu-22.04   bins + per-FPGA assets + index
 #   linux-package.yml    ubuntu-22.04   native   (consumes chipdb artifacts)
 #   darwin-package.yml   macos-14        native   (consumes chipdb artifacts)
-#   windows-package.yml  ubuntu-22.04   cross    (same nix derivation; wine)
+#   windows-package.yml  ubuntu-22.04   cross    (consumes chipdb artifacts; wine)
 #
-# Each carries its own gate, so the exact same build+validation runs whether
-# you dispatch it standalone or through a release. This workflow only picks
-# the date, wires the chipdb artifacts, asserts the three packages carry
-# byte-identical chipdb, and — if EVERYTHING is green — publishes.
+# There is ONE chipdb source: the three platforms package the bins of that
+# single job, and each one's own L1 gate checks them against the index the
+# same job hashed. Each platform carries its own gate, so the exact same
+# build+validation runs whether you dispatch it standalone or through a
+# release. This workflow only picks the date, wires the chipdb artifacts,
+# and — if EVERYTHING is green — publishes.
 #
 # The release is created at the END, as a dated PRERELEASE (never latest),
 # following the FPGAwars ecosystem convention (fpgawars/apio-workflows):
@@ -138,7 +140,9 @@ jobs:
     with:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
+      chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
+      chipdb_index: ${{ needs.chipdb.outputs.index }}
 
   pre-release:
     needs: [prepare, chipdb, linux, darwin, windows]
@@ -153,47 +157,17 @@ jobs:
 
       # Built by chipdb.yml from the same verified bins and packaged database.
       # They are release inputs now, not derived again by the publisher.
+      #
+      # There is no three-way parity check any more: the three platform jobs
+      # package the bins of THIS artifact's producing job, so comparing them
+      # would compare a file with itself. What each package carries is proved
+      # where it is assembled — every platform's L1 gate checks its packaged
+      # bins against the size and sha256 the chipdb job recorded in the index.
+      # The per-part `bytes | sha256` table lives in that job's summary.
       - uses: actions/download-artifact@v8
         with:
           name: chipdb-assets
           path: chipdb-assets
-
-      # Still needed by the existing three-way parity check. Moving parity
-      # after the Windows split belongs to 0012.
-      - uses: actions/download-artifact@v8
-        with:
-          name: chipdb-bins
-          path: chipdb-bins
-
-      # The chipdb is generated once (chipdb job) and platform-independent;
-      # this proves, per build, that the THREE packages carry byte-identical
-      # bins (linux and darwin seed from the artifact, windows is assembled
-      # from the same nix derivation) - and that they are the ones the
-      # chipdb job produced (index of name/size/sha256 in the summary).
-      - name: Assert the chipdb is byte-identical linux<->darwin<->windows
-        run: |
-          mkdir lin mac win
-          tar xzf apio-openxc7-linux-x86-64-*.tgz -C lin
-          tar xzf apio-openxc7-darwin-arm64-*.tgz -C mac
-          tar xzf apio-openxc7-windows-amd64-*.tgz -C win
-          n=0
-          for f in chipdb-bins/*.bin; do
-            b=$(basename "$f")
-            for p in lin mac win; do
-              cmp "$f" "$p/chipdb/$b" || { echo "::error::chipdb differs from the chipdb job: $p/chipdb/$b"; exit 1; }
-            done
-            n=$((n + 1))
-          done
-          echo "chipdb parity OK ($n bins byte-identical across linux, darwin, windows and the chipdb job)"
-          {
-            echo "### chipdb parity (per build)"
-            echo "identity: \`$(cat chipdb-bins/chipdb-id.txt)\` — $n bins byte-identical in the three packages"
-            echo "linux and darwin package the bins from the chipdb job (generated or restored from the revision-keyed cache); windows regenerates its own inside its nix derivation — so this check is a continuous proof that the cached bins equal a fresh generation."
-            echo ""
-            echo "| part | bytes | sha256 |"; echo "|---|---|---|"
-            for f in chipdb-bins/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
-          } >> "$GITHUB_STEP_SUMMARY"
-          rm -rf lin mac win
 
       # Ecosystem convention (fpgawars/apio-workflows): keep only the newest
       # pre-releases, then replace today's pre-release if it exists — and FAIL
@@ -252,9 +226,13 @@ jobs:
             } >> BUILD-INFOS.md
           done
           cat > RELEASE-BODY.md <<EOFBODY
-          openXC7 toolchain — $DATE. Validated by CI (package gate, regression
-          suite on the three platforms, three-way chipdb parity — linux, darwin,
-          windows and the chipdb job).
+          openXC7 toolchain — $DATE. Validated by CI (package gate and
+          regression suite on the three platforms). The chipdb has a single
+          source: the chipdb job of this run (identity
+          \`${{ needs.chipdb.outputs.identity }}\`, ${{ needs.chipdb.outputs.mode }}).
+          The three packages carry those bins — each platform's own gate checks
+          them against the index — and the per-FPGA assets and the index
+          published below come from that same job.
 
           ### Build info
           $(cat BUILD-INFOS.md)
