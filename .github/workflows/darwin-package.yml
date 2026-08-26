@@ -50,7 +50,7 @@ on:
         default: ""
         type: string
       chipdb_index:
-        description: "Filename of the dated schema-2 index in chipdb-assets"
+        description: "Filename of the dated schema-2 index in the chipdb-index artifact"
         required: false
         default: ""
         type: string
@@ -96,11 +96,13 @@ jobs:
           name: chipdb-bins
           path: chipdb-bins
 
+      # the index alone: the per-FPGA release assets next to it in
+      # chipdb-assets are ~500 MB this job has no use for
       - name: Download the chipdb release index
         uses: actions/download-artifact@v8
         with:
-          name: chipdb-assets
-          path: chipdb-assets
+          name: chipdb-index
+          path: chipdb-index
 
       # Installed BEFORE composing BUILD-INFO: build-info.sh re-exports the
       # yosys-release-tag from the installed package's own BUILD-INFO.json
@@ -144,7 +146,7 @@ jobs:
         env:
           OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
           OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-bins
-          OPENXC7_CHIPDB_INDEX: ${{ github.workspace }}/chipdb-assets/${{ inputs.chipdb_index || needs.chipdb.outputs.index }}
+          OPENXC7_CHIPDB_INDEX: ${{ github.workspace }}/chipdb-index/${{ inputs.chipdb_index || needs.chipdb.outputs.index }}
           OPENXC7_BUILD_INFO: ${{ github.workspace }}/BUILD-INFO.json
         run: |
           rm -rf dist   # stale-dist guard (see linux-package.yml)

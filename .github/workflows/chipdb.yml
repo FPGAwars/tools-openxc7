@@ -6,9 +6,9 @@
 # is the slow, memory-heavy step of the whole build (the big parts need more
 # RAM than a hosted macOS runner has and hours of its 3 vCPUs), so it happens
 # ONCE here, on a linux runner, and every platform package seeds from the
-# `chipdb-bins` artifact. This workflow also owns the per-FPGA assets and
-# database-backed index in `chipdb-assets`; platforms only copy the seed and
-# index into their packages.
+# `chipdb-bins` artifact. This workflow also owns the per-FPGA release assets
+# (`chipdb-assets`) and the database-backed index, published on its own as
+# `chipdb-index` because that is all a platform job needs to embed.
 #
 # Owns the revision-keyed cache: a cache hit makes this job a few minutes; a
 # miss (toolchain revision or manifest change) regenerates every part of
@@ -153,7 +153,8 @@ jobs:
               print(f"| {family} | {len(entry['available-parts'])} | {len(entry['generated-parts'])} |")
           PYEOF
 
-      # Consumed by linux-package.yml and darwin-package.yml of this run.
+      # Consumed by the linux, darwin and windows package jobs of this run:
+      # one generation, one set of bins, the same bytes in the three packages.
       - name: Publish the chipdb bins for the platform jobs
         uses: actions/upload-artifact@v7
         with:
@@ -165,8 +166,17 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      # Consumed by every platform package and uploaded unchanged by the
-      # pre-release job.
+      # The index alone (~14 kB), for the three package jobs: they embed it in
+      # the package and never need the ~500 MB of per-FPGA assets next to it.
+      - name: Publish the release index for the platform jobs
+        uses: actions/upload-artifact@v7
+        with:
+          name: chipdb-index
+          path: chipdb-assets/apio-xilinx-chipdb-index-*.json
+          retention-days: 7
+          if-no-files-found: error
+
+      # Release inputs: uploaded unchanged by the pre-release job.
       - name: Publish the per-FPGA assets and index
         uses: actions/upload-artifact@v7
         with:
