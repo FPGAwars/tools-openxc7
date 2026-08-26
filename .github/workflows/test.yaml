@@ -7,10 +7,10 @@
 #   linux    x86_64-linux    ubuntu-22.04  nextpnr-xilinx / prjxray / fasm
 #   macos    aarch64-darwin  macos-14      nextpnr-xilinx / prjxray / fasm
 #   windows  mingw cross     ubuntu-22.04  nextpnr.exe / prjxray .exe tools
-#                                          (passthru outputs — WITHOUT the
-#                                          chipdb generation, which is hours
-#                                          of bbaexport and belongs to the
-#                                          nightly build-pre-release)
+#                                          (passthru outputs of the tools
+#                                          tree — the chipdb is generated
+#                                          once by chipdb.yml and injected
+#                                          into the package by CI)
 #
 # Go/nogo: a green job IS the report (no step summaries). The full package
 # assembly + L1/L2 validation runs in build-pre-release nightly.

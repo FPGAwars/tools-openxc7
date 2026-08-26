@@ -1,7 +1,10 @@
-# Reproducible assembly of the Windows tools tree, cross-built
-# CI: windows-package.yml triggers on pushes touching nix/** (this file included).
-# from x86_64-linux with pkgsCross.mingwW64. Build with:
+# Reproducible assembly of the Windows tools tree, cross-built from
+# x86_64-linux with pkgsCross.mingwW64. Build with:
 #   nix build .#packages.x86_64-linux.openxc7-windows-amd64-tools
+#
+# CI: test.yaml compiles the passthru outputs on every push; the package is
+# assembled and validated by windows-package.yml (dispatch, or called by
+# build-pre-release.yaml).
 #
 # Full feature parity with Linux/macOS: nextpnr-xilinx.exe embeds a Python
 # interpreter (boost::python), so apio's `--post-route` report (apio report)
