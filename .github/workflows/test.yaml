@@ -92,11 +92,10 @@ jobs:
           summarize: false          # no branded gantt/Discord footer
           diagnostic-endpoint: ""   # no telemetry
 
-      # The passthru outputs compile the shipped .exe binaries without
-      # forcing the chipdb (nightly territory). Same one-step-per-culprit
-      # layout as the native jobs.
+      # The tools output and its passthru attributes never depend on chipdb.
+      # Keep the one-step-per-culprit layout used by the native jobs.
       - name: Build nextpnr-xilinx.exe (mingw)
-        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64.nextpnr
+        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64-tools.nextpnr
 
       - name: Build prjxray tools .exe (mingw)
-        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64.prjxray
+        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64-tools.prjxray
