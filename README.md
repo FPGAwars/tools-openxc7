@@ -48,8 +48,9 @@ supported yet (`xc7s25` is not in the prjxray database), and Kintex-7 is
 work in progress (its differential-input bits are missing upstream).
 
 `chipdb-parts.json` is the **single source of truth** for that list: it is read by
-the packer and by the CI assertions. Adding a board whose
-footprint already exists in the prjxray database is a one-line change there.
+the packer, by the Windows build (which database families to ship) and by the CI
+assertions. Adding a board whose footprint already exists in the prjxray database
+is a one-line change there.
 
 ## Building the packages from source (developers)
 
@@ -94,13 +95,16 @@ nix build .#packages.x86_64-linux.openxc7-windows-amd64-tools
 The result is deliberately a **tools-only tree** without `chipdb/`. CI downloads
 the verified bins and their `chipdb-id.txt` from the single `chipdb.yml` job — one
 per part of `chipdb-parts.json`, the same ones the Linux and macOS packages
-carry — injects them into a writable copy, and only then creates and validates
-the package tarball. To reproduce that assembly locally:
+carry — plus the release index that job built, injects them into a writable copy,
+and only then creates and validates the package tarball. To reproduce that
+assembly locally:
 
 ```bash
 cp -aL result package-win && chmod -R u+w package-win
 mkdir package-win/chipdb
 cp /path/to/chipdb-bins/*.bin /path/to/chipdb-bins/chipdb-id.txt package-win/chipdb/
+cp /path/to/apio-xilinx-chipdb-index-YYYYMMDD.json \
+  package-win/apio-xilinx-chipdb-index.json
 CHIPDB_SOURCE=restored-from-cache CHIPDB_ID="$(cat package-win/chipdb/chipdb-id.txt)" \
   bash scripts/build-info.sh windows-amd64 YYYY-MM-DD \
   apio-openxc7-windows-amd64-YYYYMMDD.tgz package-win/BUILD-INFO.json
@@ -169,7 +173,7 @@ single package or for a full release:
 | `chipdb.yml` | Owns chipdb generation/cache, identity, per-FPGA assets and the database-backed index |
 | `linux-package.yml` | Consumes the chipdb artifacts, then builds + validates `linux-x86-64` |
 | `darwin-package.yml` | Consumes the chipdb artifacts, then builds + validates `darwin-arm64` |
-| `windows-package.yml` | Cross-builds + validates `windows-amd64` under wine |
+| `windows-package.yml` | Consumes the chipdb artifacts, then cross-builds + validates `windows-amd64` under wine |
 | `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): prepares chipdb, builds the three platforms, then publishes |
 | `make-pre-release-stable.yaml` | Manual dispatch: re-verifies a candidate and marks it stable + latest (apio's remote-config is then updated by hand) |
 
@@ -179,9 +183,11 @@ their `SHA256SUMS`, one
 `apio-xilinx-chipdb-<part>-<YYYYMMDD>.bin.tgz` per generated FPGA, and
 `apio-xilinx-chipdb-index-<YYYYMMDD>.json`. The schema-2 index separates the
 generated parts supported by the release from every footprint discovered in
-its packaged prjxray-db. The same index is included at package root under the
-stable name `apio-xilinx-chipdb-index.json`; the package still carries all
-generated chipdb bins for current apio releases. Old prereleases are pruned
+its packaged prjxray-db. The same index is included at the root of the
+three packages under the stable name `apio-xilinx-chipdb-index.json`, and each
+platform's L1 gate checks its packaged bins against the sizes and hashes it
+records; the package still carries all generated chipdb bins for current apio
+releases. Old prereleases are pruned
 automatically; promoting a candidate to a real release is a deliberate
 one-click human step, and everything after that click is automated.
 
