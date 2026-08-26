@@ -1,6 +1,7 @@
 # Build + validate the Windows package. The flake produces only the tools tree;
-# this workflow injects the chipdb-bins artifact produced once by chipdb.yml,
-# then validates the assembled tarball under Wine. See nix/windows/.
+# this workflow injects the chipdb-bins artifact produced once by chipdb.yml
+# and the release index that goes with it, then validates the assembled
+# tarball under Wine. See nix/windows/.
 name: windows-package
 
 on:
@@ -9,6 +10,11 @@ on:
       date:
         description: "Package date YYYY-MM-DD (default: today, UTC)"
         required: false
+      run_chipdb:
+        description: "Prepare the chipdb inputs before the package build"
+        required: false
+        default: true
+        type: boolean
       regenerate_chipdb:
         description: "Ignore the chipdb cache and generate every part from scratch"
         required: false
@@ -25,10 +31,10 @@ on:
         required: false
         default: ""
         type: string
-      seed_from_artifact:
-        description: "Use the chipdb-bins artifact already produced by the caller; false runs chipdb.yml first"
+      run_chipdb:
+        description: "Prepare chipdb inputs in this workflow (standalone use)"
         required: false
-        default: true
+        default: false
         type: boolean
       chipdb_id:
         description: "Expected chipdb identity stamp from the chipdb job; checked against the downloaded artifact"
@@ -40,14 +46,21 @@ on:
         required: false
         default: ""
         type: string
+      chipdb_index:
+        description: "Filename of the dated schema-2 index in the chipdb-index artifact"
+        required: false
+        default: ""
+        type: string
 
 jobs:
-  # A release caller already ran chipdb.yml and its artifact belongs to the
-  # same run. A standalone dispatch creates that artifact here first.
+  # A release caller already ran chipdb.yml and its artifacts belong to the
+  # same run. A standalone dispatch creates them here first.
   chipdb:
-    if: ${{ !inputs.seed_from_artifact }}
+    name: prepare chipdb inputs (standalone dispatch)
+    if: inputs.run_chipdb
     uses: ./.github/workflows/chipdb.yml
     with:
+      date: ${{ inputs.date }}
       # dispatch-only input: null in a workflow_call run, and the
       # reusable workflow declares it boolean
       regenerate: ${{ inputs.regenerate_chipdb || false }}
@@ -70,6 +83,14 @@ jobs:
           name: chipdb-bins
           path: chipdb-bins
 
+      # the index alone: the per-FPGA release assets next to it in
+      # chipdb-assets are ~500 MB this job has no use for
+      - name: Download the chipdb release index
+        uses: actions/download-artifact@v8
+        with:
+          name: chipdb-index
+          path: chipdb-index
+
       - name: Build the Windows tools tree (flake output)
         run: |
           nix build -L \
@@ -84,7 +105,7 @@ jobs:
           test -f result-win-tools/bin/xc7pll.cmd
           echo "tools tree shape OK; chipdb absent"
 
-      - name: Inject the chipdb artifact into a writable package tree
+      - name: Inject the chipdb and its index into a writable package tree
         run: |
           cp -aL result-win-tools package-win
           chmod -R u+w package-win
@@ -114,6 +135,13 @@ jobs:
           # hold the tarball and the L1/L2 extractions of it
           rm -rf chipdb-bins
           echo "injected $ACTUAL verified chipdb bins (identity $ARTIFACT_ID)"
+
+          # The same index the linux and darwin packages embed, under the
+          # stable in-package name; L1 checks it against these very bins.
+          INDEX="chipdb-index/${{ inputs.chipdb_index || needs.chipdb.outputs.index }}"
+          test -f "$INDEX" || { echo "::error::chipdb index not in the artifact: $INDEX"; exit 1; }
+          cp "$INDEX" package-win/apio-xilinx-chipdb-index.json
+          echo "embedded $(basename "$INDEX") as apio-xilinx-chipdb-index.json"
           df -h . | tail -1
 
       # Installed BEFORE the tar step: build-info.sh re-exports the
@@ -146,11 +174,10 @@ jobs:
           DATE="${{ inputs.date }}"
           [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
           NAME="apio-openxc7-windows-amd64-${DATE//-/}.tgz"
-          CHIPDB_SOURCE_IN="${{ inputs.chipdb_source }}"
-          [ -n "$CHIPDB_SOURCE_IN" ] || CHIPDB_SOURCE_IN="${{ needs.chipdb.outputs.mode }}"
-          # The current release caller predates chipdb_source. Keep it
-          # compatible until task 0012 wires the producing job's mode.
-          [ -n "$CHIPDB_SOURCE_IN" ] || CHIPDB_SOURCE_IN=unknown
+          # provenance comes from the job that produced the bins: the
+          # caller's input, or the chipdb job this workflow chained itself
+          CHIPDB_SOURCE_IN="${{ inputs.chipdb_source || needs.chipdb.outputs.mode }}"
+          # the identity is read back from what was actually packaged
           ARTIFACT_ID=$(cat package-win/chipdb/chipdb-id.txt)
           YOSYS_RELEASE_TAG="${{ inputs.yosys_release_tag }}" \
           CHIPDB_SOURCE="$CHIPDB_SOURCE_IN" CHIPDB_ID="$ARTIFACT_ID" \
