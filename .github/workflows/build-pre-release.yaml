@@ -5,14 +5,14 @@
 # on its own native runner (windows is cross-built from linux; nixpkgs cannot
 # cross Linux<->macOS, and Nix does not run on Windows):
 #
-#   chipdb.yml           ubuntu-22.04   generates/caches the chipdb bins
-#   linux-package.yml    ubuntu-22.04   native   (seeds from chipdb)
-#   darwin-package.yml   macos-14        native   (seeds from chipdb)
+#   chipdb.yml           ubuntu-22.04   bins + per-FPGA assets + index
+#   linux-package.yml    ubuntu-22.04   native   (consumes chipdb artifacts)
+#   darwin-package.yml   macos-14        native   (consumes chipdb artifacts)
 #   windows-package.yml  ubuntu-22.04   cross    (same nix derivation; wine)
 #
 # Each carries its own gate, so the exact same build+validation runs whether
 # you dispatch it standalone or through a release. This workflow only picks
-# the date, wires the chipdb seed, asserts the three packages carry
+# the date, wires the chipdb artifacts, asserts the three packages carry
 # byte-identical chipdb, and — if EVERYTHING is green — publishes.
 #
 # The release is created at the END, as a dated PRERELEASE (never latest),
@@ -103,13 +103,13 @@ jobs:
           just-check: "true"
 
   # The chipdb is generated ONCE (platform-independent bins, revision-keyed
-  # cache) and every platform package seeds from it: linux and darwin from
-  # the chipdb-bins artifact, windows from the same nix derivation. The
-  # pre-release job asserts the three packages carry byte-identical bins.
+  # cache). The same job also builds the public per-FPGA assets and index
+  # before any platform starts.
   chipdb:
     needs: prepare
     uses: ./.github/workflows/chipdb.yml
     with:
+      date: ${{ needs.prepare.outputs.date }}
       regenerate: ${{ github.event.inputs.regenerate_chipdb == 'true' }}
 
   linux:
@@ -118,9 +118,9 @@ jobs:
     with:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
-      seed_from_artifact: true
       chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
+      chipdb_index: ${{ needs.chipdb.outputs.index }}
 
   darwin:
     needs: [prepare, chipdb]
@@ -128,9 +128,9 @@ jobs:
     with:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
-      seed_from_artifact: true
       chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
+      chipdb_index: ${{ needs.chipdb.outputs.index }}
 
   windows:
     needs: [prepare, chipdb]
@@ -144,25 +144,26 @@ jobs:
     needs: [prepare, chipdb, linux, darwin, windows]
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
-      - uses: actions/checkout@v7    # scripts/ for chipdb-assets + asset-check
+      - uses: actions/checkout@v7    # scripts/asset-check.sh
 
       - uses: actions/download-artifact@v8
         with:
           pattern: apio-openxc7-*     # the 3 package artifacts (not chipdb-bins)
           merge-multiple: true
 
-      # The platform-independent per-FPGA assets (apio's upcoming on-demand
-      # loader): one gzipped bin per manifest part + an index with both
-      # hashes and the chipdb identity stamp. Same bins the packages carry.
+      # Built by chipdb.yml from the same verified bins and packaged database.
+      # They are release inputs now, not derived again by the publisher.
+      - uses: actions/download-artifact@v8
+        with:
+          name: chipdb-assets
+          path: chipdb-assets
+
+      # Still needed by the existing three-way parity check. Moving parity
+      # after the Windows split belongs to 0012.
       - uses: actions/download-artifact@v8
         with:
           name: chipdb-bins
           path: chipdb-bins
-
-      - name: Build the per-FPGA chipdb assets
-        run: |
-          D="${{ needs.prepare.outputs.date }}"
-          bash scripts/chipdb-assets.sh chipdb-bins chipdb-assets "${D//-/}" && ls -la chipdb-assets | head -5
 
       # The chipdb is generated once (chipdb job) and platform-independent;
       # this proves, per build, that the THREE packages carry byte-identical

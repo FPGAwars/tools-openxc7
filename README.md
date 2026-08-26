@@ -151,18 +151,23 @@ single package or for a full release:
 | Workflow | What it does |
 |---|---|
 | `test.yaml` | Per-commit compile test: linux, macos and windows-cross jobs (push/PR guard) |
-| `linux-package.yml` | Builds + validates `linux-x86-64` (and owns the chipdb) |
-| `darwin-package.yml` | Builds + validates `darwin-arm64` |
+| `chipdb.yml` | Owns chipdb generation/cache, identity, per-FPGA assets and the database-backed index |
+| `linux-package.yml` | Consumes the chipdb artifacts, then builds + validates `linux-x86-64` |
+| `darwin-package.yml` | Consumes the chipdb artifacts, then builds + validates `darwin-arm64` |
 | `windows-package.yml` | Cross-builds + validates `windows-amd64` under wine |
-| `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): builds the three only when there are new commits, then publishes |
+| `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): prepares chipdb, builds the three platforms, then publishes |
 | `make-pre-release-stable.yaml` | Manual dispatch: re-verifies a candidate and marks it stable + latest (apio's remote-config is then updated by hand) |
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,
-their `SHA256SUMS`, and one gzipped `chipdb-<part>-<date>.bin.gz` per FPGA
-plus a `chipdb-index-<date>.json` (the bins are platform-independent — these
-per-FPGA assets back apio's upcoming on-demand loader). Old prereleases are
-pruned automatically; promoting a candidate to a real release is a deliberate
+their `SHA256SUMS`, one
+`apio-xilinx-chipdb-<part>-<YYYYMMDD>.bin.tgz` per generated FPGA, and
+`apio-xilinx-chipdb-index-<YYYYMMDD>.json`. The schema-2 index separates the
+generated parts supported by the release from every footprint discovered in
+its packaged prjxray-db. The same index is included at package root under the
+stable name `apio-xilinx-chipdb-index.json`; the package still carries all
+generated chipdb bins for current apio releases. Old prereleases are pruned
+automatically; promoting a candidate to a real release is a deliberate
 one-click human step, and everything after that click is automated.
 
 Asset names must match the release tag: apio derives the package date from the
