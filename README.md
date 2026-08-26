@@ -92,9 +92,10 @@ nix build .#packages.x86_64-linux.openxc7-windows-amd64-tools
 ```
 
 The result is deliberately a **tools-only tree** without `chipdb/`. CI downloads
-the 15 verified bins and `chipdb-id.txt` produced by the single `chipdb.yml` job,
-injects them into a writable copy, and only then creates and validates the
-package tarball. To reproduce that assembly locally:
+the verified bins and their `chipdb-id.txt` from the single `chipdb.yml` job — one
+per part of `chipdb-parts.json`, the same ones the Linux and macOS packages
+carry — injects them into a writable copy, and only then creates and validates
+the package tarball. To reproduce that assembly locally:
 
 ```bash
 cp -aL result package-win && chmod -R u+w package-win
