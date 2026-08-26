@@ -6,10 +6,10 @@
 # linux-package.yml. No push trigger on purpose (packing is a deliverable,
 # not a guard; test.yaml is the per-commit guard).
 #
-# The chipdb is NEVER generated here: this runner has 7 GB of RAM and cannot
-# build the big parts (xc7a200t). It is seeded either from the chipdb job of
-# the same build-pre-release run (artifact) or, standalone, from the shared
-# revision-keyed cache that chipdb.yml populates.
+# chipdb.yml owns generation, cache, identity, per-FPGA assets and index.
+# A standalone dispatch calls it first on Linux; an orchestrated call consumes
+# the artifacts the outer workflow already produced. This macOS runner only
+# packages and validates those inputs.
 name: darwin-package
 
 on:
@@ -18,29 +18,39 @@ on:
       date:
         description: "Package date YYYY-MM-DD (default: today, UTC)"
         required: false
+      run_chipdb:
+        description: "Prepare the chipdb inputs before the package build"
+        required: false
+        default: true
+        type: boolean
   workflow_call:
     inputs:
       date:
         description: "Package date YYYY-MM-DD (default: today, UTC)"
         required: false
         type: string
+      run_chipdb:
+        description: "Prepare chipdb inputs in this workflow (standalone use)"
+        required: false
+        default: false
+        type: boolean
       yosys_release_tag:
         description: "Upstream YosysHQ oss-cad-suite release this package expects at runtime (BUILD-INFO matching key)"
         required: false
         default: ""
         type: string
-      seed_from_artifact:
-        description: "Take the chipdb from the chipdb-bins artifact of this run (release flow)"
-        required: false
-        default: false
-        type: boolean
       chipdb_source:
-        description: "How the chipdb job obtained the bins (generated | restored-from-cache); recorded in BUILD-INFO. Standalone runs derive it themselves."
+        description: "How the chipdb job obtained the bins (generated | restored-from-cache)"
         required: false
         default: ""
         type: string
       chipdb_id:
         description: "chipdb identity stamp of the seeded bins; recorded in BUILD-INFO"
+        required: false
+        default: ""
+        type: string
+      chipdb_index:
+        description: "Filename of the dated schema-2 index in chipdb-assets"
         required: false
         default: ""
         type: string
@@ -50,8 +60,17 @@ on:
         value: ${{ jobs.build.outputs.tarball }}
 
 jobs:
+  chipdb:
+    name: prepare chipdb inputs (standalone dispatch)
+    if: inputs.run_chipdb
+    uses: ./.github/workflows/chipdb.yml
+    with:
+      date: ${{ inputs.date }}
+
   build:
     name: build + validate darwin-arm64 (native)
+    needs: chipdb
+    if: ${{ always() && (needs.chipdb.result == 'success' || needs.chipdb.result == 'skipped') }}
     runs-on: macos-14              # Apple Silicon => darwin-arm64
     outputs:
       tarball: ${{ steps.pack.outputs.tarball }}
@@ -71,31 +90,17 @@ jobs:
           echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Package date: $DATE"
 
-      - name: Seed the chipdb from the chipdb job of this run
-        if: inputs.seed_from_artifact
+      - name: Download the verified chipdb seed
         uses: actions/download-artifact@v8
         with:
           name: chipdb-bins
-          path: chipdb-cache
+          path: chipdb-bins
 
-      # Standalone runs reuse the cache chipdb.yml populated (caches are
-      # shared across workflows of the repo). KEEP THE FILE LIST IN SYNC
-      # with chipdb.yml and linux-package.yml.
-      - name: Seed the chipdb from the shared cache (standalone)
-        if: ${{ !inputs.seed_from_artifact }}
-        uses: actions/cache/restore@v6
+      - name: Download the chipdb release index
+        uses: actions/download-artifact@v8
         with:
-          path: chipdb-cache
-          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
-
-      - name: Assert a chipdb seed is available
-        run: |
-          n=$(ls chipdb-cache/*.bin 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$n" = "0" ]; then
-            echo "::error::No chipdb seed. This runner cannot regenerate the big parts (7 GB RAM). Run the chipdb workflow first (it populates the shared chipdb cache for these toolchain revisions), or launch build-pre-release, which wires the seed automatically."
-            exit 1
-          fi
-          echo "chipdb seed: $n bins"
+          name: chipdb-assets
+          path: chipdb-assets
 
       # Installed BEFORE composing BUILD-INFO: build-info.sh re-exports the
       # yosys-release-tag from the installed package's own BUILD-INFO.json
@@ -121,27 +126,15 @@ jobs:
             fi
           fi
 
-      # chipdb provenance for BUILD-INFO (apio#940 follow-up): orchestrated
-      # runs get it from the chipdb job; a standalone run seeds from the
-      # shared cache when it hits (else linux regenerates, darwin stops).
+      # chipdb provenance comes only from the workflow that produced the
+      # verified inputs. The fallback expressions select its nested outputs
+      # for a standalone dispatch.
       - name: Compose BUILD-INFO.json (ecosystem convention)
         env:
           YOSYS_RELEASE_TAG: ${{ inputs.yosys_release_tag }}
-          CHIPDB_SOURCE_IN: ${{ inputs.chipdb_source }}
-          CHIPDB_ID_IN: ${{ inputs.chipdb_id }}
+          CHIPDB_SOURCE: ${{ inputs.chipdb_source || needs.chipdb.outputs.mode }}
+          CHIPDB_ID: ${{ inputs.chipdb_id || needs.chipdb.outputs.identity }}
         run: |
-          if [ -n "$CHIPDB_SOURCE_IN" ]; then
-            export CHIPDB_SOURCE="$CHIPDB_SOURCE_IN"
-          elif [ -n "$(ls chipdb-cache/*.bin 2>/dev/null || true)" ]; then
-            export CHIPDB_SOURCE=restored-from-cache
-          else
-            export CHIPDB_SOURCE=generated
-          fi
-          if [ -n "$CHIPDB_ID_IN" ]; then
-            export CHIPDB_ID="$CHIPDB_ID_IN"
-          elif [ -f chipdb-cache/chipdb-id.txt ]; then
-            export CHIPDB_ID=$(cat chipdb-cache/chipdb-id.txt)
-          fi
           DATE="${{ steps.d.outputs.date }}"
           bash scripts/build-info.sh darwin-arm64 "$DATE" \
             "apio-openxc7-darwin-arm64-${DATE//-/}.tgz" BUILD-INFO.json
@@ -150,7 +143,8 @@ jobs:
         id: pack
         env:
           OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
-          OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-cache
+          OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-bins
+          OPENXC7_CHIPDB_INDEX: ${{ github.workspace }}/chipdb-assets/${{ inputs.chipdb_index || needs.chipdb.outputs.index }}
           OPENXC7_BUILD_INFO: ${{ github.workspace }}/BUILD-INFO.json
         run: |
           rm -rf dist   # stale-dist guard (see linux-package.yml)

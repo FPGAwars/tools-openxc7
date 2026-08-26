@@ -3,8 +3,9 @@
 # -- Thin CLI shim over the `pack` package. Same invocation as always
 # -- (`python openxc7-pack.py` from the repo root, inside the packaging
 # -- devShell) and same environment variables: OPENXC7_PACK_DATE,
-# -- OPENXC7_CHIPDB_SEED and OPENXC7_CHIPDB_JOBS (PRJXRAY_NO_FILE_LOCK is
-# -- honored by the util.py locking patch that ships inside the package).
+# -- OPENXC7_CHIPDB_SEED, OPENXC7_CHIPDB_INDEX and OPENXC7_CHIPDB_JOBS
+# -- (PRJXRAY_NO_FILE_LOCK is honored by the util.py locking patch that
+# -- ships inside the package).
 # -- The implementation lives in pack/ (platform, families, relocate,
 # -- components, chipdb, assemble); macpack.py is the Darwin backend.
 

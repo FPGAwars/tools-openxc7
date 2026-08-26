@@ -14,11 +14,12 @@
 #   --skip-e2e             layout/marker/version checks only (fast)
 #   --keep                 keep the scratch directory for inspection
 #
-# Checks: package layout, chipdb completeness vs chipdb-parts.json, feature
-# markers inside the packaged nextpnr binary, --version == the rev recorded in
-# nix/, platform extras on darwin (ad-hoc codesign + zero residual /nix/store
-# references), and the multi-part E2E (e2e/run-parts.sh) against the
-# extracted package.
+# Checks: package layout, chipdb completeness vs chipdb-parts.json, the
+# schema-2 chipdb index and its agreement with the packaged bins, feature
+# markers inside the packaged nextpnr binary, --version == the rev recorded
+# in nix/, platform extras on darwin (ad-hoc codesign + zero residual
+# /nix/store references), and the multi-part E2E (e2e/run-parts.sh) against
+# the extracted package.
 #
 # Requirements: yosys + python3 on PATH for the E2E (per the reproducibility
 # norm, from the required oss-cad-suite version); wine64 on PATH for --wine.
@@ -145,6 +146,17 @@ while read -r family part; do
     NPARTS=$((NPARTS + 1))
 done < "$SCRATCH/parts.txt"
 ok "chipdb: all $NPARTS manifest parts present (with their family dbs)"
+
+# --- embedded chipdb index --------------------------------------------------
+INDEX="$PKG/apio-xilinx-chipdb-index.json"
+[ -f "$INDEX" ] || fail "chipdb index missing from package root"
+if PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 -m pack.chipdb_index "$INDEX" "$PKG/chipdb"
+then
+    ok "chipdb index: valid schema and generated-parts match packaged bins"
+else
+    fail "chipdb index invalid"
+fi
 
 # --- bundled tools ----------------------------------------------------------
 if [ "$PLAT" = "windows-amd64" ]; then

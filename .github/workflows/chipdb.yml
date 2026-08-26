@@ -1,4 +1,4 @@
-# Generate (or restore) the chipdb once, for every platform.
+# Generate (or restore) the chipdb and build every chipdb release asset.
 #
 # The chipdb .bin files are a deterministic serialization of prjxray-db
 # (bbaexport.py + bbasm): platform-independent by construction, and measured
@@ -6,9 +6,9 @@
 # is the slow, memory-heavy step of the whole build (the big parts need more
 # RAM than a hosted macOS runner has and hours of its 3 vCPUs), so it happens
 # ONCE here, on a linux runner, and every platform package seeds from the
-# result: linux and darwin through the `chipdb-bins` artifact of the run,
-# windows through the same nix derivation the .bin come from. The publish
-# job then asserts the three packages carry byte-identical chipdb.
+# `chipdb-bins` artifact. This workflow also owns the per-FPGA assets and
+# database-backed index in `chipdb-assets`; platforms only copy the seed and
+# index into their packages.
 #
 # Owns the revision-keyed cache: a cache hit makes this job a few minutes; a
 # miss (toolchain revision or manifest change) regenerates every part of
@@ -20,6 +20,11 @@ name: chipdb
 on:
   workflow_call:
     inputs:
+      date:
+        description: "Asset date YYYY-MM-DD (default: today, UTC)"
+        required: false
+        default: ""
+        type: string
       regenerate:
         description: "Ignore the cache and generate every part from scratch (exercises the generation path even when nothing changed)"
         required: false
@@ -32,8 +37,14 @@ on:
       mode:
         description: "How the bins were obtained in this run: generated | restored-from-cache (recorded in every package's BUILD-INFO)"
         value: ${{ jobs.chipdb.outputs.mode }}
+      index:
+        description: "Filename of the dated schema-2 chipdb index"
+        value: ${{ jobs.chipdb.outputs.index }}
   workflow_dispatch:
     inputs:
+      date:
+        description: "Asset date YYYY-MM-DD (default: today, UTC)"
+        required: false
       regenerate:
         description: "Ignore the cache and generate every part from scratch"
         required: false
@@ -47,12 +58,22 @@ jobs:
     outputs:
       identity: ${{ steps.stamp.outputs.identity }}
       mode: ${{ steps.gen.outputs.mode }}
+      index: ${{ steps.assets.outputs.index }}
     steps:
       - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22
         with:
           summarize: false          # no branded gantt/Discord footer
           diagnostic-endpoint: ""   # no telemetry
+
+      - name: Resolve the asset date
+        id: d
+        run: |
+          DATE="${{ inputs.date }}"
+          [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
+          echo "Asset date: $DATE"
 
       # The .bin are byte-identical per (nextpnr, prjxray, chipdb derivation,
       # manifest) -> that tuple IS the cache key. It is the same definition
@@ -110,6 +131,28 @@ jobs:
             for f in dist/chipdb/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Build the per-FPGA assets and database-backed index
+        id: assets
+        run: |
+          rm -rf chipdb-assets
+          bash scripts/chipdb-assets.sh \
+            dist/chipdb chipdb-assets "${{ steps.d.outputs.dateid }}" \
+            dist/share/nextpnr/external/prjxray-db
+          INDEX="apio-xilinx-chipdb-index-${{ steps.d.outputs.dateid }}.json"
+          test -f "chipdb-assets/$INDEX"
+          echo "index=$INDEX" >> "$GITHUB_OUTPUT"
+          python3 - "chipdb-assets/$INDEX" >> "$GITHUB_STEP_SUMMARY" <<'PYEOF'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          print("### chipdb release index")
+          print(f"schema: **{data['schema']}** · index: `{sys.argv[1].split('/')[-1]}`")
+          print()
+          print("| family | available | generated |")
+          print("|---|---:|---:|")
+          for family, entry in data["families"].items():
+              print(f"| {family} | {len(entry['available-parts'])} | {len(entry['generated-parts'])} |")
+          PYEOF
+
       # Consumed by linux-package.yml and darwin-package.yml of this run.
       - name: Publish the chipdb bins for the platform jobs
         uses: actions/upload-artifact@v7
@@ -119,5 +162,16 @@ jobs:
             dist/chipdb/*.bin
             dist/chipdb/chipdb-id.txt
           compression-level: 1     # already dense binary data
+          retention-days: 7
+          if-no-files-found: error
+
+      # Consumed by every platform package and uploaded unchanged by the
+      # pre-release job.
+      - name: Publish the per-FPGA assets and index
+        uses: actions/upload-artifact@v7
+        with:
+          name: chipdb-assets
+          path: chipdb-assets/*
+          compression-level: 0     # the large files are already gzip streams
           retention-days: 7
           if-no-files-found: error
