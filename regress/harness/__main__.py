@@ -63,6 +63,9 @@ def main() -> int:
     parser.add_argument("--json", type=Path, help="write the report as JSON")
     parser.add_argument("--markdown", type=Path, help="write the report as markdown")
     parser.add_argument("--keep", action="store_true", help="keep the work directory")
+    parser.add_argument("--chipdb-dir", type=Path,
+                        help="directory of chipdb .bin for a package that "
+                             "ships none (apio downloads them on demand)")
     args = parser.parse_args()
 
     try:
@@ -84,7 +87,7 @@ def main() -> int:
     if not specs:
         raise SystemExit("no tests selected")
 
-    package = Package.open(args.package)
+    package = Package.open(args.package, args.chipdb_dir)
     versions = package.versions()
     baseline_path = BASELINES_DIR / f"{package.platform}.json"
     baseline = {}

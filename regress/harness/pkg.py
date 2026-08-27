@@ -7,6 +7,7 @@ not whatever happens to be on PATH.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -35,10 +36,11 @@ class Package:
     platform: str
     wine: bool = False
     winpy: str = ""
+    chipdb_dir: Path | None = None
     _tmp: object = field(default=None, repr=False)
 
     @classmethod
-    def open(cls, path: Path) -> "Package":
+    def open(cls, path: Path, chipdb_dir: Path | None = None) -> "Package":
         tmp = None
         if path.is_dir():
             root = path.resolve()
@@ -48,9 +50,22 @@ class Package:
                 tar.extractall(tmp.name)
             root = Path(tmp.name)
 
+        # A released package ships no chipdb (chipdb/ is a placeholder and
+        # apio downloads the .bin it needs). Given a directory of bins, the
+        # suite runs against them the way apio arranges things: injected into
+        # the package tree when that tree is our own extraction, read from
+        # where they are when the caller owns the directory (`chipdb()`).
+        if chipdb_dir is not None:
+            chipdb_dir = Path(chipdb_dir).resolve()
+            if tmp is not None and not list((root / "chipdb").glob("*.bin")):
+                (root / "chipdb").mkdir(exist_ok=True)
+                for source in sorted(chipdb_dir.glob("*.bin")):
+                    shutil.copy2(source, root / "chipdb" / source.name)
+
         if (root / "bin" / "nextpnr-xilinx.exe").exists():
             return cls(root=root, platform="windows-amd64", wine=True,
-                       winpy=_windows_python(), _tmp=tmp)
+                       winpy=_windows_python(), chipdb_dir=chipdb_dir,
+                       _tmp=tmp)
         if not (root / "libexec" / "nextpnr-xilinx").exists():
             raise SystemExit(f"unrecognised package layout at {root}")
 
@@ -58,7 +73,8 @@ class Package:
         platform = {"Darwin": "darwin-arm64", "Linux": "linux-x86-64"}.get(host)
         if platform is None:
             raise SystemExit(f"unsupported host: {host}")
-        return cls(root=root, platform=platform, _tmp=tmp)
+        return cls(root=root, platform=platform, chipdb_dir=chipdb_dir,
+                   _tmp=tmp)
 
     def tool(self, name: str) -> str:
         candidate = self.root / "bin" / name
@@ -109,7 +125,12 @@ class Package:
         return self.root / "share" / "nextpnr" / "external" / "prjxray-db"
 
     def chipdb(self, part: str) -> Path:
-        return self.root / "chipdb" / f"{part}.bin"
+        packaged = self.root / "chipdb" / f"{part}.bin"
+        if not packaged.exists() and self.chipdb_dir is not None:
+            external = self.chipdb_dir / f"{part}.bin"
+            if external.exists():
+                return external
+        return packaged
 
     def device(self, part: str) -> str:
         """The part with its speedgrade, e.g. xc7a35tcpg236 -> xc7a35tcpg236-1."""
