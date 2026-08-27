@@ -86,12 +86,15 @@ def write_env():
         print(f"🔵 ✅BUILD-INFO.json ({build_info})")
         print()
 
-    # -- The public release index is dated, but its name inside every package
-    # -- is stable so apio can locate it without deriving the release date.
-    chipdb_index = os.environ.get("OPENXC7_CHIPDB_INDEX")
-    if chipdb_index:
-        shutil.copy(chipdb_index, dst / "apio-xilinx-chipdb-index.json")
-        print(f"🔵 ✅apio-xilinx-chipdb-index.json ({chipdb_index})")
+    # -- The map of the chipdb: which footprints the packaged database
+    # -- supports, which of them this release built, and the asset, size and
+    # -- sha256 of each one. The release publishes it dated; inside every
+    # -- package its name is fixed, so apio locates it without deriving the
+    # -- release date.
+    chipdb_info = os.environ.get("OPENXC7_CHIPDB_INFO")
+    if chipdb_info:
+        shutil.copy(chipdb_info, dst / "CHIPDB-INFO.json")
+        print(f"🔵 ✅CHIPDB-INFO.json ({chipdb_info})")
         print()
 
 

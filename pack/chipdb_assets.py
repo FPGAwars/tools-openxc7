@@ -1,13 +1,47 @@
-"""Per-FPGA chipdb assets and the release index."""
+"""Per-FPGA chipdb assets and the release information file.
+
+One deterministic ``.bin.tgz`` per generated part, plus the schema-3
+document that describes every footprint the release knows about. That
+document travels twice: as the dated release asset
+``apio-xilinx-chipdb-index-<YYYYMMDD>.json`` and, under the name
+``CHIPDB-INFO.json``, at the root of every platform package -- it is what
+tells apio's on-demand loader which bin to fetch, what it must end up
+with on disk, and which footprints the database knows but this release
+did not build.
+"""
+
+from __future__ import annotations
 
 import argparse
 import gzip
 import hashlib
 import json
+import os
+import shutil
 import tarfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .families import family_of
+
+SCHEMA = 3
+
+NOTE = (
+    "Keyed by chipdb footprint, without speed grade. A part with "
+    "generated=true is built for THIS release: download <asset> from the "
+    "release named by release-tag and leave <part>.bin in the package's "
+    "chipdb/ directory. size/sha256 describe that uncompressed .bin (what "
+    "must end up on disk); tgz_size/tgz_sha256 describe the downloaded "
+    "asset, a tar.gz carrying <part>.bin at its root. A part with "
+    "generated=false is a footprint present in the packaged prjxray-db "
+    "that this release did not build -- supported by the database, not "
+    "available for download. Bins are only valid with the openxc7 package "
+    "of the SAME release tag; chipdb-id is the identity stamp of the set."
+)
+
+# Name of the identity stamp inside a chipdb directory (pack.chipdb owns it;
+# repeated here to keep this module importable on its own).
+STAMP = "chipdb-id.txt"
 
 
 def sha256(path: Path) -> str:
@@ -17,6 +51,18 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: source.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def asset_name(part: str, date: str) -> str:
+    """Release asset carrying one part's chipdb, for a given date."""
+    return f"apio-xilinx-chipdb-{part}-{date}.bin.tgz"
+
+
+def release_tag(date: str) -> str:
+    """The release tag a YYYYMMDD asset date comes from (apio's rule)."""
+    if len(date) != 8 or not date.isdigit():
+        raise ValueError(f"asset date must be YYYYMMDD: {date!r}")
+    return f"{date[:4]}-{date[4:6]}-{date[6:]}"
 
 
 def deterministic_tgz(source: Path, destination: Path, arcname: str) -> None:
@@ -65,20 +111,74 @@ def available_parts(database: Path) -> dict[str, list[str]]:
     return result
 
 
+def _cache_is_usable(cache: Path | None, stamp: str) -> bool:
+    """True when *cache* holds tgz built from bins of identity *stamp*.
+
+    The tgz of a part is a pure function of its .bin, and the .bin of a
+    stamp is fixed -- so a cache carrying the same stamp can be reused
+    verbatim. A cache from another toolchain revision is ignored (never
+    used, never overwritten silently: it is refreshed below).
+    """
+    if cache is None or not cache.is_dir():
+        return False
+    stamp_file = cache / STAMP
+    return stamp_file.is_file() and \
+        stamp_file.read_text(encoding="utf-8").strip() == stamp
+
+
+def _one_asset(part: str, family: str, source: Path, destination: Path,
+               cache: Path | None, reuse: bool) -> dict:
+    """Produce one release asset and describe it. Runs in a worker thread."""
+    cached = cache / f"{part}.bin.tgz" if cache is not None else None
+    if reuse and cached is not None and cached.is_file():
+        shutil.copyfile(cached, destination)
+        origin = "cache"
+    else:
+        deterministic_tgz(source, destination, f"{part}.bin")
+        origin = "built"
+        if cache is not None:
+            cache.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(destination, cached)
+    # Always hashed from the bytes that are about to be published: the
+    # document never repeats numbers recorded by an earlier run.
+    return {
+        "family": family,
+        "generated": True,
+        "asset": destination.name,
+        "size": source.stat().st_size,
+        "sha256": sha256(source),
+        "tgz_size": destination.stat().st_size,
+        "tgz_sha256": sha256(destination),
+        "_origin": origin,
+        "_part": part,
+    }
+
+
 def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
-                 database: Path) -> Path:
-    """Build deterministic assets and their schema-2 JSON index."""
-    stamp_file = chipdb / "chipdb-id.txt"
+                 database: Path, cache: Path | None = None,
+                 jobs: int = 1) -> Path:
+    """Build the release assets and the schema-3 chipdb information file.
+
+    ``cache`` is an optional directory of date-free ``<part>.bin.tgz``
+    guarded by the identity stamp: compressing 1.1 GB is the expensive
+    half of this step and its result only depends on the bins. ``jobs``
+    compresses and hashes several parts at once (zlib and hashlib both
+    release the GIL).
+    """
+    stamp_file = chipdb / STAMP
     if not stamp_file.is_file():
-        raise ValueError(f"{chipdb} has no chipdb-id.txt (unstamped set)")
+        raise ValueError(f"{chipdb} has no {STAMP} (unstamped set)")
 
     manifest = json.loads((repo / "chipdb-parts.json").read_text(
         encoding="utf-8"))
     inventory = available_parts(database)
     output.mkdir(parents=True, exist_ok=True)
     stamp = stamp_file.read_text(encoding="utf-8").strip()
+    reuse = _cache_is_usable(cache, stamp)
+    if cache is not None:
+        print(f"asset cache: {cache} ({'reusable' if reuse else 'cold'})")
 
-    entries = []
+    wanted = []
     for declared_family, parts in manifest.items():
         for part in parts:
             family = family_of(part)
@@ -94,65 +194,66 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
             source = chipdb / f"{part}.bin"
             if not source.is_file():
                 raise ValueError(f"manifest part without bin: {source}")
-            asset = f"apio-xilinx-chipdb-{part}-{date}.bin.tgz"
-            destination = output / asset
-            deterministic_tgz(source, destination, f"{part}.bin")
-            entry = {
-                # ``part`` and all size/hash keys are the schema-1 contract.
-                "part": part,
-                "name": part,
-                "family": family,
-                "asset": asset,
-                "size": source.stat().st_size,
-                "sha256": sha256(source),
-                "tgz_size": destination.stat().st_size,
-                "tgz_sha256": sha256(destination),
-            }
-            entries.append(entry)
-            print(
-                f"  {asset}  "
-                f"({entry['size'] / 1e6:.0f} MB -> "
-                f"{entry['tgz_size'] / 1e6:.0f} MB)"
-            )
+            wanted.append((part, family, source,
+                           output / asset_name(part, date)))
 
-    families = {}
+    with ThreadPoolExecutor(max_workers=max(jobs, 1)) as pool:
+        built = list(pool.map(
+            lambda item: _one_asset(item[0], item[1], item[2], item[3],
+                                    cache, reuse),
+            wanted))
+
+    generated = {}
+    for entry in built:
+        part = entry.pop("_part")
+        origin = entry.pop("_origin")
+        generated[part] = entry
+        print(f"  {entry['asset']}  "
+              f"({entry['size'] / 1e6:.0f} MB -> "
+              f"{entry['tgz_size'] / 1e6:.0f} MB, {origin})")
+    if cache is not None and not reuse:
+        # The cache now matches these bins; stamp it so the next run can
+        # tell (a stale stamp is what makes a foreign cache unusable).
+        cache.mkdir(parents=True, exist_ok=True)
+        (cache / STAMP).write_text(stamp + "\n", encoding="utf-8")
+
+    # Families in manifest order first, then whatever else the database
+    # carries; parts sorted inside each family. Insertion order is what a
+    # reader of the JSON sees.
     ordered_families = list(manifest)
     ordered_families.extend(
         family for family in sorted(inventory) if family not in manifest
     )
+    parts_doc = {}
+    available_count = 0
     for family in ordered_families:
-        families[family] = {
-            "generated-parts": [
-                entry for entry in entries if entry["family"] == family
-            ],
-            "available-parts": inventory.get(family, []),
-        }
+        for part in inventory.get(family, []):
+            available_count += 1
+            parts_doc[part] = generated.get(
+                part, {"family": family, "generated": False})
 
-    index = {
-        "schema": 2,
+    missing = sorted(set(generated) - set(parts_doc))
+    if missing:                       # cannot happen: checked against the db
+        raise ValueError(f"generated parts absent from the database: {missing}")
+
+    info = {
+        "schema": SCHEMA,
         "date": date,
-        "chipdb_id": stamp,
-        "note": "chipdb .bin files are platform-independent; sha256 is the "
-                "UNCOMPRESSED bin the loader must end up with, tgz_sha256 the "
-                "downloaded asset (a tar.gz with <part>.bin at its root). "
-                "Only generated-parts are supported by this release; "
-                "available-parts inventories footprints in its packaged "
-                "prjxray-db. Bins are only valid with the openxc7 package "
-                "of the SAME release tag.",
-        "parts": entries,
-        "families": families,
+        "release-tag": release_tag(date),
+        "chipdb-id": stamp,
+        "generated-count": len(generated),
+        "available-count": available_count,
+        "note": NOTE,
+        "parts": parts_doc,
     }
-    index_path = output / f"apio-xilinx-chipdb-index-{date}.json"
-    index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
-    available_count = sum(
-        len(data["available-parts"]) for data in families.values()
-    )
+    info_path = output / f"apio-xilinx-chipdb-index-{date}.json"
+    info_path.write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
     print(
-        f"index: {index_path.name} "
-        f"({len(entries)} generated, {available_count} available, "
-        f"chipdb_id {stamp})"
+        f"chipdb info: {info_path.name} "
+        f"({len(generated)} generated, {available_count} available, "
+        f"chipdb-id {stamp})"
     )
-    return index_path
+    return info_path
 
 
 def main() -> None:
@@ -162,10 +263,15 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     parser.add_argument("date")
     parser.add_argument("database", type=Path)
+    parser.add_argument("--cache", type=Path, default=None,
+                        help="directory of date-free <part>.bin.tgz to reuse")
+    parser.add_argument("--jobs", type=int,
+                        default=int(os.environ.get("OPENXC7_ASSET_JOBS") or 1),
+                        help="parts compressed and hashed at once")
     args = parser.parse_args()
     try:
         build_assets(args.repo, args.chipdb, args.output, args.date,
-                     args.database)
+                     args.database, args.cache, args.jobs)
     except ValueError as error:
         parser.exit(1, f"error: {error}\n")
 
