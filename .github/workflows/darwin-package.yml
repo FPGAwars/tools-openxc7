@@ -6,8 +6,12 @@
 # linux-package.yml. No push trigger on purpose (packing is a deliverable,
 # not a guard; test.yaml is the per-commit guard).
 #
-# chipdb.yml owns generation, cache, identity, per-FPGA assets and index.
-# A standalone dispatch calls it first on Linux; an orchestrated call consumes
+# chipdb.yml owns generation, cache, identity, per-FPGA assets and the
+# CHIPDB-INFO document. The package itself ships NO chipdb: apio downloads
+# the .bin its board needs (apio#947), so the bins downloaded here are what
+# the L1 and L2 gates validate the package against -- injected into the
+# extracted tarball exactly as apio leaves them.
+# A standalone dispatch calls chipdb.yml first on Linux; an orchestrated call consumes
 # the artifacts the outer workflow already produced. This macOS runner only
 # packages and validates those inputs.
 name: darwin-package
@@ -45,12 +49,12 @@ on:
         default: ""
         type: string
       chipdb_id:
-        description: "chipdb identity stamp of the seeded bins; recorded in BUILD-INFO"
+        description: "chipdb identity stamp of the bins this package is validated against; recorded in BUILD-INFO"
         required: false
         default: ""
         type: string
-      chipdb_index:
-        description: "Filename of the dated schema-2 index in the chipdb-index artifact"
+      chipdb_info:
+        description: "Filename of the dated CHIPDB-INFO document in the chipdb-info artifact"
         required: false
         default: ""
         type: string
@@ -90,19 +94,21 @@ jobs:
           echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Package date: $DATE"
 
-      - name: Download the verified chipdb seed
+      # Not packaged: this is what the gates check the package against,
+      # and what they inject into it the way apio's loader does.
+      - name: Download the verified chipdb bins
         uses: actions/download-artifact@v8
         with:
           name: chipdb-bins
           path: chipdb-bins
 
-      # the index alone: the per-FPGA release assets next to it in
+      # the document alone: the per-FPGA release assets next to it in
       # chipdb-assets are ~500 MB this job has no use for
-      - name: Download the chipdb release index
+      - name: Download the CHIPDB-INFO document
         uses: actions/download-artifact@v8
         with:
-          name: chipdb-index
-          path: chipdb-index
+          name: chipdb-info
+          path: chipdb-info
 
       # Installed BEFORE composing BUILD-INFO: build-info.sh re-exports the
       # yosys-release-tag from the installed package's own BUILD-INFO.json
@@ -145,20 +151,23 @@ jobs:
         id: pack
         env:
           OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
-          OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-bins
-          OPENXC7_CHIPDB_INDEX: ${{ github.workspace }}/chipdb-index/${{ inputs.chipdb_index || needs.chipdb.outputs.index }}
+          OPENXC7_CHIPDB_INFO: ${{ github.workspace }}/chipdb-info/${{ inputs.chipdb_info || needs.chipdb.outputs.info }}
           OPENXC7_BUILD_INFO: ${{ github.workspace }}/BUILD-INFO.json
         run: |
           rm -rf dist   # stale-dist guard (see linux-package.yml)
-          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
+          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py --no-chipdb'
           TGZ=$(ls apio-openxc7-darwin-arm64-*.tgz)
           echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
           ls -la "$TGZ"
 
+      # --chipdb-dir: the package ships no bins, so L1 checks the ones the
+      # release publishes against CHIPDB-INFO.json and injects them into the
+      # extracted tarball before the E2E -- the tree the user ends up with.
       - name: Validate the package inside the tarball (L1 gate)
         run: |
           export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
           bash scripts/validate-package.sh "${{ steps.pack.outputs.tarball }}" \
+            --chipdb-dir chipdb-bins \
             --expect-date "${{ steps.d.outputs.dateid }}"
 
       # Same environment as L1 (the user env): the baselines carry the tool
@@ -171,6 +180,7 @@ jobs:
         run: |
           export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
           bash scripts/regress.sh "${{ steps.pack.outputs.tarball }}" \
+            --chipdb-dir chipdb-bins \
             --json regress-report.json --markdown regress-report.md
 
       - name: Publish the regression report in the job summary

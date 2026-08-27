@@ -1,7 +1,9 @@
 # Build + validate the Windows package. The flake produces only the tools tree;
-# this workflow injects the chipdb-bins artifact produced once by chipdb.yml
-# and the release index that goes with it, then validates the assembled
-# tarball under Wine. See nix/windows/.
+# this workflow adds the on-demand chipdb placeholder and the CHIPDB-INFO
+# document produced once by chipdb.yml, then validates the assembled tarball
+# under Wine against the chipdb-bins artifact of that same job -- injected
+# into the extracted tarball the way apio's loader leaves it. The package
+# itself carries no chipdb (apio#947). See nix/windows/.
 name: windows-package
 
 on:
@@ -37,7 +39,7 @@ on:
         default: false
         type: boolean
       chipdb_id:
-        description: "Expected chipdb identity stamp from the chipdb job; checked against the downloaded artifact"
+        description: "Expected chipdb identity stamp from the chipdb job; checked against the downloaded bins"
         required: false
         default: ""
         type: string
@@ -46,8 +48,8 @@ on:
         required: false
         default: ""
         type: string
-      chipdb_index:
-        description: "Filename of the dated schema-2 index in the chipdb-index artifact"
+      chipdb_info:
+        description: "Filename of the dated CHIPDB-INFO document in the chipdb-info artifact"
         required: false
         default: ""
         type: string
@@ -77,19 +79,21 @@ jobs:
           summarize: false          # no branded gantt/Discord footer
           diagnostic-endpoint: ""   # no telemetry
 
+      # Not packaged: this is what the gates check the package against,
+      # and what they inject into it the way apio's loader does.
       - name: Download the verified chipdb bins
         uses: actions/download-artifact@v8
         with:
           name: chipdb-bins
           path: chipdb-bins
 
-      # the index alone: the per-FPGA release assets next to it in
+      # the document alone: the per-FPGA release assets next to it in
       # chipdb-assets are ~500 MB this job has no use for
-      - name: Download the chipdb release index
+      - name: Download the CHIPDB-INFO document
         uses: actions/download-artifact@v8
         with:
-          name: chipdb-index
-          path: chipdb-index
+          name: chipdb-info
+          path: chipdb-info
 
       - name: Build the Windows tools tree (flake output)
         run: |
@@ -105,13 +109,19 @@ jobs:
           test -f result-win-tools/bin/xc7pll.cmd
           echo "tools tree shape OK; chipdb absent"
 
-      - name: Inject the chipdb and its index into a writable package tree
+      - name: Assemble a writable package tree (placeholder + CHIPDB-INFO)
         run: |
           cp -aL result-win-tools package-win
           chmod -R u+w package-win
-          mkdir -p package-win/chipdb
 
-          # Require exactly the manifest bins plus the identity stamp.
+          # chipdb/ is the on-demand placeholder, written by the same module
+          # the linux and darwin packer uses -- one source for that text.
+          python3 -m pack.chipdb package-win/chipdb
+          test -f package-win/chipdb/README.txt
+
+          # The bins are not packaged, but the artifact must still be the
+          # right one: exactly the manifest parts, with the identity the
+          # caller declared. L1 and L2 validate the package against them.
           jq -r 'to_entries[] | .value[]' chipdb-parts.json > /tmp/chipdb-parts.txt
           test -s /tmp/chipdb-parts.txt
           while read -r p; do
@@ -129,19 +139,14 @@ jobs:
           DECLARED_ID="${{ inputs.chipdb_id }}"
           [ -z "$DECLARED_ID" ] || [ "$DECLARED_ID" = "$ARTIFACT_ID" ] \
             || { echo "::error::chipdb artifact identity differs from caller input"; exit 1; }
+          echo "$ACTUAL verified chipdb bins ready for validation (identity $ARTIFACT_ID)"
 
-          cp chipdb-bins/*.bin chipdb-bins/chipdb-id.txt package-win/chipdb/
-          # the bins now live in package-win; the runner disk also has to
-          # hold the tarball and the L1/L2 extractions of it
-          rm -rf chipdb-bins
-          echo "injected $ACTUAL verified chipdb bins (identity $ARTIFACT_ID)"
-
-          # The same index the linux and darwin packages embed, under the
-          # stable in-package name; L1 checks it against these very bins.
-          INDEX="chipdb-index/${{ inputs.chipdb_index || needs.chipdb.outputs.index }}"
-          test -f "$INDEX" || { echo "::error::chipdb index not in the artifact: $INDEX"; exit 1; }
-          cp "$INDEX" package-win/apio-xilinx-chipdb-index.json
-          echo "embedded $(basename "$INDEX") as apio-xilinx-chipdb-index.json"
+          # The same document the linux and darwin packages embed, under the
+          # stable in-package name; L1 checks those bins against it.
+          INFO="chipdb-info/${{ inputs.chipdb_info || needs.chipdb.outputs.info }}"
+          test -f "$INFO" || { echo "::error::CHIPDB-INFO not in the artifact: $INFO"; exit 1; }
+          cp "$INFO" package-win/CHIPDB-INFO.json
+          echo "embedded $(basename "$INFO") as CHIPDB-INFO.json"
           df -h . | tail -1
 
       # Installed BEFORE the tar step: build-info.sh re-exports the
@@ -177,8 +182,9 @@ jobs:
           # provenance comes from the job that produced the bins: the
           # caller's input, or the chipdb job this workflow chained itself
           CHIPDB_SOURCE_IN="${{ inputs.chipdb_source || needs.chipdb.outputs.mode }}"
-          # the identity is read back from what was actually packaged
-          ARTIFACT_ID=$(cat package-win/chipdb/chipdb-id.txt)
+          # the identity is read back from the bins this package is
+          # validated against (it no longer ships any)
+          ARTIFACT_ID=$(cat chipdb-bins/chipdb-id.txt)
           YOSYS_RELEASE_TAG="${{ inputs.yosys_release_tag }}" \
           CHIPDB_SOURCE="$CHIPDB_SOURCE_IN" CHIPDB_ID="$ARTIFACT_ID" \
             bash scripts/build-info.sh windows-amd64 "$DATE" "$NAME" package-win/BUILD-INFO.json
@@ -235,7 +241,7 @@ jobs:
               "Path(os.environ[\"ENV_BUILD_PATH\"], \"hardware.pnr\").write_text(json.dumps(rep))" \
               "print(\"POST_ROUTE_OK types=\", len(rep[\"utilization\"]))" > report.py
             export ENV_BUILD_PATH="$PWD"
-            wine64 ../$PKG/bin/nextpnr-xilinx.exe --chipdb ../$PKG/chipdb/xc7a35tcpg236.bin \
+            wine64 ../$PKG/bin/nextpnr-xilinx.exe --chipdb ../chipdb-bins/xc7a35tcpg236.bin \
               --xdc ../config/basys3.xdc --json ledon.json --fasm ledon.fasm \
               --post-route report.py --router router2
             test -f hardware.pnr \
@@ -275,6 +281,7 @@ jobs:
               || { echo "mingw Python required for the Windows package gate"; exit 1; }
             export E2E_WINPY
             bash scripts/validate-package.sh "${{ steps.tar.outputs.name }}" --wine \
+              --chipdb-dir chipdb-bins \
               --expect-date "${{ steps.tar.outputs.dateid }}"
           '
 
@@ -296,6 +303,7 @@ jobs:
             E2E_WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)
             [ -n "$E2E_WINPY" ] && export E2E_WINPY
             bash scripts/regress.sh "${{ steps.tar.outputs.name }}" \
+              --chipdb-dir chipdb-bins \
               --json regress-report.json --markdown regress-report.md
           '
 
