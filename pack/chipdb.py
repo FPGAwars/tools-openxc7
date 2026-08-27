@@ -1,15 +1,25 @@
-"""Chipdb generation.
+"""Chipdb generation, and the placeholder that replaces it in a package.
 
 One dist/chipdb/<part>.bin is generated per part of the manifest
 chipdb-parts.json (single source of parts, shared with
 nix/windows/default.nix), guarded by the identity stamp so that bins from
 another toolchain are never reused.
+
+Released packages do not carry those bins any more: apio downloads the
+one the board needs (CHIPDB-INFO.json says which asset carries it) and
+leaves it in chipdb/, next to the README.txt this module writes. Run as
+a script to write that placeholder into a directory -- the Windows
+package is assembled by CI, not by this packer, and must not grow its
+own copy of the text:
+
+    python3 -m pack.chipdb <package>/chipdb
 """
 
 import hashlib
 import os
 import shutil
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -22,6 +32,77 @@ from .families import CHIPDB_PARTS_FILE, chipdb_parts
 # -- excludes hidden files by default since v4.4), and it also documents
 # -- inside the package which toolchain the chipdb was generated with.
 CHIPDB_STAMP = "chipdb-id.txt"
+
+# -- The placeholder that occupies chipdb/ in a package without bins. It is
+# -- the first thing a user looking for a missing .bin will read, so it says
+# -- where the files come from and where the list of them is.
+PLACEHOLDER = "README.txt"
+PLACEHOLDER_TEXT = """\
+This directory is the placeholder for the on-demand chipdb files.
+
+This package does not ship the per-FPGA device databases. Apio downloads
+the one your board needs and leaves it here as <part>.bin.
+
+CHIPDB-INFO.json, at the root of this package, lists every footprint the
+packaged database supports, which of them this release built, the asset
+that carries each one and the size and sha256 it must have on disk. The
+assets are published in the GitHub release named by that file's
+release-tag, as apio-xilinx-chipdb-<part>-<YYYYMMDD>.bin.tgz (a tar.gz
+with <part>.bin at its root).
+
+A .bin is only valid with the package of the SAME release tag: it carries
+the internal ids of the nextpnr it was generated with, and a foreign one
+is rejected at run time ("internal IDs inconsistent with the supplied
+chip database").
+"""
+
+
+def write_placeholder(directory: Path) -> Path:
+    """Create <directory>/README.txt, the on-demand chipdb placeholder."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    target = directory / PLACEHOLDER
+    target.write_text(PLACEHOLDER_TEXT, encoding="utf-8")
+    return target
+
+
+def skip_chipdb():
+    """Leave dist/chipdb as the on-demand placeholder instead of bins.
+
+    Nothing is deleted: the .bin are the expensive part of a build and
+    dist/chipdb deliberately survives across runs (see
+    pack.assemble.distribution_init), so leftovers from a full pack are
+    reported and the run stops rather than shipping half a package or
+    throwing away hours of generation.
+    """
+    chipdb_dir = Path.cwd() / "dist/chipdb"
+    chipdb_dir.mkdir(parents=True, exist_ok=True)
+    leftovers = sorted(chipdb_dir.glob("*.bin"))
+    if leftovers:
+        raise SystemExit(
+            f"❌ --no-chipdb: dist/chipdb still holds {len(leftovers)} .bin "
+            "from a previous run.\n"
+            "   A package without chipdb ships only the placeholder "
+            f"{PLACEHOLDER}, and these\n"
+            "   are too expensive to delete here. Move them out and re-run:\n"
+            "       mkdir -p chipdb-bins\n"
+            f"       mv dist/chipdb/*.bin dist/chipdb/{CHIPDB_STAMP} chipdb-bins/\n"
+            "   (that directory is what OPENXC7_CHIPDB_SEED and\n"
+            "   validate-package.sh --chipdb-dir take.)"
+        )
+    # The stamp belongs to a set of bins, and an interrupted generation may
+    # have left a .bba behind: neither has any business in the package.
+    (chipdb_dir / CHIPDB_STAMP).unlink(missing_ok=True)
+    for stale in chipdb_dir.glob("*.bba"):
+        stale.unlink()
+    target = write_placeholder(chipdb_dir)
+    print()
+    print(f"{ansi.GREEN}──────────────────────────────────")
+    print("  CHIPDB BAJO DEMANDA (sin bins)")
+    print(f"{ansi.GREEN}──────────────────────────────────")
+    print(ansi.DEFAULT, end='', flush=True)
+    print(f"🔵 ✅chipdb/{target.name} (apio descarga aqui los .bin)")
+    print()
 
 
 def chipdb_identity() -> str:
@@ -181,6 +262,11 @@ def build_chipdb():
     identity = chipdb_identity()
     chipdb_dir = Path.cwd() / "dist/chipdb"
     chipdb_dir.mkdir(parents=True, exist_ok=True)
+    # dist/chipdb survives across runs (the .bin are expensive), so a
+    # previous --no-chipdb pack may have left its placeholder behind: a
+    # package that ships the bins must not also tell the user to download
+    # them.
+    (chipdb_dir / PLACEHOLDER).unlink(missing_ok=True)
     existing = sorted(chipdb_dir.glob("*.bin"))
     if existing:
         stamp = read_stamp(chipdb_dir)
@@ -223,3 +309,15 @@ def build_chipdb():
         mb = bin_file.stat().st_size / (1024 * 1024)
         print(f"📦 {part}.bin: {mb:.0f} MB")
     print()
+
+
+def main() -> None:
+    """Write the on-demand placeholder into the directory given as argv[1]."""
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: python3 -m pack.chipdb <chipdb-dir>")
+    target = write_placeholder(Path(sys.argv[1]))
+    print(f"chipdb placeholder written: {target}")
+
+
+if __name__ == "__main__":
+    main()
