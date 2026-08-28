@@ -117,8 +117,8 @@ def chipdb_identity() -> str:
 
     The identity is the hash of what determines the content: the nextpnr
     revision, the chipdb derivation, the patches that touch bbaexport and the
-    parts manifest. It is the SAME definition as the CI cache key
-    (.github/workflows/linux-package.yml), so that both match.
+    parts manifest. The CI cache key covers the same set
+    (.github/workflows/chipdb.yml), so that both match.
     """
     sources = [
         Path.cwd() / "nix/nextpnr-xilinx.nix",

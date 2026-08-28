@@ -78,8 +78,12 @@ jobs:
           echo "Asset date: $DATE"
 
       # The .bin are byte-identical per (nextpnr, prjxray, chipdb derivation,
-      # manifest) -> that tuple IS the cache key. It is the same definition
-      # the packer uses for the identity stamp (pack/chipdb.py).
+      # manifest, patches) -> that tuple IS the cache key. It covers the same
+      # set the packer hashes for the identity stamp (pack/chipdb.py, which
+      # also reads nix/patches/*.patch), plus prjxray.nix. hashFiles hashes
+      # the set of files the patterns match together, so the patch pattern
+      # matching nothing today (there is no nix/patches yet) leaves the key
+      # unchanged; the empty string is only returned when NO pattern matches.
       # `regenerate` skips the restore: the run must then produce every part
       # from scratch, which is how the generation path itself gets tested
       # without waiting for a toolchain revision change.
@@ -88,7 +92,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: chipdb-cache
-          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
+          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json', 'nix/patches/*.patch') }}
 
       # The .bin.tgz of a part is a pure function of its .bin, so the same
       # tuple keys them. Separate entry, not another path on the bins cache:
@@ -100,7 +104,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: chipdb-assets-cache
-          key: chipdb-assets-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json') }}
+          key: chipdb-assets-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json', 'nix/patches/*.patch') }}
 
       - name: Generate the chipdb (or seed it from the cache)
         id: gen
