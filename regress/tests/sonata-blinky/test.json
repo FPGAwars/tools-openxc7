@@ -1,0 +1,18 @@
+{
+  "description": "Knight-rider blinky on xc7a50tcsg324 clocked from the Sonata board oscillator (left-bank clock-capable pad P15)",
+  "exercises": [
+    "xc7a50tcsg324 packaging (lowRISC Sonata ONE)",
+    "a clock entering on a LEFT-bank clock-capable pad and reaching a BUFG",
+    "that the pad-to-BUFG route uses pips prjxray can assemble"
+  ],
+  "why": "Every other board test in the suite clocks from a right-bank or bottom pad. P15 on this package lands in LIOI3_X0Y23, and the routes out of that tile pass through HCLK_IOI3, whose IOCLK/RCLK pips are largely unfuzzed in prjxray-db. nextpnr-xilinx 0.9.3 stays out of them (Arch::setup_pip_blacklist plus the dedicated routeClock path); a place-and-route that does not will emit a feature fasm2frames cannot look up, and the test fails at that step with the pip named. Measured 2026-08-27 with the himbaechel port, which routes exactly there with router2 and the default router.",
+  "tags": ["board", "artix7", "clocking"],
+  "sources": ["design.v"],
+  "constraints": "constraints.xdc",
+  "top": "blinky_sonata",
+  "parts": ["xc7a50tcsg324"],
+  "expect": {
+    "primitives": { "FDRE": ">=30" },
+    "artifacts": ["bitstream"]
+  }
+}
