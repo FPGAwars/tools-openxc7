@@ -184,7 +184,10 @@ class TerminologyCheckerTests(unittest.TestCase):
         return root
 
     def test_a_pad_word_used_for_a_version_fails(self):
-        root = self.make_repo("The sources are pinned in lock.json.\n")
+        # Spelled in pieces for the same reason the checker builds its
+        # pattern that way: this file is tracked, and would otherwise be a
+        # violation of the very rule it is testing.
+        root = self.make_repo("The sources are " + "pin" + "ned in lock.json.\n")
         result = run("check-terminology.sh", str(root))
         self.assertEqual(result.returncode, 1)
         self.assertIn("note.md:1", result.stdout)

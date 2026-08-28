@@ -23,10 +23,15 @@ set -euo pipefail
 ROOT=${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}
 cd "$ROOT"
 
+# Assembled from the root word, so this file does not match its own rule:
+# git grep reads every tracked file, this one included, and an exclusion
+# would blind the check to whatever else the file grows.
+ROOT=pin
+PATTERN="${ROOT}ned|${ROOT}ning|re${ROOT}|re${ROOT}ned|un${ROOT}ned"
+
 # -w rather than \b: BSD/macOS regex has no \b in -E, and this must give
 # the same answer on a dev mac and on the CI runner.
-if git grep -n -i -w -E 'pinned|pinning|repin|repinned|unpinned' -- \
-        . ':!README-archived.md' ':!doc'; then
+if git grep -n -i -w -E "$PATTERN" -- . ':!README-archived.md' ':!doc'; then
     echo
     echo "❌ terminology: the lines above say pad when they mean version."
     echo "   Use version / tag / revision / \"bump the version\" (apio#924)."

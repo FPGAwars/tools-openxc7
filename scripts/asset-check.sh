@@ -52,7 +52,8 @@ done
 [ ${#PLATFORMS[@]} -gt 0 ] || PLATFORMS=(linux-x86-64 darwin-arm64 windows-amd64)
 
 python3 - "$REPO_ROOT" "$TAG" "$EXPECT_DIR" "$FULL" "${PLATFORMS[@]}" <<'PYEOF'
-import hashlib, json, os, sys, tarfile, tempfile, urllib.error, urllib.request
+import hashlib, json, os, sys, tarfile, tempfile, time
+import urllib.error, urllib.request
 from pathlib import Path
 
 repo_root, tag, expect_dir = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -70,7 +71,7 @@ base = f"https://github.com/{repo}/releases/download/{tag}"
 failed = []
 
 
-def request(url, method="GET"):
+def request(url, method="GET", attempts=3):
     req = urllib.request.Request(url, method=method,
                                  headers={"User-Agent": "tools-openxc7-asset-check"})
     # Authorization ONLY for api.github.com. Release download URLs redirect
@@ -81,7 +82,22 @@ def request(url, method="GET"):
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
     if token and url.startswith("https://api.github.com/"):
         req.add_header("Authorization", f"Bearer {token}")
-    return urllib.request.urlopen(req, timeout=60)
+    # A transient connection failure is not an answer about the release, and
+    # this check now makes one request per published asset -- twenty on an
+    # on-demand release, ~830 MB with --full. Retried, with a pause; an
+    # HTTPError is NOT retried, because 404 is the answer we came for.
+    for attempt in range(1, attempts + 1):
+        try:
+            return urllib.request.urlopen(req, timeout=60)
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            if attempt == attempts:
+                raise
+            print(f"   … {url.rsplit('/', 1)[-1]}: {error}, retrying "
+                  f"({attempt}/{attempts - 1})")
+            time.sleep(5 * attempt)
+    raise AssertionError("unreachable")
 
 
 def head(url):

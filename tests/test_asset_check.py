@@ -10,6 +10,7 @@ import io
 import json
 import sys
 import tarfile
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -96,11 +97,18 @@ def release(**overrides) -> dict:
     return {url: body for url, body in files.items() if body is not None}
 
 
-def run(files, *args) -> tuple:
-    """Run the script's python over *files*; return (exit code, output)."""
+def run(files, *args, flaky=0) -> tuple:
+    """Run the script's python over *files*; return (exit code, output).
+
+    *flaky* makes the first N calls fail the way a dropped connection does.
+    """
     source = SCRIPT.read_text().split("<<'PYEOF'", 1)[1].rsplit("PYEOF", 1)[0]
+    remaining = [flaky]
 
     def fake_urlopen(request, timeout=None):
+        if remaining[0]:
+            remaining[0] -= 1
+            raise urllib.error.URLError(TimeoutError("timed out"))
         url = request.full_url
         if url not in files:
             raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
@@ -113,6 +121,7 @@ def run(files, *args) -> tuple:
     output = io.StringIO()
     code = 0
     with mock.patch.object(urllib.request, "urlopen", fake_urlopen), \
+            mock.patch.object(time, "sleep", lambda seconds: None), \
             mock.patch.dict("os.environ", {"ASSET_CHECK_REPO": REPO_SLUG}), \
             mock.patch.object(sys, "argv", argv), redirect_stdout(output):
         try:
@@ -206,6 +215,18 @@ class AssetCheckTests(unittest.TestCase):
         code, output = run(files, "", "1")
         self.assertEqual(code, 1)
         self.assertIn(f"does not carry {PART}.bin at its root", output)
+
+    def test_a_dropped_connection_is_retried_not_reported_as_missing(self):
+        """A flaky link must not read as 'the release is broken' — and on
+        an on-demand release this makes twenty requests, not four."""
+        code, output = run(release(), flaky=2)
+        self.assertEqual(code, 0, output)
+        self.assertIn("retrying (1/2)", output)
+        self.assertIn("asset-check: OK", output)
+
+    def test_a_link_that_stays_down_still_fails(self):
+        with self.assertRaises(urllib.error.URLError):
+            run(release(), flaky=99)
 
     def test_missing_platform_tarball_still_fails(self):
         gone = f"apio-openxc7-darwin-arm64-{DATE}.tgz"
