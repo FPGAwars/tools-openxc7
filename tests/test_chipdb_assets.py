@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from pack.chipdb_assets import available_parts, build_assets, release_tag
+from pack.chipdb_info import info_asset_name
 
 
 class ChipdbAssetsTests(unittest.TestCase):
@@ -63,6 +64,20 @@ class ChipdbAssetsTests(unittest.TestCase):
         self.assertEqual(release_tag("20260827"), "2026-08-27")
         with self.assertRaises(ValueError):
             release_tag("2026-08-27")
+
+    def test_published_document_has_the_name_readers_resolve(self):
+        """The writer and the reader of the index asset name must agree.
+
+        pack.chipdb_assets writes the file; pack.chipdb_info.info_asset_name
+        is what scripts/asset-check.sh fetches a release by. The name is a
+        release contract (apio#900), so a divergence must fail here rather
+        than at a release gate.
+        """
+        self.fixture()
+        info_path = build_assets(
+            self.repo, self.chipdb, self.output, "20260827", self.database
+        )
+        self.assertEqual(info_path.name, info_asset_name("20260827"))
 
     def test_document_describes_generated_and_available_parts(self):
         part, other = self.fixture()

@@ -12,7 +12,8 @@ from unittest import mock
 
 from pack.assemble import write_env
 from pack.chipdb import write_placeholder
-from pack.chipdb_info import validate_package_info
+from pack.chipdb_info import (info_asset_name, validate_document,
+                              validate_package_info)
 
 PART = "xc7a35tcpg236"
 OTHER = "xc7a50tcsg324"
@@ -141,6 +142,24 @@ class ChipdbInfoTests(unittest.TestCase):
         self.rewrite(info_path, info)
         with self.assertRaisesRegex(ValueError, "available-count"):
             validate_package_info(info_path, chipdb)
+
+    def test_document_must_name_the_release_it_was_published_in(self):
+        """What a release gate asks: is this map the map of THIS release?
+
+        The document is valid on its own (date and release-tag agree); what
+        it is not is the one that belongs to the release it was found in --
+        the shape a run crossing midnight UTC produces.
+        """
+        _, _, info = self.make_info()
+        self.assertEqual(sorted(validate_document(info, "2026-08-27")), [PART])
+        with self.assertRaisesRegex(ValueError, "not the release"):
+            validate_document(info, "2026-08-28")
+
+    def test_index_asset_name_follows_the_release_date(self):
+        self.assertEqual(info_asset_name("20260827"),
+                         "apio-xilinx-chipdb-index-20260827.json")
+        with self.assertRaises(ValueError):
+            info_asset_name("2026-08-27")
 
 
 if __name__ == "__main__":
