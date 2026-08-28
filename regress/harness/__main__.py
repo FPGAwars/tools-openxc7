@@ -104,10 +104,11 @@ def main() -> int:
     entries = []
     try:
         for spec in specs:
-            # Pinned third-party sources are fetched, not committed. A test
-            # whose external tree is absent is reported (SKIP, never a gate),
-            # unless the run asked for that test by name — then it is an
-            # error, because silence is exactly what was not wanted.
+            # Third-party sources are fetched at their locked revision, not
+            # committed. A test whose external tree is absent is reported
+            # (SKIP, never a gate), unless the run asked for that test by
+            # name — then it is an error, because silence is exactly what
+            # was not wanted.
             if spec.missing_external is not None:
                 remedio = ("external sources not fetched "
                            f"({spec.missing_external.name}): run scripts/fetch-demos.sh")

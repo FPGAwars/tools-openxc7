@@ -126,7 +126,7 @@
           # disable yosys-synlig for now: synlig is not very good and it does not compile with recent yosys
           # yosys-synlig = callPackage ./nix/yosys-synlig.nix { };
         } // lib.optionalAttrs stdenv.isLinux {
-          # fpga-assembler is gated to Linux: its pinned upstream flake input
+          # fpga-assembler is gated to Linux: its upstream flake input
           # (github:lromor/fpga-assembler) does not evaluate on darwin and would
           # otherwise abort `nix develop` / `nix flake show` on macOS. On macOS the
           # openXC7 flow uses prjxray's xc7frames2bit instead.

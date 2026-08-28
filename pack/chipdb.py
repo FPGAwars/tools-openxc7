@@ -116,7 +116,7 @@ def chipdb_identity() -> str:
     delete dist/.
 
     The identity is the hash of what determines the content: the nextpnr
-    pin, the chipdb derivation, the patches that touch bbaexport and the
+    revision, the chipdb derivation, the patches that touch bbaexport and the
     parts manifest. It is the SAME definition as the CI cache key
     (.github/workflows/linux-package.yml), so that both match.
     """
@@ -298,7 +298,7 @@ def build_chipdb():
             print(result)
 
     # -- Stamp: from here on these .bin can be reused or serve as a seed,
-    # -- and any pin/patch change will invalidate the stamp on its own.
+    # -- and any revision/patch change will invalidate the stamp on its own.
     write_stamp(chipdb_dir, identity)
     print(f"🔏 chipdb sellado: {identity}")
 

@@ -13,7 +13,7 @@ the upstream demo works on real hardware.
 First zynq7 coverage in the suite (added with the Core-3 family
 expansion). Everything family-specific runs for the first time here:
 zynq7 chipdb, zynq7 prjxray-db (segbits/part.yaml), gen-through-fasm
-feature names of a different tile mix. Pinned in `regress/lock.json`,
+feature names of a different tile mix. Locked by revision in `regress/lock.json`,
 fetched by `scripts/fetch-demos.sh`; absent tree reports SKIP.
 
 ## Expected result

@@ -13,7 +13,7 @@ def make_fixture(root: Path):
     """Create the exact set of files chipdb_identity hashes."""
     (root / "nix" / "patches").mkdir(parents=True)
     (root / "nix" / "nextpnr-xilinx.nix").write_text(
-        "nextpnr pin\n", encoding="utf-8")
+        "nextpnr revision\n", encoding="utf-8")
     (root / "nix" / "nextpnr-xilinx-chipdb.nix").write_text(
         "chipdb derivation\n", encoding="utf-8")
     (root / CHIPDB_PARTS_FILE).write_text(

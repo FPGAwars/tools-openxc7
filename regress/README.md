@@ -14,7 +14,7 @@ scripts/regress.sh <package> --tier 1 --markdown report.md
 scripts/regress.sh <package> --update-baseline  # record new reference values
 ```
 
-Needs `yosys` on PATH, from the oss-cad-suite pinned in `lock.json` — the same
+Needs `yosys` on PATH, from the oss-cad-suite version recorded in `lock.json` — the same
 one apio installs, so the numbers describe what users actually get.
 
 ## Adding a test
@@ -124,7 +124,7 @@ design. A big opaque design would buy realism at the cost of diagnosis — when
 | Behaviour parity | `vclk` (a virtual clock must warn, not crash, and still report timing) |
 | Known gaps, on the record | *(none right now — `srl-cascade` graduated to a positive test when the `xc7-srl-cascade-packing` patch closed the gap it recorded)* |
 | Scale | the `congestion-local` / `congestion-scatter` pair: ~60% utilisation with routing locality as the ONLY knob (same design, different `STRIDE`), so a regression separates "router under contention" from "everything got slower" |
-| Third-party sanity | `demo-arty`, `demo-basys3`: the openXC7/demo-projects blinkies untouched (their Verilog, their board `LOC` XDCs), pinned in `lock.json` and fetched by `scripts/fetch-demos.sh` — absent tree reports SKIP, never a gate |
+| Third-party sanity | `demo-arty`, `demo-basys3`: the openXC7/demo-projects blinkies untouched (their Verilog, their board `LOC` XDCs), locked by revision in `lock.json` and fetched by `scripts/fetch-demos.sh` — absent tree reports SKIP, never a gate |
 
 ## What is compared
 

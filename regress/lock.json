@@ -1,10 +1,10 @@
 {
-  "//": "Pinned external inputs of the regression suite. Baselines are only comparable when these match: a different yosys places different logic, so an unpinned synthesiser silently invalidates every recorded number.",
+  "//": "External inputs of the regression suite, locked by revision. Baselines are only comparable when these match: a different yosys places different logic, so a floating synthesiser silently invalidates every recorded number.",
 
   "oss-cad-suite": {
     "tag": "2026-03-24",
     "provides": "yosys",
-    "why": "the exact synthesiser apio installs for users, so our measurements describe what they will get; must equal the pin in lib/common.sh (scripts/check-pins.sh asserts it)"
+    "why": "the exact synthesiser apio installs for users, so our measurements describe what they will get; this is the yosys-release-tag of the oss-cad-suite scripts/ci-install-oss-cad-suite.sh installs, and scripts/check-versions.sh compares that one against what apio's remote-config serves"
   },
 
   "demo-projects": {

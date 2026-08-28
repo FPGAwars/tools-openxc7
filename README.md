@@ -57,7 +57,7 @@ is a one-line change there.
 
 ## Building the packages from source (developers)
 
-The build is reproducible with **Nix** (pinned flake). There is no
+The build is reproducible with **Nix** (every flake input at a fixed revision). There is no
 cross-compilation between Linux and macOS — each is built natively on its own
 machine — while the Windows package **is** cross-compiled from Linux, because
 Nix does not run on Windows.
@@ -92,7 +92,7 @@ generated once and reused:
 | `OPENXC7_NO_CHIPDB`   | `1` packs without the chipdb (same as `--no-chipdb`)    |
 | `OPENXC7_CHIPDB_INFO` | The dated document to embed as `CHIPDB-INFO.json`       |
 
-> **Caveat:** when you change the pinned toolchain revisions, remove `dist/`
+> **Caveat:** when you change the toolchain revisions, remove `dist/`
 > before packing (`rm -rf dist`). Chipdb files built against a different
 > revision are silently incompatible and the toolchain rejects them at runtime
 > with an "internal IDs inconsistent" error.

@@ -39,18 +39,18 @@ let
   # -- Sources come from the native derivations, never re-declared here.
   # -- They used to be a second copy of the same owner/rev/hash "kept in sync
   # -- by hand" with nix/nextpnr-xilinx.nix and nix/prjxray.nix, which is
-  # -- exactly how a pin bump ships a half-updated package: re-pinning prjxray
+  # -- exactly how a version bump ships a half-updated package: bumping prjxray
   # -- left this copy behind and the cross build failed on POSIX headers the
-  # -- new tree no longer includes. One pin, one place.
+  # -- new tree no longer includes. One revision, one place.
   nextpnrSrc = nextpnr-xilinx.src;
   prjxraySrc = prjxray.src;
 
   commonFlags = [
     "-DARCH=xilinx" "-DBUILD_GUI=OFF" "-DBUILD_TESTS=OFF" "-DUSE_OPENMP=OFF"
     "-Wno-deprecated"
-    # version stamp derived from the pinned source, like the native build --
+    # version stamp derived from the source revision, like the native build --
     # this was a hardcoded 2772742 from the spike era, so every windows exe
-    # since the August pins reported July's revision (caught by the baseline
+    # since the August bump reported July's revision (caught by the baseline
     # env fingerprint of the regression suite, 2026-08-05)
     "-DCURRENT_GIT_VERSION=${lib.substring 0 7 nextpnr-xilinx.src.rev}"
     "-DPython3_EXECUTABLE=${python.interpreter}"
@@ -95,7 +95,7 @@ let
       # mingw-only ones that used to be seds — router2's flat_map, whose
       # sorted invariant breaks on this build, and the chipdb PODs copied by
       # value, which read past the mapping end and page-faulted under the
-      # Windows file mapping. Asserted rather than assumed, so a future pin
+      # Windows file mapping. Asserted rather than assumed, so a future bump
       # that loses them fails here instead of shipping a crashing .exe.
       grep -q 'std::map<int, std::pair<int, PipId>> bound_nets;' common/router2.cc \
         || { echo "upstream router2 std::map fix missing"; exit 1; }

@@ -1,5 +1,5 @@
 // Distributed RAM: 64x8 with a synchronous write and an asynchronous read
-// (registered afterwards). The ram_style attribute pins the inference to
+// (registered afterwards). The ram_style attribute forces the inference to
 // LUTRAM so a yosys heuristic change cannot silently turn this into the
 // bram test.
 module lutram (

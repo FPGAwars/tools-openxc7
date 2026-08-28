@@ -20,7 +20,7 @@ The lesson is written into the suite's design: coverage comes from
 *structural properties*, not from bigger designs.
 
 The fix is a backport of the mainline nextpnr patch
-(`frontend-hier-merge-nets`), and it was later retired when the pin bump
+(`frontend-hier-merge-nets`), and it was later retired when the version bump
 brought it in from upstream — which is another reason to keep the test: it
 guards behaviour that no longer has a local patch protecting it.
 
@@ -36,7 +36,7 @@ two shift register widths.
   design. The test is no longer testing hierarchy; fix the design or the
   synthesis options rather than lowering the expectation.
 - **The flow crashes inside nextpnr's frontend** — the original bug is back.
-  Check whether a pin bump lost the merge_nets fix.
+  Check whether a version bump lost the merge_nets fix.
 - **Flip-flop count collapses** — the shift registers were mapped to SRLs.
   That happened during development when only the last bit of each register
   was observable; the design deliberately reduces the *whole* register to

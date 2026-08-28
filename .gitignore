@@ -9,5 +9,5 @@ dist/
 bundles/
 .DS_Store
 
-# Pinned third-party trees, fetched by scripts/fetch-demos.sh (see regress/lock.json)
+# Third-party trees at their locked revision, fetched by scripts/fetch-demos.sh (see regress/lock.json)
 regress/external/

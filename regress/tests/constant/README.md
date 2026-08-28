@@ -39,7 +39,7 @@ is a cheap smoke signal for chipdb loading across the whole manifest.
 
 - **Routing fails on some parts but not others** — the classic shape of the
   original bug: the global node does not span the fabric. Suspect any change
-  to `bbaexport`, to the chipdb generation, or a pin bump that dropped the
+  to `bbaexport`, to the chipdb generation, or a version bump that dropped the
   patch.
 - **Routing fails everywhere** — more likely a general breakage; check the
   other tests before blaming the constant network.

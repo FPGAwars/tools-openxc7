@@ -46,7 +46,7 @@ fi
 
 # Provenance of the chipdb bins inside the package (apio#940 follow-up,
 # asked by zapta): how they were obtained in THIS build and the identity
-# stamp that pins down their content regardless of how they were obtained.
+# stamp that identifies their content regardless of how they were obtained.
 #   CHIPDB_SOURCE  generated | restored-from-cache   (unknown if unset)
 #   CHIPDB_ID      the chipdb-id.txt stamp (hash of everything that
 #                  determines the bins' content)  (unknown if unset)
