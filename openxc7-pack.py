@@ -19,8 +19,8 @@ from pack import DIST
 from pack.assemble import (
     build_tarball,
     distribution_init,
+    get_date,
     write_env,
-    write_version,
 )
 from pack.chipdb import build_chipdb, skip_chipdb
 from pack.components import install_components
@@ -86,8 +86,7 @@ if CHIPDB_ONLY:
 # -- Final configuration
 write_env()
 
-# -- Generate the version
-date = write_version()
-
-# -- Generate the tarball
-build_tarball(date)
+# -- Generate the tarball. The date is the package's only version: apio
+# -- derives it from the release TAG and reads everything else about the
+# -- package from BUILD-INFO.json (apio#947).
+build_tarball(get_date())
