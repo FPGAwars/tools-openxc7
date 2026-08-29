@@ -391,6 +391,21 @@
       "pnr_seconds": 6.81
     }
   },
+  "sonata-blinky": {
+    "xc7a50tcsg324": {
+      "bit_bytes": 2192174,
+      "brams": 0,
+      "dsps": 0,
+      "env": {
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version 68aeeb3)",
+        "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
+      },
+      "ffs": 31,
+      "fmax_mhz": 313.97,
+      "luts": 66,
+      "pnr_seconds": 7.36
+    }
+  },
   "spartan7-blinky": {
     "xc7s50csga324": {
       "bit_bytes": 2192176,
