@@ -238,8 +238,9 @@ jobs:
           needs from the per-FPGA assets below, into that same directory.
           \`PARTS-INDEX.json\`, at the root of every package, lists every
           part the packaged prjxray database supports, which of them this
-          release built, and the chipdb file, asset, size and sha256 of each
-          one; it is published here too as
+          release built, and for each one the chipdb file it needs
+          (\`chipdb-size\`, \`chipdb-sha256\`) and the asset that carries it
+          (\`asset-size\`, \`asset-sha256\`); it is published here too as
           \`apio-xilinx-parts-index-${DATE//-/}.json\`.
           Those bins and the packages come from the same chipdb job of this run
           (identity \`${{ needs.chipdb.outputs.identity }}\`,

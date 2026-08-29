@@ -18,7 +18,7 @@ using [Nix](https://nixos.org), and publish one Apio package tarball per Apio su
 | `xc7frames2bit`, `bitread`, `xc7patch`    | [Project X-Ray](https://github.com/f4pga/prjxray)    | Frames → bitstream, and bitstream inspection       |
 | `fasm2frames` + the `fasm` Python library | [openXC7 fasm](https://github.com/openxc7/fasm)      | FASM → configuration frames                        |
 | `chipdb/`                                 | built here, downloaded on demand                     | Where apio leaves the per-FPGA device database nextpnr needs |
-| `PARTS-INDEX.json`                        | built here                                           | Which chipdb file each part needs, which of them this release built, and the asset, size and sha256 of each one |
+| `PARTS-INDEX.json`                        | built here                                           | Which chipdb file each part needs, which of them this release built, and the asset, sizes and hashes of each one |
 | `share/nextpnr/external/prjxray-db`       | Project X-Ray database                               | Pin/part data (`part.yaml`, `package_pins.csv`, …) |
 
 Synthesis is **not** part of this package: it comes from `yosys`, shipped by
@@ -142,8 +142,8 @@ It validates the package **inside its tarball** (never the freshly built tree)
 and exits non-zero on any failure:
 
 - the layout, that `chipdb/` holds only the placeholder, and that every part
-  of `chipdb-parts.json` is in `PARTS-INDEX.json` with the size and sha256 of
-  the chipdb file the release publishes for it;
+  of `chipdb-parts.json` is in `PARTS-INDEX.json` with the `chipdb-size` and
+  `chipdb-sha256` of the chipdb file the release publishes for it;
 - feature markers and `--version` inside the *packaged* binary, so a stale
   binary cannot sneak into a release;
 - on macOS, the ad-hoc signature and that no Mach-O load command still points
@@ -201,12 +201,13 @@ and `apio-xilinx-parts-index-<YYYYMMDD>.json`.
 That last file is the document every package also carries at its root as
 `PARTS-INDEX.json`. It is keyed by the full part number
 (`xc7a200tfbg484-3`: device, package, speed grade) and says, for each one,
-whether this release built it and — if it did — the chipdb file it needs, the
-asset that carries that file, and the size and sha256 of both the download and
-the file that must end up on disk. Which parts share a chipdb file is ours to
-change, so the index names one per part: today the speed grades of a base part
-repeat the same file, and a loader that keeps what is already on disk with the
-right sha256 downloads it once. Parts the packaged prjxray database supports
+whether this release built it and — if it did — the chipdb file it needs
+(`chipdb`, `chipdb-size`, `chipdb-sha256`: what must end up on disk) and the
+asset that carries it (`asset`, `asset-size`, `asset-sha256`: what gets
+downloaded). Which parts share a chipdb file is ours to change, so the index
+names one per part: today the speed grades of a base part repeat the same
+file, and a loader that keeps what is already on disk with the right
+`chipdb-sha256` downloads it once. Parts the packaged prjxray database supports
 but the release did not build are listed with `"generated": false`, so apio can
 tell "not in this release" from "unknown part". Since no package ships a
 chipdb, that index and the per-FPGA assets are the whole contract: each

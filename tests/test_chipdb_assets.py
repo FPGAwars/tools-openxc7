@@ -105,7 +105,7 @@ class ChipdbAssetsTests(unittest.TestCase):
         )
         info = json.loads(info_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(info["schema"], 4)
+        self.assertEqual(info["schema"], 5)
         self.assertEqual(info["date"], "20260827")
         self.assertEqual(info["release-tag"], "2026-08-27")
         self.assertEqual(info["chipdb-id"], "fixture-id")
@@ -119,9 +119,9 @@ class ChipdbAssetsTests(unittest.TestCase):
 
         entry = info["parts"][f"{part}-1"]
         self.assertEqual(list(entry), ["family", "base-part", "speed",
-                                       "generated", "chipdb", "asset",
-                                       "size", "sha256", "tgz_size",
-                                       "tgz_sha256"])
+                                       "generated", "chipdb", "chipdb-size",
+                                       "chipdb-sha256", "asset", "asset-size",
+                                       "asset-sha256"])
         self.assertTrue(entry["generated"])
         self.assertEqual(entry["family"], "artix7")
         self.assertEqual(entry["base-part"], part)
@@ -129,7 +129,7 @@ class ChipdbAssetsTests(unittest.TestCase):
         self.assertEqual(entry["chipdb"], f"{part}.bin")
         self.assertEqual(entry["asset"],
                          f"apio-xilinx-chipdb-{part}-20260827.bin.tgz")
-        self.assertEqual(entry["size"], len(b"chipdb fixture"))
+        self.assertEqual(entry["chipdb-size"], len(b"chipdb fixture"))
         # The other speed grade points at the very same file and asset.
         self.assertEqual(info["parts"][f"{part}-2"] | {"speed": "1"}, entry)
         # A part the database supports but this release did not build
@@ -139,7 +139,7 @@ class ChipdbAssetsTests(unittest.TestCase):
                           "speed": "1", "generated": False})
 
         asset = self.output / entry["asset"]
-        self.assertEqual(asset.stat().st_size, entry["tgz_size"])
+        self.assertEqual(asset.stat().st_size, entry["asset-size"])
         with tarfile.open(asset, "r:gz") as archive:
             self.assertEqual(archive.getnames(), [f"{part}.bin"])
             self.assertEqual(archive.extractfile(f"{part}.bin").read(),
@@ -162,7 +162,7 @@ class ChipdbAssetsTests(unittest.TestCase):
                               "20260828", self.database, cache=cache, jobs=2)
         old = json.loads(first.read_text())["parts"][f"{part}-1"]
         new = json.loads(second.read_text())["parts"][f"{part}-1"]
-        self.assertEqual(new["tgz_sha256"], old["tgz_sha256"])
+        self.assertEqual(new["asset-sha256"], old["asset-sha256"])
         self.assertEqual(new["asset"],
                          f"apio-xilinx-chipdb-{part}-20260828.bin.tgz")
         self.assertTrue((second_output / new["asset"]).is_file())

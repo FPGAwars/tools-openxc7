@@ -45,8 +45,9 @@ the one your board needs and leaves it here.
 
 PARTS-INDEX.json, at the root of this package, lists every part the
 packaged database supports, which of them this release built, the chipdb
-file each one needs, the asset that carries it and the size and sha256 it
-must have on disk. The assets are published in the GitHub release named
+file each one needs and what it must be on disk (chipdb, chipdb-size,
+chipdb-sha256), and the asset that carries it (asset, asset-size,
+asset-sha256). The assets are published in the GitHub release named
 by that file's release-tag, as
 apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz (a tar.gz with the
 chipdb file at its root).

@@ -125,11 +125,11 @@ def _one_asset(base_part: str, source: Path, destination: Path,
     # document never repeats numbers recorded by an earlier run.
     return {
         "chipdb": chipdb_name(base_part),
+        "chipdb-size": source.stat().st_size,
+        "chipdb-sha256": sha256(source),
         "asset": destination.name,
-        "size": source.stat().st_size,
-        "sha256": sha256(source),
-        "tgz_size": destination.stat().st_size,
-        "tgz_sha256": sha256(destination),
+        "asset-size": destination.stat().st_size,
+        "asset-sha256": sha256(destination),
         "_origin": origin,
         "_base_part": base_part,
     }
@@ -191,8 +191,8 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
         origin = entry.pop("_origin")
         generated[base_part] = entry
         print(f"  {entry['asset']}  "
-              f"({entry['size'] / 1e6:.0f} MB -> "
-              f"{entry['tgz_size'] / 1e6:.0f} MB, {origin})")
+              f"({entry['chipdb-size'] / 1e6:.0f} MB -> "
+              f"{entry['asset-size'] / 1e6:.0f} MB, {origin})")
     if cache is not None and not reuse:
         # The cache now matches these bins; stamp it so the next run can
         # tell (a stale stamp is what makes a foreign cache unusable).

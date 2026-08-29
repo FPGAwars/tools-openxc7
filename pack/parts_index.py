@@ -28,11 +28,13 @@ from pathlib import Path
 
 from .families import family_of
 
-SCHEMA = 4
+SCHEMA = 5
 
-# Keys an entry has only when this release built the part's chipdb.
-GENERATED_KEYS = ("chipdb", "asset", "size", "sha256", "tgz_size",
-                  "tgz_sha256")
+# Keys an entry has only when this release built the part's chipdb. Each
+# name says WHAT it describes -- the chipdb file that must end up on disk,
+# or the asset downloaded to get it (apio#947, which is why schema is 5).
+GENERATED_KEYS = ("chipdb", "chipdb-size", "chipdb-sha256",
+                  "asset", "asset-size", "asset-sha256")
 
 # Order of the keys inside one entry, as a reader of the JSON sees them.
 ENTRY_KEYS = ("family", "base-part", "speed", "generated") + GENERATED_KEYS
@@ -43,13 +45,14 @@ NOTE = (
     "speed grade 3, part xc7a200tfbg484-3. An entry with generated=true "
     "is built for THIS release: download <asset> from the release named "
     "by release-tag and leave <chipdb> in the package's chipdb/ "
-    "directory. size/sha256 describe that uncompressed chipdb file (what "
-    "must end up on disk); tgz_size/tgz_sha256 describe the downloaded "
-    "asset, a tar.gz carrying the file at its root. The speed grades of "
-    "one base part deliberately repeat chipdb, asset and hashes: one "
-    "file serves them all today, so 'already on disk with that sha256' "
-    "is the only deduplication a loader needs, and a future release may "
-    "split them without any change outside this document. family is the "
+    "directory. chipdb-size/chipdb-sha256 describe that uncompressed "
+    "chipdb file (what must end up on disk); asset-size/asset-sha256 "
+    "describe the downloaded asset, a tar.gz carrying the file at its "
+    "root. The speed grades of one base part deliberately repeat chipdb, "
+    "asset and hashes: one file serves them all today, so 'already on "
+    "disk with that sha256' is the only deduplication a loader needs, "
+    "and a future release may split them without any change outside this "
+    "document. family is the "
     "prjxray database directory the part lives in "
     "($PRJXRAY_DB_DIR/<family>/<part>/part.yaml). An entry with "
     "generated=false is a part the packaged database supports that this "
@@ -135,10 +138,10 @@ def _check_entry(part: str, entry: dict, date: str) -> None:
         raise ValueError(
             f"PARTS-INDEX: {part} asset {entry['asset']!r} is not the "
             f"name apio resolves for {date} ({asset_name(base, date)})")
-    for key in ("size", "tgz_size"):
+    for key in ("chipdb-size", "asset-size"):
         if not isinstance(entry[key], int) or entry[key] <= 0:
             raise ValueError(f"PARTS-INDEX: {part} has an invalid {key}")
-    for key in ("sha256", "tgz_sha256"):
+    for key in ("chipdb-sha256", "asset-sha256"):
         value = entry[key]
         if not isinstance(value, str) or len(value) != 64:
             raise ValueError(f"PARTS-INDEX: {part} has an invalid {key}")
@@ -231,10 +234,10 @@ def validate_package_info(info_path: Path, chipdb: Path) -> dict:
     for name in present:
         path = chipdb / name
         entry = described[name]
-        if entry["size"] != path.stat().st_size:
-            raise ValueError(f"PARTS-INDEX size differs for {name}")
-        if entry["sha256"] != _sha256(path):
-            raise ValueError(f"PARTS-INDEX sha256 differs for {name}")
+        if entry["chipdb-size"] != path.stat().st_size:
+            raise ValueError(f"PARTS-INDEX chipdb-size differs for {name}")
+        if entry["chipdb-sha256"] != _sha256(path):
+            raise ValueError(f"PARTS-INDEX chipdb-sha256 differs for {name}")
     return {key: info[key] for key in ("part-count", "generated-count",
                                        "chipdb-count", "base-part-count")}
 

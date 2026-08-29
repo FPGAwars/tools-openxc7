@@ -205,12 +205,12 @@ def check_chipdb_asset(asset, entry, parts):
         print("   FPGA can build.")
         failed.append(asset)
         return
-    if size != entry["tgz_size"]:
-        print(f"❌ {asset}: {size} bytes published, index says {entry['tgz_size']}")
+    if size != entry["asset-size"]:
+        print(f"❌ {asset}: {size} bytes published, index says {entry['asset-size']}")
         print("   the uploaded asset is NOT the one the index describes")
         failed.append(asset)
         return
-    line = (f"✅ {asset}: HTTP 200 ({size / 1e6:.0f} MB == tgz_size)"
+    line = (f"✅ {asset}: HTTP 200 ({size / 1e6:.0f} MB == asset-size)"
             f" · {len(parts)} parts")
 
     if full:
@@ -221,18 +221,18 @@ def check_chipdb_asset(asset, entry, parts):
                 for chunk in iter(lambda: resp.read(1 << 20), b""):
                     digest.update(chunk)
                     out.write(chunk)
-            if digest.hexdigest() != entry["tgz_sha256"]:
+            if digest.hexdigest() != entry["asset-sha256"]:
                 print(f"❌ {asset}: downloaded sha256 {digest.hexdigest()[:12]}… "
-                      f"!= index tgz_sha256 {entry['tgz_sha256'][:12]}…")
+                      f"!= index asset-sha256 {entry['asset-sha256'][:12]}…")
                 failed.append(asset)
                 return
             # And what the loader ends up with on disk: the chipdb inside.
             try:
                 with tarfile.open(blob) as archive:
                     member = archive.getmember(chipdb)
-                    if member.size != entry["size"]:
+                    if member.size != entry["chipdb-size"]:
                         print(f"❌ {asset}: {chipdb} is {member.size} bytes, "
-                              f"index says {entry['size']}")
+                              f"index says {entry['chipdb-size']}")
                         failed.append(asset)
                         return
                     inner = hashlib.sha256()
@@ -243,12 +243,13 @@ def check_chipdb_asset(asset, entry, parts):
                 print(f"❌ {asset}: does not carry {chipdb} at its root ({error})")
                 failed.append(asset)
                 return
-            if inner.hexdigest() != entry["sha256"]:
+            if inner.hexdigest() != entry["chipdb-sha256"]:
                 print(f"❌ {asset}: {chipdb} sha256 {inner.hexdigest()[:12]}… "
-                      f"!= index sha256 {entry['sha256'][:12]}…")
+                      f"!= index chipdb-sha256 {entry['chipdb-sha256'][:12]}…")
                 failed.append(asset)
                 return
-        line += f" · sha256 == index · {chipdb} {entry['size']} B verified"
+        line += (f" · sha256 == index · {chipdb} "
+                 f"{entry['chipdb-size']} B verified")
     print(line)
 
 

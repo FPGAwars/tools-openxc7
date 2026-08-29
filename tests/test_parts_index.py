@@ -37,14 +37,14 @@ class PartsIndexTests(unittest.TestCase):
         (chipdb / f"{BASE}.bin").write_bytes(DATA)
         built = {
             "chipdb": f"{BASE}.bin",
+            "chipdb-size": len(DATA),
+            "chipdb-sha256": hashlib.sha256(DATA).hexdigest(),
             "asset": f"apio-xilinx-chipdb-{BASE}-20260827.bin.tgz",
-            "size": len(DATA),
-            "sha256": hashlib.sha256(DATA).hexdigest(),
-            "tgz_size": 123,
-            "tgz_sha256": "0" * 64,
+            "asset-size": 123,
+            "asset-sha256": "0" * 64,
         }
         info = {
-            "schema": 4,
+            "schema": 5,
             "date": "20260827",
             "release-tag": "2026-08-27",
             "chipdb-id": "fixture-id",
@@ -131,7 +131,8 @@ class PartsIndexTests(unittest.TestCase):
             validate_package_info(index_path, chipdb)
 
     def test_rejects_an_older_schema(self):
-        index_path, chipdb, _ = self.make_index(schema=3)
+        """Schema 4 is the previous field naming (size/tgz_size, apio#947)."""
+        index_path, chipdb, _ = self.make_index(schema=4)
         with self.assertRaisesRegex(ValueError, "schema"):
             validate_package_info(index_path, chipdb)
 
@@ -153,7 +154,7 @@ class PartsIndexTests(unittest.TestCase):
     def test_rejects_speed_grades_that_promise_different_files(self):
         """One file, one promise: a loader dedups by sha256."""
         index_path, chipdb, info = self.make_index()
-        info["parts"][SLOW]["tgz_size"] = 999
+        info["parts"][SLOW]["asset-size"] = 999
         self.rewrite(index_path, info)
         with self.assertRaisesRegex(ValueError, "describe different files"):
             validate_package_info(index_path, chipdb)

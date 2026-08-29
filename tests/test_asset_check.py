@@ -72,14 +72,14 @@ def release(**overrides) -> dict:
     built = {
         "generated": True,
         "chipdb": CHIPDB,
+        "chipdb-size": len(BIN),
+        "chipdb-sha256": hashlib.sha256(BIN).hexdigest(),
         "asset": ASSET,
-        "size": len(BIN),
-        "sha256": hashlib.sha256(BIN).hexdigest(),
-        "tgz_size": len(tgz),
-        "tgz_sha256": hashlib.sha256(tgz).hexdigest(),
+        "asset-size": len(tgz),
+        "asset-sha256": hashlib.sha256(tgz).hexdigest(),
     }
     info = {
-        "schema": 4,
+        "schema": 5,
         "date": DATE,
         "release-tag": TAG,
         "chipdb-id": "fixture-id",
@@ -207,13 +207,18 @@ class AssetCheckTests(unittest.TestCase):
         self.assertIn("asset-check: OK", output)
 
     def test_older_schema_is_legacy_not_a_failure(self):
-        """An index from before this contract is not this gate's business."""
+        """An index from before this contract is not this gate's business.
+
+        Schema 4 is a real one: the releases published with the previous
+        field names (size/tgz_size, renamed in apio#947).
+        """
         files = release()
         files[f"{BASE}/{INDEX}"] = json.dumps(
-            {"date": DATE, "chipdb_id": "x", "parts": []}).encode()
+            {"schema": 4, "date": DATE, "chipdb-id": "x",
+             "parts": {}}).encode()
         code, output = run(files)
         self.assertEqual(code, 0, output)
-        self.assertIn("schema None, not 4", output)
+        self.assertIn("schema 4, not 5", output)
         self.assertIn("legacy release", output)
 
     def test_full_checks_the_hashes_and_the_chipdb_inside(self):
@@ -222,23 +227,23 @@ class AssetCheckTests(unittest.TestCase):
         payload = _tgz(b"other bytes!", CHIPDB)
         info = json.loads(files[f"{BASE}/{INDEX}"])
         for part in PARTS:
-            info["parts"][part]["tgz_size"] = len(payload)
+            info["parts"][part]["asset-size"] = len(payload)
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
         files[f"{BASE}/{ASSET}"] = payload
         code, output = run(files)
         self.assertEqual(code, 0, output)      # size-only pass
         code, output = run(files, "", "1")     # --full
         self.assertEqual(code, 1)
-        self.assertIn("!= index tgz_sha256", output)
+        self.assertIn("!= index asset-sha256", output)
 
     def test_full_rejects_an_asset_without_the_chipdb_at_its_root(self):
         files = release()
         payload = _tgz(BIN, f"chipdb/{CHIPDB}")
         info = json.loads(files[f"{BASE}/{INDEX}"])
         for part in PARTS:
-            info["parts"][part].update(
-                tgz_size=len(payload),
-                tgz_sha256=hashlib.sha256(payload).hexdigest())
+            info["parts"][part].update({
+                "asset-size": len(payload),
+                "asset-sha256": hashlib.sha256(payload).hexdigest()})
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
         files[f"{BASE}/{ASSET}"] = payload
         code, output = run(files, "", "1")
