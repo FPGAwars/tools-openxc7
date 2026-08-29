@@ -13,7 +13,11 @@
 # tag input):
 #
 #   1. re-verify the release the way apio will fetch it
-#      (scripts/asset-check.sh) — a broken candidate stops HERE;
+#      (scripts/asset-check.sh) — a broken candidate stops HERE. By
+#      default that is `--full`: every asset is downloaded and hashed
+#      against what the release promises, ~830 MB and a couple of
+#      minutes on a runner. This is the last gate before users install
+#      it, so it pays them;
 #   2. mark it stable + latest on GitHub (idempotent if already done).
 #
 # Updating apio's remote-config is deliberately NOT automated here: the
@@ -34,6 +38,11 @@ on:
       tag:
         description: "Dated release tag to publish (YYYY-MM-DD)"
         required: true
+      full:
+        description: "Verify the bytes of every asset, not just their sizes (~830 MB)"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -58,7 +67,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ASSET_CHECK_REPO: ${{ github.repository }}
-        run: bash scripts/asset-check.sh "${{ inputs.tag }}"
+        run: |
+          bash scripts/asset-check.sh "${{ inputs.tag }}" \
+            ${{ inputs.full && '--full' || '' }}
 
       - name: Mark the release stable + latest
         env:
@@ -76,7 +87,7 @@ jobs:
             echo "Remote-config is updated BY HAND in the apio repo (apio#927)."
             echo "Suggested local sequence:"
             echo '```'
-            echo "bash scripts/bump-remote-config.sh <apio>/remote-config/apio-1.5.x.jsonc openxc7=${{ inputs.tag }} [definitions=<tag>]"
+            echo "bash scripts/bump-remote-config.sh <apio>/remote-config/apio-1.6.x.jsonc openxc7=${{ inputs.tag }} [definitions=<tag>]"
             echo "# commit + push in the apio clone (or use scripts/create-signed-commit.sh for a Verified commit)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
