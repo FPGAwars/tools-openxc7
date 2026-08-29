@@ -19,8 +19,9 @@
 # so this script also validates the published index and every asset it
 # declares. Several parts (the speed grades of one base part) share an
 # asset, so the assets are checked once each, not once per part. A
-# release without that index predates the model and is reported as
-# legacy, not failed.
+# release whose index is not the one apio reads today -- absent, under
+# the previous name, or an older schema -- predates this contract and is
+# reported as legacy, not failed: it is not what apio installs from.
 #
 # Usage:
 #   scripts/asset-check.sh <tag>                     # existence + SHA256SUMS
@@ -264,7 +265,9 @@ def check_chipdb_release():
         if exc.code != 404:
             raise
         print(f"— {index_asset}: not published (HTTP 404)")
-        print("  legacy release: packages carry the chipdb, no per-FPGA assets")
+        print("  legacy release: no parts index under the name apio resolves"
+              " today, so the on-demand contract this gate checks is not the"
+              " one that release was published under")
         return 0
 
     try:
@@ -277,14 +280,13 @@ def check_chipdb_release():
     # This schema IS the on-demand contract: the index apio's loader reads to
     # find the asset for a board's part, written by the same run that builds
     # the packages (pack/parts_index.py, where SCHEMA is a constant, so a
-    # current run cannot produce an older one). Only releases from before that
-    # model carry an older document, and there the per-FPGA assets are a bonus:
-    # the packages ship the chipdb themselves, so a gap cannot break a user.
-    # Reported, never failed.
+    # current run cannot produce an older one). An older one is a release from
+    # before that contract, and what its assets mean is its own gate's
+    # business, not this one's. Reported, never failed.
     if info.get("schema") != SCHEMA:
         print(f"— {index_asset}: schema {info.get('schema')!r}, not {SCHEMA}")
-        print("  legacy release: packages carry the chipdb, per-FPGA assets are"
-              " not what apio installs from")
+        print("  legacy release: an index older than the contract this gate"
+              " checks, so its assets are not what apio installs from today")
         return 0
 
     try:

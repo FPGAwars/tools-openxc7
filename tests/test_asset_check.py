@@ -196,15 +196,18 @@ class AssetCheckTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("is not the release it was published in", output)
 
-    def test_release_without_a_document_is_legacy_not_a_failure(self):
+    def test_release_without_an_index_is_legacy_not_a_failure(self):
+        """Also how a release from before the rename reads: the index is
+        there, under the previous name, so this one is a 404."""
         code, output = run(release(**{f"{BASE}/{INDEX}": None}))
         self.assertEqual(code, 0, output)
-        self.assertIn("legacy release: packages carry the chipdb", output)
+        self.assertIn("not published (HTTP 404)", output)
+        self.assertIn("legacy release: no parts index under the name apio",
+                      output)
         self.assertIn("asset-check: OK", output)
 
     def test_older_schema_is_legacy_not_a_failure(self):
-        """2026-08-20 publishes the apio#900 document; its packages carry
-        the chipdb, so its per-FPGA assets are not load-bearing."""
+        """An index from before this contract is not this gate's business."""
         files = release()
         files[f"{BASE}/{INDEX}"] = json.dumps(
             {"date": DATE, "chipdb_id": "x", "parts": []}).encode()
