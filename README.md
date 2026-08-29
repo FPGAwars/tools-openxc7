@@ -158,7 +158,7 @@ That last step is also available on its own:
 e2e/run-parts.sh <extracted-package-dir> <workdir> [wine]
 ```
 
-The second layer is the **regression suite**: 21 declarative tests (one
+The second layer is the **regression suite**: 23 declarative tests (one
 folder + `test.json` each) that run real designs through the whole flow on
 every packaged family — primitives, structural properties, a parametric
 congestion pair, and the untouched upstream demo projects — and compare
