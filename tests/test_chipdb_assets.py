@@ -6,8 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pack.chipdb_assets import available_parts, build_assets, release_tag
-from pack.chipdb_info import info_asset_name
+from pack.chipdb_assets import build_assets, database_parts
+from pack.parts_index import index_asset_name, release_tag
 
 
 class ChipdbAssetsTests(unittest.TestCase):
@@ -46,19 +46,37 @@ class ChipdbAssetsTests(unittest.TestCase):
         (self.chipdb / f"{part}.bin").write_bytes(b"chipdb fixture")
         return part, other
 
-    def test_available_parts_collapse_speed_variants(self):
+    def test_database_parts_keep_every_speed_grade(self):
         self.add_database_part("artix7", "xc7a35tcpg236-1")
         self.add_database_part("artix7", "xc7a35tcpg236-2L")
-        self.add_database_part("artix7", "xc7a50tcsg324-1")
         self.add_database_part("spartan7", "xc7s50csga324-1IL")
 
         self.assertEqual(
-            available_parts(self.database),
+            database_parts(self.database),
             {
-                "artix7": ["xc7a35tcpg236", "xc7a50tcsg324"],
-                "spartan7": ["xc7s50csga324"],
+                "xc7a35tcpg236-1": {"family": "artix7",
+                                    "base-part": "xc7a35tcpg236",
+                                    "speed": "1"},
+                "xc7a35tcpg236-2L": {"family": "artix7",
+                                     "base-part": "xc7a35tcpg236",
+                                     "speed": "2L"},
+                "xc7s50csga324-1IL": {"family": "spartan7",
+                                      "base-part": "xc7s50csga324",
+                                      "speed": "1IL"},
             },
         )
+
+    def test_a_die_directory_is_not_a_part(self):
+        """xc7a50t is the die: no speed grade, so nothing apio can build for.
+
+        Today those directories carry no part.yaml of their own, so this is
+        a guard against the database growing one rather than a live case.
+        """
+        self.add_database_part("artix7", "xc7a35tcpg236-1")
+        self.add_database_part("artix7", "xc7a50t")
+
+        self.assertEqual(sorted(database_parts(self.database)),
+                         ["xc7a35tcpg236-1"])
 
     def test_release_tag_is_the_tag_apio_derives_the_date_from(self):
         self.assertEqual(release_tag("20260827"), "2026-08-27")
@@ -68,18 +86,18 @@ class ChipdbAssetsTests(unittest.TestCase):
     def test_published_document_has_the_name_readers_resolve(self):
         """The writer and the reader of the index asset name must agree.
 
-        pack.chipdb_assets writes the file; pack.chipdb_info.info_asset_name
+        pack.chipdb_assets writes the file; pack.parts_index.index_asset_name
         is what scripts/asset-check.sh fetches a release by. The name is a
-        release contract (apio#900), so a divergence must fail here rather
-        than at a release gate.
+        release contract, so a divergence must fail here rather than at a
+        release gate.
         """
         self.fixture()
         info_path = build_assets(
             self.repo, self.chipdb, self.output, "20260827", self.database
         )
-        self.assertEqual(info_path.name, info_asset_name("20260827"))
+        self.assertEqual(info_path.name, index_asset_name("20260827"))
 
-    def test_document_describes_generated_and_available_parts(self):
+    def test_index_describes_every_part_of_the_database(self):
         part, other = self.fixture()
 
         info_path = build_assets(
@@ -87,24 +105,38 @@ class ChipdbAssetsTests(unittest.TestCase):
         )
         info = json.loads(info_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(info["schema"], 3)
+        self.assertEqual(info["schema"], 4)
         self.assertEqual(info["date"], "20260827")
         self.assertEqual(info["release-tag"], "2026-08-27")
         self.assertEqual(info["chipdb-id"], "fixture-id")
-        self.assertEqual(info["generated-count"], 1)
-        self.assertEqual(info["available-count"], 2)
-        self.assertEqual(sorted(info["parts"]), sorted([part, other]))
+        # Two speed grades of the built base part, one of the other.
+        self.assertEqual(info["part-count"], 3)
+        self.assertEqual(info["generated-count"], 2)
+        self.assertEqual(info["chipdb-count"], 1)
+        self.assertEqual(info["base-part-count"], 2)
+        self.assertEqual(sorted(info["parts"]),
+                         sorted([f"{part}-1", f"{part}-2", f"{other}-1"]))
 
-        entry = info["parts"][part]
+        entry = info["parts"][f"{part}-1"]
+        self.assertEqual(list(entry), ["family", "base-part", "speed",
+                                       "generated", "chipdb", "asset",
+                                       "size", "sha256", "tgz_size",
+                                       "tgz_sha256"])
         self.assertTrue(entry["generated"])
         self.assertEqual(entry["family"], "artix7")
+        self.assertEqual(entry["base-part"], part)
+        self.assertEqual(entry["speed"], "1")
+        self.assertEqual(entry["chipdb"], f"{part}.bin")
         self.assertEqual(entry["asset"],
                          f"apio-xilinx-chipdb-{part}-20260827.bin.tgz")
         self.assertEqual(entry["size"], len(b"chipdb fixture"))
-        # A footprint the database supports but this release did not build
+        # The other speed grade points at the very same file and asset.
+        self.assertEqual(info["parts"][f"{part}-2"] | {"speed": "1"}, entry)
+        # A part the database supports but this release did not build
         # carries nothing that would make it look downloadable.
-        self.assertEqual(info["parts"][other],
-                         {"family": "artix7", "generated": False})
+        self.assertEqual(info["parts"][f"{other}-1"],
+                         {"family": "artix7", "base-part": other,
+                          "speed": "1", "generated": False})
 
         asset = self.output / entry["asset"]
         self.assertEqual(asset.stat().st_size, entry["tgz_size"])
@@ -128,8 +160,8 @@ class ChipdbAssetsTests(unittest.TestCase):
         second_output = self.root / "assets2"
         second = build_assets(self.repo, self.chipdb, second_output,
                               "20260828", self.database, cache=cache, jobs=2)
-        old = json.loads(first.read_text())["parts"][part]
-        new = json.loads(second.read_text())["parts"][part]
+        old = json.loads(first.read_text())["parts"][f"{part}-1"]
+        new = json.loads(second.read_text())["parts"][f"{part}-1"]
         self.assertEqual(new["tgz_sha256"], old["tgz_sha256"])
         self.assertEqual(new["asset"],
                          f"apio-xilinx-chipdb-{part}-20260828.bin.tgz")
@@ -144,7 +176,7 @@ class ChipdbAssetsTests(unittest.TestCase):
 
         info_path = build_assets(self.repo, self.chipdb, self.output,
                                  "20260827", self.database, cache=cache)
-        entry = json.loads(info_path.read_text())["parts"][part]
+        entry = json.loads(info_path.read_text())["parts"][f"{part}-1"]
         asset = self.output / entry["asset"]
         with tarfile.open(asset, "r:gz") as archive:   # rebuilt, not copied
             self.assertEqual(archive.getnames(), [f"{part}.bin"])

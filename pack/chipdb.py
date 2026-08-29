@@ -6,7 +6,7 @@ nix/windows/default.nix), guarded by the identity stamp so that bins from
 another toolchain are never reused.
 
 Released packages do not carry those bins any more: apio downloads the
-one the board needs (CHIPDB-INFO.json says which asset carries it) and
+one the board needs (PARTS-INDEX.json says which asset carries it) and
 leaves it in chipdb/, next to the README.txt this module writes. Run as
 a script to write that placeholder into a directory -- the Windows
 package is assembled by CI, not by this packer, and must not grow its
@@ -41,19 +41,20 @@ PLACEHOLDER_TEXT = """\
 This directory is the placeholder for the on-demand chipdb files.
 
 This package does not ship the per-FPGA device databases. Apio downloads
-the one your board needs and leaves it here as <part>.bin.
+the one your board needs and leaves it here.
 
-CHIPDB-INFO.json, at the root of this package, lists every footprint the
-packaged database supports, which of them this release built, the asset
-that carries each one and the size and sha256 it must have on disk. The
-assets are published in the GitHub release named by that file's
-release-tag, as apio-xilinx-chipdb-<part>-<YYYYMMDD>.bin.tgz (a tar.gz
-with <part>.bin at its root).
+PARTS-INDEX.json, at the root of this package, lists every part the
+packaged database supports, which of them this release built, the chipdb
+file each one needs, the asset that carries it and the size and sha256 it
+must have on disk. The assets are published in the GitHub release named
+by that file's release-tag, as
+apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz (a tar.gz with the
+chipdb file at its root).
 
-A .bin is only valid with the package of the SAME release tag: it carries
-the internal ids of the nextpnr it was generated with, and a foreign one
-is rejected at run time ("internal IDs inconsistent with the supplied
-chip database").
+A chipdb file is only valid with the package of the SAME release tag: it
+carries the internal ids of the nextpnr it was generated with, and a
+foreign one is rejected at run time ("internal IDs inconsistent with the
+supplied chip database").
 """
 
 

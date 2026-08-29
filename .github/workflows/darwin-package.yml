@@ -7,7 +7,7 @@
 # not a guard; test.yaml is the per-commit guard).
 #
 # chipdb.yml owns generation, cache, identity, per-FPGA assets and the
-# CHIPDB-INFO document. The package itself ships NO chipdb: apio downloads
+# PARTS-INDEX document. The package itself ships NO chipdb: apio downloads
 # the .bin its board needs (apio#947), so the bins downloaded here are what
 # the L1 and L2 gates validate the package against -- injected into the
 # extracted tarball exactly as apio leaves them.
@@ -53,8 +53,8 @@ on:
         required: false
         default: ""
         type: string
-      chipdb_info:
-        description: "Filename of the dated CHIPDB-INFO document in the chipdb-info artifact"
+      parts_index:
+        description: "Filename of the dated PARTS-INDEX document in the parts-index artifact"
         required: false
         default: ""
         type: string
@@ -102,13 +102,13 @@ jobs:
           name: chipdb-bins
           path: chipdb-bins
 
-      # the document alone: the per-FPGA release assets next to it in
+      # the index alone: the per-FPGA release assets next to it in
       # chipdb-assets are ~500 MB this job has no use for
-      - name: Download the CHIPDB-INFO document
+      - name: Download the PARTS-INDEX document
         uses: actions/download-artifact@v8
         with:
-          name: chipdb-info
-          path: chipdb-info
+          name: parts-index
+          path: parts-index
 
       # Installed BEFORE composing BUILD-INFO: build-info.sh re-exports the
       # yosys-release-tag from the installed package's own BUILD-INFO.json
@@ -151,7 +151,7 @@ jobs:
         id: pack
         env:
           OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
-          OPENXC7_CHIPDB_INFO: ${{ github.workspace }}/chipdb-info/${{ inputs.chipdb_info || needs.chipdb.outputs.info }}
+          OPENXC7_PARTS_INDEX: ${{ github.workspace }}/parts-index/${{ inputs.parts_index || needs.chipdb.outputs.parts_index }}
           OPENXC7_BUILD_INFO: ${{ github.workspace }}/BUILD-INFO.json
         run: |
           rm -rf dist   # stale-dist guard (see linux-package.yml)
@@ -161,7 +161,7 @@ jobs:
           ls -la "$TGZ"
 
       # --chipdb-dir: the package ships no bins, so L1 checks the ones the
-      # release publishes against CHIPDB-INFO.json and injects them into the
+      # release publishes against PARTS-INDEX.json and injects them into the
       # extracted tarball before the E2E -- the tree the user ends up with.
       - name: Validate the package inside the tarball (L1 gate)
         run: |

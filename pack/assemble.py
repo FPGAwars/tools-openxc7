@@ -9,6 +9,7 @@ from pathlib import Path
 import ansi
 
 from .components import copy_file
+from .parts_index import PACKAGE_FILE
 from .platform import plat_token
 
 
@@ -86,15 +87,15 @@ def write_env():
         print(f"🔵 ✅BUILD-INFO.json ({build_info})")
         print()
 
-    # -- The map of the chipdb: which footprints the packaged database
-    # -- supports, which of them this release built, and the asset, size and
-    # -- sha256 of each one. The release publishes it dated; inside every
-    # -- package its name is fixed, so apio locates it without deriving the
-    # -- release date.
-    chipdb_info = os.environ.get("OPENXC7_CHIPDB_INFO")
-    if chipdb_info:
-        shutil.copy(chipdb_info, dst / "CHIPDB-INFO.json")
-        print(f"🔵 ✅CHIPDB-INFO.json ({chipdb_info})")
+    # -- The index of the parts: which ones the packaged database supports,
+    # -- which of them this release built, and the chipdb file, asset, size
+    # -- and sha256 of each one. The release publishes it dated; inside
+    # -- every package its name is fixed, so apio locates it without
+    # -- deriving the release date.
+    parts_index = os.environ.get("OPENXC7_PARTS_INDEX")
+    if parts_index:
+        shutil.copy(parts_index, dst / PACKAGE_FILE)
+        print(f"🔵 ✅{PACKAGE_FILE} ({parts_index})")
         print()
 
 

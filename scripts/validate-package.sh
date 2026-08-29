@@ -19,13 +19,13 @@
 # README.txt and apio downloads the .bin its board needs from the release
 # assets. Validating one therefore needs --chipdb-dir (in CI, the same
 # chipdb-bins artifact the release assets were built from): the bins are
-# checked against CHIPDB-INFO.json and then INJECTED into the extracted
+# checked against PARTS-INDEX.json and then INJECTED into the extracted
 # package, exactly where and how apio leaves them, before the E2E runs. A
 # package that does ship its chipdb (the local full pack) is validated as
 # it stands, with no --chipdb-dir.
 #
 # Checks: package layout, chipdb completeness vs chipdb-parts.json,
-# CHIPDB-INFO.json and its agreement with the bins it describes, feature
+# PARTS-INDEX.json and its agreement with the bins it describes, feature
 # markers inside the packaged nextpnr binary, --version == the rev recorded
 # in nix/, platform extras on darwin (ad-hoc codesign + zero residual
 # /nix/store references), and the multi-part E2E (e2e/run-parts.sh) against
@@ -192,24 +192,24 @@ while read -r family part; do
 done < "$SCRATCH/parts.txt"
 ok "chipdb: all $NPARTS manifest parts present (with their family dbs)"
 
-# --- CHIPDB-INFO.json, and the bins it describes ----------------------------
-INFO="$PKG/CHIPDB-INFO.json"
-[ -f "$INFO" ] || fail "CHIPDB-INFO.json missing from package root"
+# --- PARTS-INDEX.json, and the chipdb files it describes ---------------------
+INDEX="$PKG/PARTS-INDEX.json"
+[ -f "$INDEX" ] || fail "PARTS-INDEX.json missing from package root"
 if PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
-    python3 -m pack.chipdb_info "$INFO" "$CHIPDB_SRC"
+    python3 -m pack.parts_index "$INDEX" "$CHIPDB_SRC"
 then
-    ok "CHIPDB-INFO.json: valid schema, and every bin matches what it records"
+    ok "PARTS-INDEX.json: valid schema, and every chipdb file matches what it records"
 else
-    fail "CHIPDB-INFO.json invalid"
+    fail "PARTS-INDEX.json invalid"
 fi
-# The document names the assets by the release date. If it disagreed with
-# the package, apio would fetch bins from another release (a run crossing
-# midnight UTC is how that happens).
+# The index names the assets by the release date. If it disagreed with
+# the package, apio would fetch chipdb files from another release (a run
+# crossing midnight UTC is how that happens).
 if [ -n "$EXPECT_DATE" ]; then
-    INFO_DATE=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['date'])" "$INFO")
-    [ "$INFO_DATE" = "$EXPECT_DATE" ] \
-        || fail "CHIPDB-INFO.json is dated $INFO_DATE, the package $EXPECT_DATE"
-    ok "CHIPDB-INFO.json dated $EXPECT_DATE, like the package"
+    INDEX_DATE=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['date'])" "$INDEX")
+    [ "$INDEX_DATE" = "$EXPECT_DATE" ] \
+        || fail "PARTS-INDEX.json is dated $INDEX_DATE, the package $EXPECT_DATE"
+    ok "PARTS-INDEX.json dated $EXPECT_DATE, like the package"
 fi
 
 # --- inject the on-demand bins, the way apio does ---------------------------

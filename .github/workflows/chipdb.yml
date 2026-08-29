@@ -8,8 +8,8 @@
 # ONCE here, on a linux runner. The packages ship none of those bins: apio
 # downloads the one the board needs (apio#947), so `chipdb-bins` is what the
 # platform jobs VALIDATE against, and the per-FPGA `chipdb-assets` are what
-# users actually get. `chipdb-info` (~15 kB) carries the document that maps
-# footprints to assets, which is all a platform job embeds.
+# users actually get. `parts-index` (~50 kB) carries the document that maps
+# parts to assets, which is all a platform job embeds.
 #
 # Owns two revision-keyed caches: the bins (a hit makes generation a few
 # minutes; a miss regenerates every part of chipdb-parts.json) and the
@@ -39,9 +39,9 @@ on:
       mode:
         description: "How the bins were obtained in this run: generated | restored-from-cache (recorded in every package's BUILD-INFO)"
         value: ${{ jobs.chipdb.outputs.mode }}
-      info:
-        description: "Filename of the dated CHIPDB-INFO document (schema 3)"
-        value: ${{ jobs.chipdb.outputs.info }}
+      parts_index:
+        description: "Filename of the dated PARTS-INDEX document in the parts-index artifact"
+        value: ${{ jobs.chipdb.outputs.parts_index }}
   workflow_dispatch:
     inputs:
       date:
@@ -60,7 +60,7 @@ jobs:
     outputs:
       identity: ${{ steps.stamp.outputs.identity }}
       mode: ${{ steps.gen.outputs.mode }}
-      info: ${{ steps.assets.outputs.info }}
+      parts_index: ${{ steps.assets.outputs.index }}
     steps:
       - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22
@@ -149,7 +149,7 @@ jobs:
             for f in dist/chipdb/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Build the per-FPGA assets and the CHIPDB-INFO document
+      - name: Build the per-FPGA assets and the PARTS-INDEX document
         id: assets
         env:
           # a pure function of the bins: reused across dates, refreshed when
@@ -163,30 +163,30 @@ jobs:
             dist/chipdb chipdb-assets "${{ steps.d.outputs.dateid }}" \
             dist/share/nextpnr/external/prjxray-db
           echo "assets built in $((SECONDS - START))s"
-          # The published document keeps the index asset name it has had
-          # since apio#900 (it is a release contract); inside every package
-          # it travels as CHIPDB-INFO.json.
-          INFO="apio-xilinx-chipdb-index-${{ steps.d.outputs.dateid }}.json"
-          test -f "chipdb-assets/$INFO"
-          echo "info=$INFO" >> "$GITHUB_OUTPUT"
-          python3 - "chipdb-assets/$INFO" >> "$GITHUB_STEP_SUMMARY" <<'PYEOF'
+          # The published index carries the same name as the file inside
+          # every package, PARTS-INDEX.json (apio#947).
+          INDEX="apio-xilinx-parts-index-${{ steps.d.outputs.dateid }}.json"
+          test -f "chipdb-assets/$INDEX"
+          echo "index=$INDEX" >> "$GITHUB_OUTPUT"
+          python3 - "chipdb-assets/$INDEX" >> "$GITHUB_STEP_SUMMARY" <<'PYEOF'
           import json, sys
           data = json.load(open(sys.argv[1]))
-          print("### chipdb map (CHIPDB-INFO.json)")
+          print("### parts index (PARTS-INDEX.json)")
           print(f"schema: **{data['schema']}** · release-tag: `{data['release-tag']}` "
                 f"· asset: `{sys.argv[1].split('/')[-1]}`")
-          print(f"generated: **{data['generated-count']}** of "
-                f"{data['available-count']} footprints the packaged database supports")
+          print(f"built: **{data['generated-count']}** of {data['part-count']} parts "
+                f"the packaged database supports ({data['base-part-count']} base "
+                f"parts), from **{data['chipdb-count']}** chipdb files")
           print()
-          print("| family | available | generated |")
+          print("| family | parts | built |")
           print("|---|---:|---:|")
           counts = {}
           for entry in data["parts"].values():
               tally = counts.setdefault(entry["family"], [0, 0])
               tally[0] += 1
               tally[1] += 1 if entry["generated"] else 0
-          for family, (available, generated) in counts.items():
-              print(f"| {family} | {available} | {generated} |")
+          for family, (parts, built) in counts.items():
+              print(f"| {family} | {parts} | {built} |")
           PYEOF
 
       # Consumed by the linux, darwin and windows package jobs of this run:
@@ -203,13 +203,13 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      # The document alone (~15 kB), for the three package jobs: they embed it
-      # as CHIPDB-INFO.json and never need the ~500 MB of assets next to it.
-      - name: Publish the CHIPDB-INFO document for the platform jobs
+      # The index alone (~50 kB), for the three package jobs: they embed it
+      # as PARTS-INDEX.json and never need the ~500 MB of assets next to it.
+      - name: Publish the PARTS-INDEX document for the platform jobs
         uses: actions/upload-artifact@v7
         with:
-          name: chipdb-info
-          path: chipdb-assets/apio-xilinx-chipdb-index-*.json
+          name: parts-index
+          path: chipdb-assets/apio-xilinx-parts-index-*.json
           retention-days: 7
           if-no-files-found: error
 

@@ -13,16 +13,18 @@
 #
 # Since the on-demand chipdb (apio#947) that is no longer only the three
 # platform tarballs. The packages ship no device database: apio reads
-# CHIPDB-INFO.json, resolves the asset for the board's FPGA and downloads
+# PARTS-INDEX.json, resolves the asset for the board's part and downloads
 # it from the same release. A missing or truncated per-FPGA asset is a
 # user who cannot build for that board, and the release gate must see it,
-# so this script also validates the published document and every asset it
-# declares. A release without that document predates the model and is
-# reported as legacy, not failed.
+# so this script also validates the published index and every asset it
+# declares. Several parts (the speed grades of one base part) share an
+# asset, so the assets are checked once each, not once per part. A
+# release without that index predates the model and is reported as
+# legacy, not failed.
 #
 # Usage:
 #   scripts/asset-check.sh <tag>                     # existence + SHA256SUMS
-#                                                    # + chipdb document/assets
+#                                                    # + parts index and assets
 #   scripts/asset-check.sh <tag> --expect-dir DIR    # local tarballs must match
 #                                                    # the published SHA256SUMS
 #   scripts/asset-check.sh <tag> --full              # download + hash for real
@@ -60,10 +62,10 @@ repo_root, tag, expect_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 full = sys.argv[4] == "1"
 platforms = sys.argv[5:]
 
-# The document is validated by the SAME code that writes it (one validator,
+# The index is validated by the SAME code that writes it (one validator,
 # used by L1 on a package and here on a release).
 sys.path.insert(0, repo_root)
-from pack.chipdb_info import SCHEMA, info_asset_name, validate_document  # noqa: E402
+from pack.parts_index import SCHEMA, index_asset_name, validate_document  # noqa: E402
 
 repo = os.environ.get("ASSET_CHECK_REPO", "FPGAwars/tools-openxc7")
 date = tag.replace("-", "")
@@ -185,24 +187,30 @@ for platform in platforms:
 
 
 # ---------------------------------------------------------------------------
-# The on-demand chipdb: the document, and every per-FPGA asset it declares.
+# The on-demand chipdb: the parts index, and every per-FPGA asset it names.
 # ---------------------------------------------------------------------------
-def check_chipdb_asset(part, entry):
-    """Verify one per-FPGA asset against what the document promises."""
-    asset = entry["asset"]
+def check_chipdb_asset(asset, entry, parts):
+    """Verify one per-FPGA asset against what the index promises.
+
+    *parts* are the parts served by it — the speed grades of one base
+    part share a file, so one asset answers for several of them.
+    """
+    chipdb = entry["chipdb"]
     url = f"{base}/{asset}"
     status, size = head(url)
     if status != 200:
-        print(f"❌ {asset}: HTTP {status} — declared by the document, not in the release")
-        print(f"   apio WILL 404 for {part}: no board using that FPGA can build.")
+        print(f"❌ {asset}: HTTP {status} — named by the index, not in the release")
+        print(f"   apio WILL 404 for {', '.join(parts)}: no board using that")
+        print("   FPGA can build.")
         failed.append(asset)
         return
     if size != entry["tgz_size"]:
-        print(f"❌ {asset}: {size} bytes published, document says {entry['tgz_size']}")
-        print("   the uploaded asset is NOT the one the document describes")
+        print(f"❌ {asset}: {size} bytes published, index says {entry['tgz_size']}")
+        print("   the uploaded asset is NOT the one the index describes")
         failed.append(asset)
         return
-    line = f"✅ {asset}: HTTP 200 ({size / 1e6:.0f} MB == tgz_size)"
+    line = (f"✅ {asset}: HTTP 200 ({size / 1e6:.0f} MB == tgz_size)"
+            f" · {len(parts)} parts")
 
     if full:
         with tempfile.TemporaryDirectory() as scratch:
@@ -214,16 +222,16 @@ def check_chipdb_asset(part, entry):
                     out.write(chunk)
             if digest.hexdigest() != entry["tgz_sha256"]:
                 print(f"❌ {asset}: downloaded sha256 {digest.hexdigest()[:12]}… "
-                      f"!= document tgz_sha256 {entry['tgz_sha256'][:12]}…")
+                      f"!= index tgz_sha256 {entry['tgz_sha256'][:12]}…")
                 failed.append(asset)
                 return
-            # And what the loader ends up with on disk: the .bin inside.
+            # And what the loader ends up with on disk: the chipdb inside.
             try:
                 with tarfile.open(blob) as archive:
-                    member = archive.getmember(f"{part}.bin")
+                    member = archive.getmember(chipdb)
                     if member.size != entry["size"]:
-                        print(f"❌ {asset}: {part}.bin is {member.size} bytes, "
-                              f"document says {entry['size']}")
+                        print(f"❌ {asset}: {chipdb} is {member.size} bytes, "
+                              f"index says {entry['size']}")
                         failed.append(asset)
                         return
                     inner = hashlib.sha256()
@@ -231,50 +239,50 @@ def check_chipdb_asset(part, entry):
                         for chunk in iter(lambda: source.read(1 << 20), b""):
                             inner.update(chunk)
             except (KeyError, tarfile.TarError) as error:
-                print(f"❌ {asset}: does not carry {part}.bin at its root ({error})")
+                print(f"❌ {asset}: does not carry {chipdb} at its root ({error})")
                 failed.append(asset)
                 return
             if inner.hexdigest() != entry["sha256"]:
-                print(f"❌ {asset}: {part}.bin sha256 {inner.hexdigest()[:12]}… "
-                      f"!= document sha256 {entry['sha256'][:12]}…")
+                print(f"❌ {asset}: {chipdb} sha256 {inner.hexdigest()[:12]}… "
+                      f"!= index sha256 {entry['sha256'][:12]}…")
                 failed.append(asset)
                 return
-        line += f" · sha256 == document · {part}.bin {entry['size']} B verified"
+        line += f" · sha256 == index · {chipdb} {entry['size']} B verified"
     print(line)
 
 
 def check_chipdb_release():
-    """Validate the published document and every asset it declares.
+    """Validate the published parts index and every asset it names.
 
     Returns how many per-FPGA assets were verified (0 on a legacy release).
     """
-    info_asset = info_asset_name(date)
+    index_asset = index_asset_name(date)
     try:
-        with request(f"{base}/{info_asset}") as resp:
+        with request(f"{base}/{index_asset}") as resp:
             raw = resp.read()
     except urllib.error.HTTPError as exc:
         if exc.code != 404:
             raise
-        print(f"— {info_asset}: not published (HTTP 404)")
+        print(f"— {index_asset}: not published (HTTP 404)")
         print("  legacy release: packages carry the chipdb, no per-FPGA assets")
         return 0
 
     try:
         info = json.loads(raw.decode("utf-8"))
     except (ValueError, UnicodeDecodeError) as error:
-        print(f"❌ {info_asset}: not readable as JSON ({error})")
-        failed.append(info_asset)
+        print(f"❌ {index_asset}: not readable as JSON ({error})")
+        failed.append(index_asset)
         return 0
 
-    # Schema 3 IS the on-demand contract: the document apio's loader reads to
-    # find the asset for a board's FPGA, written by the same run that builds
-    # the packages (pack/chipdb_assets.py, where SCHEMA is a constant, so a
+    # This schema IS the on-demand contract: the index apio's loader reads to
+    # find the asset for a board's part, written by the same run that builds
+    # the packages (pack/parts_index.py, where SCHEMA is a constant, so a
     # current run cannot produce an older one). Only releases from before that
     # model carry an older document, and there the per-FPGA assets are a bonus:
     # the packages ship the chipdb themselves, so a gap cannot break a user.
     # Reported, never failed.
     if info.get("schema") != SCHEMA:
-        print(f"— {info_asset}: schema {info.get('schema')!r}, not {SCHEMA}")
+        print(f"— {index_asset}: schema {info.get('schema')!r}, not {SCHEMA}")
         print("  legacy release: packages carry the chipdb, per-FPGA assets are"
               " not what apio installs from")
         return 0
@@ -282,18 +290,26 @@ def check_chipdb_release():
     try:
         generated = validate_document(info, expect_tag=tag)
     except ValueError as error:
-        print(f"❌ {info_asset}: {error}")
-        print("   apio's on-demand loader reads this document: a release whose")
+        print(f"❌ {index_asset}: {error}")
+        print("   apio's on-demand loader reads this index: a release whose")
         print("   map is wrong points every download at the wrong place.")
-        failed.append(info_asset)
+        failed.append(index_asset)
         return 0
 
-    print(f"✅ {info_asset}: HTTP 200 ({len(raw)} B) · schema {info['schema']}"
+    print(f"✅ {index_asset}: HTTP 200 ({len(raw)} B) · schema {info['schema']}"
           f" · release-tag {info['release-tag']} · chipdb-id {info['chipdb-id']}"
-          f" · {info['generated-count']} generated of {info['available-count']}")
+          f" · {info['generated-count']} of {info['part-count']} parts built"
+          f" from {info['chipdb-count']} chipdb files")
+
+    # One request per FILE, not per part: the four speed grades of a base
+    # part name the same asset, and asking for it four times would be ~200
+    # downloads (~3 GB with --full) for the 15 files a release publishes.
+    by_asset = {}
     for part, entry in sorted(generated.items()):
-        check_chipdb_asset(part, entry)
-    return len(generated)
+        by_asset.setdefault(entry["asset"], (entry, []))[1].append(part)
+    for asset, (entry, parts) in sorted(by_asset.items()):
+        check_chipdb_asset(asset, entry, parts)
+    return len(by_asset)
 
 
 checked_chipdb = check_chipdb_release()

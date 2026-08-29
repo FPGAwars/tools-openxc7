@@ -1,5 +1,5 @@
 # Build + validate the Windows package. The flake produces only the tools tree;
-# this workflow adds the on-demand chipdb placeholder and the CHIPDB-INFO
+# this workflow adds the on-demand chipdb placeholder and the PARTS-INDEX
 # document produced once by chipdb.yml, then validates the assembled tarball
 # under Wine against the chipdb-bins artifact of that same job -- injected
 # into the extracted tarball the way apio's loader leaves it. The package
@@ -48,8 +48,8 @@ on:
         required: false
         default: ""
         type: string
-      chipdb_info:
-        description: "Filename of the dated CHIPDB-INFO document in the chipdb-info artifact"
+      parts_index:
+        description: "Filename of the dated PARTS-INDEX document in the parts-index artifact"
         required: false
         default: ""
         type: string
@@ -87,13 +87,13 @@ jobs:
           name: chipdb-bins
           path: chipdb-bins
 
-      # the document alone: the per-FPGA release assets next to it in
+      # the index alone: the per-FPGA release assets next to it in
       # chipdb-assets are ~500 MB this job has no use for
-      - name: Download the CHIPDB-INFO document
+      - name: Download the PARTS-INDEX document
         uses: actions/download-artifact@v8
         with:
-          name: chipdb-info
-          path: chipdb-info
+          name: parts-index
+          path: parts-index
 
       - name: Build the Windows tools tree (flake output)
         run: |
@@ -109,7 +109,7 @@ jobs:
           test -f result-win-tools/bin/xc7pll.cmd
           echo "tools tree shape OK; chipdb absent"
 
-      - name: Assemble a writable package tree (placeholder + CHIPDB-INFO)
+      - name: Assemble a writable package tree (placeholder + PARTS-INDEX)
         run: |
           cp -aL result-win-tools package-win
           chmod -R u+w package-win
@@ -141,12 +141,12 @@ jobs:
             || { echo "::error::chipdb artifact identity differs from caller input"; exit 1; }
           echo "$ACTUAL verified chipdb bins ready for validation (identity $ARTIFACT_ID)"
 
-          # The same document the linux and darwin packages embed, under the
+          # The same index the linux and darwin packages embed, under the
           # stable in-package name; L1 checks those bins against it.
-          INFO="chipdb-info/${{ inputs.chipdb_info || needs.chipdb.outputs.info }}"
-          test -f "$INFO" || { echo "::error::CHIPDB-INFO not in the artifact: $INFO"; exit 1; }
-          cp "$INFO" package-win/CHIPDB-INFO.json
-          echo "embedded $(basename "$INFO") as CHIPDB-INFO.json"
+          INDEX="parts-index/${{ inputs.parts_index || needs.chipdb.outputs.parts_index }}"
+          test -f "$INDEX" || { echo "::error::PARTS-INDEX not in the artifact: $INDEX"; exit 1; }
+          cp "$INDEX" package-win/PARTS-INDEX.json
+          echo "embedded $(basename "$INDEX") as PARTS-INDEX.json"
           df -h . | tail -1
 
       # Installed BEFORE the tar step: build-info.sh re-exports the

@@ -23,9 +23,11 @@ SCRIPT = REPO / "scripts" / "asset-check.sh"
 REPO_SLUG = "fixture/tools-openxc7"
 TAG = "2026-08-28"
 DATE = "20260828"
-PART = "xc7a35tcpg236"
-ASSET = f"apio-xilinx-chipdb-{PART}-{DATE}.bin.tgz"
-INDEX = f"apio-xilinx-chipdb-index-{DATE}.json"
+BASE_PART = "xc7a35tcpg236"
+PARTS = (f"{BASE_PART}-1", f"{BASE_PART}-2L")   # one chipdb file, two parts
+CHIPDB = f"{BASE_PART}.bin"
+ASSET = f"apio-xilinx-chipdb-{BASE_PART}-{DATE}.bin.tgz"
+INDEX = f"apio-xilinx-parts-index-{DATE}.json"
 BASE = f"https://github.com/{REPO_SLUG}/releases/download/{TAG}"
 BIN = b"chipdb bytes"
 
@@ -58,7 +60,7 @@ class FakeResponse(io.BytesIO):
 
 def release(**overrides) -> dict:
     """A healthy on-demand release: three tarballs, SHA256SUMS, one FPGA."""
-    tgz = _tgz(BIN, f"{PART}.bin")
+    tgz = _tgz(BIN, CHIPDB)
     tarballs = {
         f"apio-openxc7-{platform}-{DATE}.tgz": f"{platform} package".encode()
         for platform in ("linux-x86-64", "darwin-arm64", "windows-amd64")
@@ -67,24 +69,29 @@ def release(**overrides) -> dict:
         f"{hashlib.sha256(body).hexdigest()}  {name}\n"
         for name, body in sorted(tarballs.items())
     )
+    built = {
+        "generated": True,
+        "chipdb": CHIPDB,
+        "asset": ASSET,
+        "size": len(BIN),
+        "sha256": hashlib.sha256(BIN).hexdigest(),
+        "tgz_size": len(tgz),
+        "tgz_sha256": hashlib.sha256(tgz).hexdigest(),
+    }
     info = {
-        "schema": 3,
+        "schema": 4,
         "date": DATE,
         "release-tag": TAG,
         "chipdb-id": "fixture-id",
-        "generated-count": 1,
-        "available-count": 1,
+        "part-count": len(PARTS),
+        "generated-count": len(PARTS),
+        "chipdb-count": 1,
+        "base-part-count": 1,
         "note": "fixture",
         "parts": {
-            PART: {
-                "family": "artix7",
-                "generated": True,
-                "asset": ASSET,
-                "size": len(BIN),
-                "sha256": hashlib.sha256(BIN).hexdigest(),
-                "tgz_size": len(tgz),
-                "tgz_sha256": hashlib.sha256(tgz).hexdigest(),
-            },
+            part: {"family": "artix7", "base-part": BASE_PART,
+                   "speed": part.rsplit("-", 1)[1], **built}
+            for part in PARTS
         },
     }
     files = {
@@ -97,10 +104,11 @@ def release(**overrides) -> dict:
     return {url: body for url, body in files.items() if body is not None}
 
 
-def run(files, *args, flaky=0) -> tuple:
+def run(files, *args, flaky=0, calls=None) -> tuple:
     """Run the script's python over *files*; return (exit code, output).
 
-    *flaky* makes the first N calls fail the way a dropped connection does.
+    *flaky* makes the first N calls fail the way a dropped connection does;
+    *calls*, if given, collects every URL the script actually requests.
     """
     source = SCRIPT.read_text().split("<<'PYEOF'", 1)[1].rsplit("PYEOF", 1)[0]
     remaining = [flaky]
@@ -110,6 +118,8 @@ def run(files, *args, flaky=0) -> tuple:
             remaining[0] -= 1
             raise urllib.error.URLError(TimeoutError("timed out"))
         url = request.full_url
+        if calls is not None:
+            calls.append(url)
         if url not in files:
             raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
         return FakeResponse(files[url])
@@ -140,27 +150,40 @@ class AssetCheckTests(unittest.TestCase):
         self.assertIn(f"✅ {ASSET}", output)
         self.assertIn("1 chipdb assets", output)
 
+    def test_one_request_per_asset_not_per_part(self):
+        """The speed grades of a base part share a file: ask for it once.
+
+        A release has ~150 parts and 15 assets; one request per part would
+        be ten times the gate, and ten times the bytes with --full.
+        """
+        calls = []
+        code, output = run(release(), calls=calls)
+        self.assertEqual(code, 0, output)
+        self.assertEqual([url for url in calls if url.endswith(ASSET)],
+                         [f"{BASE}/{ASSET}"])
+        self.assertIn(f"{len(PARTS)} parts", output)
+
     def test_declared_asset_missing_fails_naming_it(self):
         """The failure the gate exists for: an FPGA nobody can build for."""
         code, output = run(release(**{f"{BASE}/{ASSET}": None}))
         self.assertEqual(code, 1)
         self.assertIn(f"❌ {ASSET}: HTTP 404", output)
-        self.assertIn(f"apio WILL 404 for {PART}", output)
+        self.assertIn(f"apio WILL 404 for {', '.join(PARTS)}", output)
         self.assertIn(f"asset-check: FAIL (1: {ASSET})", output)
 
     def test_truncated_asset_fails(self):
         code, output = run(release(**{f"{BASE}/{ASSET}": b"half an upload"}))
         self.assertEqual(code, 1)
-        self.assertIn(f"❌ {ASSET}: 14 bytes published, document says", output)
+        self.assertIn(f"❌ {ASSET}: 14 bytes published, index says", output)
 
     def test_document_counts_must_add_up(self):
         files = release()
         info = json.loads(files[f"{BASE}/{INDEX}"])
-        info["generated-count"] = 2
+        info["generated-count"] = 3
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
         code, output = run(files)
         self.assertEqual(code, 1)
-        self.assertIn("generated-count 2 != 1 generated entries", output)
+        self.assertIn(f"generated-count 3 != {len(PARTS)}", output)
         self.assertIn(f"asset-check: FAIL (1: {INDEX})", output)
 
     def test_document_from_another_release_fails(self):
@@ -187,34 +210,37 @@ class AssetCheckTests(unittest.TestCase):
             {"date": DATE, "chipdb_id": "x", "parts": []}).encode()
         code, output = run(files)
         self.assertEqual(code, 0, output)
-        self.assertIn("schema None, not 3", output)
+        self.assertIn("schema None, not 4", output)
         self.assertIn("legacy release", output)
 
-    def test_full_checks_the_hashes_and_the_bin_inside(self):
+    def test_full_checks_the_hashes_and_the_chipdb_inside(self):
         files = release()
         # Right size, wrong bytes: only --full can see it.
-        payload = _tgz(b"other bytes!", f"{PART}.bin")
+        payload = _tgz(b"other bytes!", CHIPDB)
         info = json.loads(files[f"{BASE}/{INDEX}"])
-        info["parts"][PART]["tgz_size"] = len(payload)
+        for part in PARTS:
+            info["parts"][part]["tgz_size"] = len(payload)
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
         files[f"{BASE}/{ASSET}"] = payload
         code, output = run(files)
         self.assertEqual(code, 0, output)      # size-only pass
         code, output = run(files, "", "1")     # --full
         self.assertEqual(code, 1)
-        self.assertIn("!= document tgz_sha256", output)
+        self.assertIn("!= index tgz_sha256", output)
 
-    def test_full_rejects_an_asset_without_the_bin_at_its_root(self):
+    def test_full_rejects_an_asset_without_the_chipdb_at_its_root(self):
         files = release()
-        payload = _tgz(BIN, f"chipdb/{PART}.bin")
+        payload = _tgz(BIN, f"chipdb/{CHIPDB}")
         info = json.loads(files[f"{BASE}/{INDEX}"])
-        info["parts"][PART].update(
-            tgz_size=len(payload), tgz_sha256=hashlib.sha256(payload).hexdigest())
+        for part in PARTS:
+            info["parts"][part].update(
+                tgz_size=len(payload),
+                tgz_sha256=hashlib.sha256(payload).hexdigest())
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
         files[f"{BASE}/{ASSET}"] = payload
         code, output = run(files, "", "1")
         self.assertEqual(code, 1)
-        self.assertIn(f"does not carry {PART}.bin at its root", output)
+        self.assertIn(f"does not carry {CHIPDB} at its root", output)
 
     def test_a_dropped_connection_is_retried_not_reported_as_missing(self):
         """A flaky link must not read as 'the release is broken' — and on

@@ -18,7 +18,7 @@ using [Nix](https://nixos.org), and publish one Apio package tarball per Apio su
 | `xc7frames2bit`, `bitread`, `xc7patch`    | [Project X-Ray](https://github.com/f4pga/prjxray)    | Frames → bitstream, and bitstream inspection       |
 | `fasm2frames` + the `fasm` Python library | [openXC7 fasm](https://github.com/openxc7/fasm)      | FASM → configuration frames                        |
 | `chipdb/`                                 | built here, downloaded on demand                     | Where apio leaves the per-FPGA device database nextpnr needs |
-| `CHIPDB-INFO.json`                        | built here                                           | Which FPGAs this release built, the asset carrying each one, its size and sha256 |
+| `PARTS-INDEX.json`                        | built here                                           | Which chipdb file each part needs, which of them this release built, and the asset, size and sha256 of each one |
 | `share/nextpnr/external/prjxray-db`       | Project X-Ray database                               | Pin/part data (`part.yaml`, `package_pins.csv`, …) |
 
 Synthesis is **not** part of this package: it comes from `yosys`, shipped by
@@ -90,7 +90,7 @@ generated once and reused:
 | `OPENXC7_CHIPDB_SEED` | Directory of prebuilt `.bin` files to reuse             |
 | `OPENXC7_CHIPDB_JOBS` | Parallel chipdb jobs (memory hungry — raise with care)  |
 | `OPENXC7_NO_CHIPDB`   | `1` packs without the chipdb (same as `--no-chipdb`)    |
-| `OPENXC7_CHIPDB_INFO` | The dated document to embed as `CHIPDB-INFO.json`       |
+| `OPENXC7_PARTS_INDEX` | The dated document to embed as `PARTS-INDEX.json`       |
 
 > **Caveat:** when you change the toolchain revisions, remove `dist/`
 > before packing (`rm -rf dist`). Chipdb files built against a different
@@ -104,14 +104,14 @@ nix build .#packages.x86_64-linux.openxc7-windows-amd64-tools
 ```
 
 The result is deliberately a **tools-only tree** without `chipdb/`. CI adds the
-on-demand placeholder and the `CHIPDB-INFO.json` built by the single `chipdb.yml`
+on-demand placeholder and the `PARTS-INDEX.json` built by the single `chipdb.yml`
 job, then creates the tarball and validates it against that job's bins — the same
 ones the Linux and macOS gates use. To reproduce that assembly locally:
 
 ```bash
 cp -aL result package-win && chmod -R u+w package-win
 python3 -m pack.chipdb package-win/chipdb          # the placeholder README.txt
-cp /path/to/apio-xilinx-chipdb-index-YYYYMMDD.json package-win/CHIPDB-INFO.json
+cp /path/to/apio-xilinx-parts-index-YYYYMMDD.json package-win/PARTS-INDEX.json
 CHIPDB_SOURCE=restored-from-cache CHIPDB_ID="$(cat /path/to/chipdb-bins/chipdb-id.txt)" \
   bash scripts/build-info.sh windows-amd64 YYYY-MM-DD \
   apio-openxc7-windows-amd64-YYYYMMDD.tgz package-win/BUILD-INFO.json
@@ -133,7 +133,7 @@ scripts/validate-package.sh <package.tgz> --chipdb-dir <dir> --parts "xc7a35tcpg
 ```
 
 `--chipdb-dir` is the directory of `.bin` the release publishes as per-FPGA
-assets: the gate checks them against the package's `CHIPDB-INFO.json` and then
+assets: the gate checks them against the package's `PARTS-INDEX.json` and then
 **injects** them into the extracted tarball, exactly where apio's loader leaves
 them, so what is validated is the tree a user ends up with. A package built
 with the chipdb inside needs no such directory.
@@ -142,8 +142,8 @@ It validates the package **inside its tarball** (never the freshly built tree)
 and exits non-zero on any failure:
 
 - the layout, that `chipdb/` holds only the placeholder, and that every part
-  of `chipdb-parts.json` is in `CHIPDB-INFO.json` with the size and sha256 of
-  the bin the release publishes for it;
+  of `chipdb-parts.json` is in `PARTS-INDEX.json` with the size and sha256 of
+  the chipdb file the release publishes for it;
 - feature markers and `--version` inside the *packaged* binary, so a stale
   binary cannot sneak into a release;
 - on macOS, the ad-hoc signature and that no Mach-O load command still points
@@ -185,7 +185,7 @@ single package or for a full release:
 | Workflow | What it does |
 |---|---|
 | `test.yaml` | Per-commit compile test: linux, macos and windows-cross jobs (push/PR guard) |
-| `chipdb.yml` | Owns chipdb generation/cache, identity, the per-FPGA release assets (cached too) and `CHIPDB-INFO.json` |
+| `chipdb.yml` | Owns chipdb generation/cache, identity, the per-FPGA release assets (cached too) and `PARTS-INDEX.json` |
 | `linux-package.yml` | Consumes the chipdb artifacts, then builds + validates `linux-x86-64` |
 | `darwin-package.yml` | Consumes the chipdb artifacts, then builds + validates `darwin-arm64` |
 | `windows-package.yml` | Consumes the chipdb artifacts, then cross-builds + validates `windows-amd64` under wine |
@@ -195,18 +195,23 @@ single package or for a full release:
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,
 their `SHA256SUMS`, one
-`apio-xilinx-chipdb-<part>-<YYYYMMDD>.bin.tgz` per generated FPGA, and
-`apio-xilinx-chipdb-index-<YYYYMMDD>.json`.
+`apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz` per chipdb file it built,
+and `apio-xilinx-parts-index-<YYYYMMDD>.json`.
 
-That last file is the schema-3 document every package also carries at its root
-as `CHIPDB-INFO.json`. It is keyed by footprint and says, for each one, whether
-this release built it and — if it did — the asset that carries it, plus the
-size and sha256 of both the download and the `.bin` that must end up on disk.
-Footprints the packaged prjxray database supports but the release did not build
-are listed with `"generated": false`, so apio can tell "not in this release"
-from "unknown FPGA". Since no package ships a chipdb, that document and the
-per-FPGA assets are the whole contract: each platform's L1 and L2 gates run
-with those very bins injected into the extracted tarball. Old prereleases are
+That last file is the document every package also carries at its root as
+`PARTS-INDEX.json`. It is keyed by the full part number
+(`xc7a200tfbg484-3`: device, package, speed grade) and says, for each one,
+whether this release built it and — if it did — the chipdb file it needs, the
+asset that carries that file, and the size and sha256 of both the download and
+the file that must end up on disk. Which parts share a chipdb file is ours to
+change, so the index names one per part: today the speed grades of a base part
+repeat the same file, and a loader that keeps what is already on disk with the
+right sha256 downloads it once. Parts the packaged prjxray database supports
+but the release did not build are listed with `"generated": false`, so apio can
+tell "not in this release" from "unknown part". Since no package ships a
+chipdb, that index and the per-FPGA assets are the whole contract: each
+platform's L1 and L2 gates run with those very bins injected into the extracted
+tarball. Old prereleases are
 pruned automatically; promoting a candidate to a real release is a deliberate
 one-click human step, and everything after that click is automated.
 

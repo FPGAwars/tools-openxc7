@@ -3,7 +3,7 @@
 # -- Thin CLI shim over the `pack` package. Same invocation as always
 # -- (`python openxc7-pack.py` from the repo root, inside the packaging
 # -- devShell) and same environment variables: OPENXC7_PACK_DATE,
-# -- OPENXC7_CHIPDB_SEED, OPENXC7_CHIPDB_INFO and OPENXC7_CHIPDB_JOBS
+# -- OPENXC7_CHIPDB_SEED, OPENXC7_PARTS_INDEX and OPENXC7_CHIPDB_JOBS
 # -- (PRJXRAY_NO_FILE_LOCK is honored by the util.py locking patch that
 # -- ships inside the package).
 # -- The implementation lives in pack/ (platform, families, relocate,
@@ -38,7 +38,7 @@ CHIPDB_ONLY = "--chipdb-only" in sys.argv[1:]
 
 # -- `--no-chipdb` (or OPENXC7_NO_CHIPDB=1): pack WITHOUT the device
 # -- databases. chipdb/ ships a README.txt and apio downloads the .bin its
-# -- board needs from the release assets, guided by CHIPDB-INFO.json. This
+# -- board needs from the release assets, guided by PARTS-INDEX.json. This
 # -- is what the release packages are; the full variant stays for local
 # -- work and for anyone wanting a self-contained tree.
 NO_CHIPDB = ("--no-chipdb" in sys.argv[1:]

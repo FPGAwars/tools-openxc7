@@ -1,13 +1,16 @@
-"""Per-FPGA chipdb assets and the release information file.
+"""Per-FPGA chipdb assets and the parts index that maps parts to them.
 
-One deterministic ``.bin.tgz`` per generated part, plus the schema-3
-document that describes every footprint the release knows about. That
-document travels twice: as the dated release asset
-``apio-xilinx-chipdb-index-<YYYYMMDD>.json`` and, under the name
-``CHIPDB-INFO.json``, at the root of every platform package -- it is what
-tells apio's on-demand loader which bin to fetch, what it must end up
-with on disk, and which footprints the database knows but this release
-did not build.
+One deterministic ``.bin.tgz`` per chipdb file this release builds, plus
+the document that describes every part the packaged prjxray database
+knows about. That document travels twice: as the dated release asset
+``apio-xilinx-parts-index-<YYYYMMDD>.json`` and, under the name
+``PARTS-INDEX.json``, at the root of every platform package -- it is what
+tells apio's on-demand loader which chipdb file a part needs, which asset
+carries it, what must end up on disk, and which parts the database
+supports but this release did not build.
+
+The format itself (schema, key order, validation) lives in
+``pack.parts_index``.
 """
 
 from __future__ import annotations
@@ -23,21 +26,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .families import family_of
-
-SCHEMA = 3
-
-NOTE = (
-    "Keyed by chipdb footprint, without speed grade. A part with "
-    "generated=true is built for THIS release: download <asset> from the "
-    "release named by release-tag and leave <part>.bin in the package's "
-    "chipdb/ directory. size/sha256 describe that uncompressed .bin (what "
-    "must end up on disk); tgz_size/tgz_sha256 describe the downloaded "
-    "asset, a tar.gz carrying <part>.bin at its root. A part with "
-    "generated=false is a footprint present in the packaged prjxray-db "
-    "that this release did not build -- supported by the database, not "
-    "available for download. Bins are only valid with the openxc7 package "
-    "of the SAME release tag; chipdb-id is the identity stamp of the set."
-)
+from .parts_index import (ENTRY_KEYS, NOTE, SCHEMA, asset_name, chipdb_name,
+                          index_asset_name, release_tag)
 
 # Name of the identity stamp inside a chipdb directory (pack.chipdb owns it;
 # repeated here to keep this module importable on its own).
@@ -51,18 +41,6 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: source.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def asset_name(part: str, date: str) -> str:
-    """Release asset carrying one part's chipdb, for a given date."""
-    return f"apio-xilinx-chipdb-{part}-{date}.bin.tgz"
-
-
-def release_tag(date: str) -> str:
-    """The release tag a YYYYMMDD asset date comes from (apio's rule)."""
-    if len(date) != 8 or not date.isdigit():
-        raise ValueError(f"asset date must be YYYYMMDD: {date!r}")
-    return f"{date[:4]}-{date[4:6]}-{date[6:]}"
 
 
 def deterministic_tgz(source: Path, destination: Path, arcname: str) -> None:
@@ -80,44 +58,48 @@ def deterministic_tgz(source: Path, destination: Path, arcname: str) -> None:
                     archive.addfile(info, data)
 
 
-def available_parts(database: Path) -> dict[str, list[str]]:
-    """Enumerate footprint names represented by the packaged prjxray-db.
+def database_parts(database: Path) -> dict[str, dict]:
+    """Every part the packaged prjxray database has a part.yaml for.
 
-    Database directories include a speed suffix (for example ``-1`` or
-    ``-2L``). Chipdb names are footprints without that suffix, so all speed
-    variants collapse to one name.
+    The directory name IS the part in Vivado's naming
+    (``xc7a200tfbg484-3``): base part plus speed grade. Directories
+    without a speed suffix are the die (``xc7a200t``), not a part, and
+    carry no part.yaml of their own -- they are skipped rather than
+    guessed at. Returns {part: {family, base-part, speed}}, part-sorted.
     """
     if not database.is_dir():
         raise ValueError(f"prjxray-db directory not found: {database}")
 
-    result: dict[str, list[str]] = {}
+    result: dict[str, dict] = {}
     for family_dir in sorted(path for path in database.iterdir()
                              if path.is_dir()):
-        footprints = set()
         for part_yaml in family_dir.glob("*/part.yaml"):
-            speed_part = part_yaml.parent.name
-            if "-" not in speed_part:
-                raise ValueError(f"database part has no speed suffix: {speed_part}")
-            footprint = speed_part.rsplit("-", 1)[0]
-            mapped_family = family_of(footprint)
+            part = part_yaml.parent.name
+            if "-" not in part:
+                continue
+            base_part, speed = part.rsplit("-", 1)
+            mapped_family = family_of(base_part)
             if mapped_family != family_dir.name:
                 raise ValueError(
-                    f"database family mismatch for {footprint}: "
+                    f"database family mismatch for {part}: "
                     f"directory {family_dir.name}, mapping {mapped_family}"
                 )
-            footprints.add(footprint)
-        if footprints:
-            result[family_dir.name] = sorted(footprints)
-    return result
+            result[part] = {
+                "family": family_dir.name,
+                "base-part": base_part,
+                "speed": speed,
+            }
+    return dict(sorted(result.items()))
 
 
 def _cache_is_usable(cache: Path | None, stamp: str) -> bool:
     """True when *cache* holds tgz built from bins of identity *stamp*.
 
-    The tgz of a part is a pure function of its .bin, and the .bin of a
-    stamp is fixed -- so a cache carrying the same stamp can be reused
-    verbatim. A cache from another toolchain revision is ignored (never
-    used, never overwritten silently: it is refreshed below).
+    The tgz of a chipdb file is a pure function of that file, and the
+    files of a stamp are fixed -- so a cache carrying the same stamp can
+    be reused verbatim. A cache from another toolchain revision is
+    ignored (never used, never overwritten silently: it is refreshed
+    below).
     """
     if cache is None or not cache.is_dir():
         return False
@@ -126,15 +108,15 @@ def _cache_is_usable(cache: Path | None, stamp: str) -> bool:
         stamp_file.read_text(encoding="utf-8").strip() == stamp
 
 
-def _one_asset(part: str, family: str, source: Path, destination: Path,
+def _one_asset(base_part: str, source: Path, destination: Path,
                cache: Path | None, reuse: bool) -> dict:
     """Produce one release asset and describe it. Runs in a worker thread."""
-    cached = cache / f"{part}.bin.tgz" if cache is not None else None
+    cached = cache / f"{base_part}.bin.tgz" if cache is not None else None
     if reuse and cached is not None and cached.is_file():
         shutil.copyfile(cached, destination)
         origin = "cache"
     else:
-        deterministic_tgz(source, destination, f"{part}.bin")
+        deterministic_tgz(source, destination, chipdb_name(base_part))
         origin = "built"
         if cache is not None:
             cache.mkdir(parents=True, exist_ok=True)
@@ -142,24 +124,23 @@ def _one_asset(part: str, family: str, source: Path, destination: Path,
     # Always hashed from the bytes that are about to be published: the
     # document never repeats numbers recorded by an earlier run.
     return {
-        "family": family,
-        "generated": True,
+        "chipdb": chipdb_name(base_part),
         "asset": destination.name,
         "size": source.stat().st_size,
         "sha256": sha256(source),
         "tgz_size": destination.stat().st_size,
         "tgz_sha256": sha256(destination),
         "_origin": origin,
-        "_part": part,
+        "_base_part": base_part,
     }
 
 
 def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
                  database: Path, cache: Path | None = None,
                  jobs: int = 1) -> Path:
-    """Build the release assets and the schema-3 chipdb information file.
+    """Build the release assets and the parts index that describes them.
 
-    ``cache`` is an optional directory of date-free ``<part>.bin.tgz``
+    ``cache`` is an optional directory of date-free ``<base-part>.bin.tgz``
     guarded by the identity stamp: compressing 1.1 GB is the expensive
     half of this step and its result only depends on the bins. ``jobs``
     compresses and hashes several parts at once (zlib and hashlib both
@@ -171,7 +152,8 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
 
     manifest = json.loads((repo / "chipdb-parts.json").read_text(
         encoding="utf-8"))
-    inventory = available_parts(database)
+    inventory = database_parts(database)
+    known_base_parts = {entry["base-part"] for entry in inventory.values()}
     output.mkdir(parents=True, exist_ok=True)
     stamp = stamp_file.read_text(encoding="utf-8").strip()
     reuse = _cache_is_usable(cache, stamp)
@@ -179,35 +161,35 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
         print(f"asset cache: {cache} ({'reusable' if reuse else 'cold'})")
 
     wanted = []
-    for declared_family, parts in manifest.items():
-        for part in parts:
-            family = family_of(part)
+    for declared_family, base_parts in manifest.items():
+        for base_part in base_parts:
+            family = family_of(base_part)
             if family != declared_family:
                 raise ValueError(
-                    f"manifest family mismatch for {part}: "
+                    f"manifest family mismatch for {base_part}: "
                     f"declared {declared_family}, mapping {family}"
                 )
-            if part not in inventory.get(family, []):
+            if base_part not in known_base_parts:
                 raise ValueError(
-                    f"manifest part not present in packaged prjxray-db: {part}"
+                    "manifest part not present in packaged prjxray-db: "
+                    f"{base_part}"
                 )
-            source = chipdb / f"{part}.bin"
+            source = chipdb / chipdb_name(base_part)
             if not source.is_file():
                 raise ValueError(f"manifest part without bin: {source}")
-            wanted.append((part, family, source,
-                           output / asset_name(part, date)))
+            wanted.append((base_part, source,
+                           output / asset_name(base_part, date)))
 
     with ThreadPoolExecutor(max_workers=max(jobs, 1)) as pool:
         built = list(pool.map(
-            lambda item: _one_asset(item[0], item[1], item[2], item[3],
-                                    cache, reuse),
+            lambda item: _one_asset(item[0], item[1], item[2], cache, reuse),
             wanted))
 
     generated = {}
     for entry in built:
-        part = entry.pop("_part")
+        base_part = entry.pop("_base_part")
         origin = entry.pop("_origin")
-        generated[part] = entry
+        generated[base_part] = entry
         print(f"  {entry['asset']}  "
               f"({entry['size'] / 1e6:.0f} MB -> "
               f"{entry['tgz_size'] / 1e6:.0f} MB, {origin})")
@@ -217,40 +199,42 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
         cache.mkdir(parents=True, exist_ok=True)
         (cache / STAMP).write_text(stamp + "\n", encoding="utf-8")
 
-    # Families in manifest order first, then whatever else the database
-    # carries; parts sorted inside each family. Insertion order is what a
-    # reader of the JSON sees.
-    ordered_families = list(manifest)
-    ordered_families.extend(
-        family for family in sorted(inventory) if family not in manifest
-    )
-    parts_doc = {}
-    available_count = 0
-    for family in ordered_families:
-        for part in inventory.get(family, []):
-            available_count += 1
-            parts_doc[part] = generated.get(
-                part, {"family": family, "generated": False})
-
-    missing = sorted(set(generated) - set(parts_doc))
+    missing = sorted(set(generated) - known_base_parts)
     if missing:                       # cannot happen: checked against the db
         raise ValueError(f"generated parts absent from the database: {missing}")
+
+    # One entry per part of the database, part-sorted, with the keys of an
+    # entry always in the same order. The speed grades of a base part
+    # repeat its chipdb file, asset and hashes on purpose: which parts
+    # share a file is ours to change, and the index is what hides it.
+    parts_doc = {}
+    for part, meta in inventory.items():
+        entry = dict(meta)
+        entry["generated"] = meta["base-part"] in generated
+        if entry["generated"]:
+            entry.update(generated[meta["base-part"]])
+        parts_doc[part] = {key: entry[key] for key in ENTRY_KEYS
+                           if key in entry}
 
     info = {
         "schema": SCHEMA,
         "date": date,
         "release-tag": release_tag(date),
         "chipdb-id": stamp,
-        "generated-count": len(generated),
-        "available-count": available_count,
+        "part-count": len(parts_doc),
+        "generated-count": sum(1 for entry in parts_doc.values()
+                               if entry["generated"]),
+        "chipdb-count": len(generated),
+        "base-part-count": len(known_base_parts),
         "note": NOTE,
         "parts": parts_doc,
     }
-    info_path = output / f"apio-xilinx-chipdb-index-{date}.json"
+    info_path = output / index_asset_name(date)
     info_path.write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
     print(
-        f"chipdb info: {info_path.name} "
-        f"({len(generated)} generated, {available_count} available, "
+        f"parts index: {info_path.name} "
+        f"({info['generated-count']} of {info['part-count']} parts built, "
+        f"from {info['chipdb-count']} chipdb files, "
         f"chipdb-id {stamp})"
     )
     return info_path

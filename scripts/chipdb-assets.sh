@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
 # chipdb-assets.sh -- build the per-FPGA chipdb release assets and the
-# CHIPDB-INFO document that describes them.
+# PARTS-INDEX document that maps parts to them.
 #
 # The chipdb .bin files are platform-independent, so they are published
 # ONCE per release as individual gzipped assets next to the platform
 # tarballs, and the packages themselves ship none of them: apio downloads
 # the one the board needs (apio#947). What tells apio which asset to fetch
-# and what it must end up with on disk is the document built here:
+# and what it must end up with on disk is the index built here:
 #
-#   apio-xilinx-chipdb-<part>-<YYYYMMDD>.bin.tgz   one per generated part
-#   apio-xilinx-chipdb-index-<YYYYMMDD>.json       the schema-3 document
+#   apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz  one per chipdb file
+#   apio-xilinx-parts-index-<YYYYMMDD>.json            the index itself
 #
-# The same JSON travels at the root of every package as CHIPDB-INFO.json
+# The same JSON travels at the root of every package as PARTS-INDEX.json
 # (fixed name: apio finds it without deriving the release date).
 #
 # Naming and format agreed with the apio maintainer (apio#897/#900): the
@@ -21,11 +21,12 @@
 # <part>.bin at its root (apio reuses its package-archive handling).
 #
 # Every asset carries the tag's date (house rule: a mistagged asset must
-# be impossible to fetch by accident). The document records the sha256 of
-# BOTH the uncompressed bin (what the loader must end up with on disk)
-# and the gzip (what it downloads), plus the chipdb identity stamp, plus
-# every footprint the packaged database supports but this release did not
-# build (so apio can say "not in this release" instead of "unknown part").
+# be impossible to fetch by accident). The index records, per part, the
+# chipdb file it needs and the sha256 of BOTH that file (what the loader
+# must end up with on disk) and the gzip (what it downloads), plus the
+# chipdb identity stamp, plus every part the packaged database supports
+# but this release did not build (so apio can say "not in this release"
+# instead of "unknown part").
 #
 # Usage:
 #   scripts/chipdb-assets.sh <chipdb-dir> <out-dir> <YYYYMMDD> [prjxray-db]
