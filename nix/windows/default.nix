@@ -273,6 +273,5 @@ PYEOF
   ${cmdLauncher "bit2fasm"}
   ${cmdLauncher "xc7pll"}
 
-  echo "windows-amd64" > $out/VERSION.platform
   chmod -R u+w $out
 ''
