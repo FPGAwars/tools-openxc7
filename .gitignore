@@ -11,3 +11,5 @@ bundles/
 
 # Pinned third-party trees, fetched by scripts/fetch-demos.sh (see regress/lock.json)
 regress/external/
+vivado.jou
+vivado.log
