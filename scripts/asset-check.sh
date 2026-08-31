@@ -24,6 +24,12 @@
 # this contract and is reported as legacy, not failed: it is not what
 # apio installs from.
 #
+# SHA256SUMS covers every asset since apio#990 (it used to list only the
+# three packages). Where it and the index both describe an asset, the two
+# documents are required to agree, which is the whole point of writing
+# them from the same bytes in the same job: the hash comparison itself
+# happens once, against the index, and never twice over the same bytes.
+#
 # Usage:
 #   scripts/asset-check.sh <tag>                     # existence + SHA256SUMS
 #                                                    # + parts index and assets
@@ -47,7 +53,7 @@ while [ $# -gt 0 ]; do
         --expect-dir) EXPECT_DIR="$2"; shift 2 ;;
         --full) FULL=1; shift ;;
         --platform) PLATFORMS+=("$2"); shift 2 ;;
-        -h|--help) sed -n '3,35p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '3,42p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         -*) echo "unknown option: $1" >&2; exit 2 ;;
         *) TAG="$1"; shift ;;
     esac
@@ -134,8 +140,22 @@ try:
 except urllib.error.HTTPError:
     print("SHA256SUMS: not published on this release (pre-build-pre-release era)")
 
+# Does this manifest cover the whole release or only the packages? Until
+# apio#990 it listed the three tarballs alone, and requiring the chipdb
+# assets of such a release would fail one that was complete when it was
+# made. Anything that is not a platform package marks the wider manifest.
+covers_everything = any(not name.startswith("apio-openxc7-") for name in sums)
+if sums and not covers_everything:
+    print("   the platform packages only: published before SHA256SUMS "
+          "covered the chipdb assets")
+
+# Every name this run looked at, to catch a manifest line describing an
+# asset the release does not have (checked at the end).
+accounted = set()
+
 for platform in platforms:
     asset = f"apio-openxc7-{platform}-{date}.tgz"
+    accounted.add(asset)
     url = f"{base}/{asset}"
     status, size = head(url)
     if status != 200:
@@ -199,6 +219,7 @@ def check_chipdb_asset(asset, entry, parts):
     part share a file, so one asset answers for several of them.
     """
     chipdb = entry["chipdb"]
+    accounted.add(asset)
     url = f"{base}/{asset}"
     status, size = head(url)
     if status != 200:
@@ -214,6 +235,25 @@ def check_chipdb_asset(asset, entry, parts):
         return
     line = (f"✅ {asset}: HTTP 200 ({size / 1e6:.0f} MB == asset-size)"
             f" · {len(parts)} parts")
+
+    # The two documents of the release describe this asset; they are
+    # written in the same job from the same bytes, so they must agree.
+    # Comparing them costs no download, and it is the whole verification
+    # SHA256SUMS adds here: the bytes themselves are hashed once, below,
+    # against the index.
+    if covers_everything:
+        published = sums.get(asset)
+        if published is None:
+            print(f"❌ {asset}: named by the index, MISSING from SHA256SUMS")
+            failed.append(asset)
+            return
+        if published != entry["asset-sha256"]:
+            print(f"❌ {asset}: SHA256SUMS says {published[:12]}…, the index "
+                  f"says {entry['asset-sha256'][:12]}…")
+            print("   the release's two documents describe different bytes")
+            failed.append(asset)
+            return
+        line += " · sha256 == SHA256SUMS"
 
     if full:
         with tempfile.TemporaryDirectory() as scratch:
@@ -286,6 +326,7 @@ def check_chipdb_release():
               " resolved, so the on-demand contract this gate checks is not"
               " the one that release was published under")
         return 0
+    accounted.add(index_asset)
 
     try:
         info = json.loads(raw.decode("utf-8"))
@@ -315,10 +356,28 @@ def check_chipdb_release():
         failed.append(index_asset)
         return 0
 
-    print(f"✅ {index_asset}: HTTP 200 ({len(raw)} B) · schema {info['schema']}"
-          f" · release-tag {info['release-tag']} · chipdb-id {info['chipdb-id']}"
-          f" · {info['generated-count']} of {info['part-count']} parts built"
-          f" from {info['chipdb-count']} chipdb files")
+    line = (f"✅ {index_asset}: HTTP 200 ({len(raw)} B) ·"
+            f" schema {info['schema']} · release-tag {info['release-tag']}"
+            f" · chipdb-id {info['chipdb-id']} · {info['generated-count']}"
+            f" of {info['part-count']} parts built from"
+            f" {info['chipdb-count']} chipdb files")
+    # These bytes are already here: hashing them is free, and it is the
+    # one asset whose SHA256SUMS line nothing else can vouch for.
+    if covers_everything:
+        published = sums.get(index_asset)
+        digest = hashlib.sha256(raw).hexdigest()
+        if published is None:
+            print(f"❌ {index_asset}: published but MISSING from SHA256SUMS")
+            failed.append(index_asset)
+            return 0
+        if published != digest:
+            print(f"❌ {index_asset}: sha256 {digest[:12]}… != SHA256SUMS "
+                  f"{published[:12]}…")
+            print("   the published index is not the one SHA256SUMS records")
+            failed.append(index_asset)
+            return 0
+        line += " · sha256 == SHA256SUMS"
+    print(line)
 
     # One request per FILE, not per part: the four speed grades of a base
     # part name the same asset, and asking for it four times would be ~200
@@ -333,10 +392,23 @@ def check_chipdb_release():
 
 checked_chipdb = check_chipdb_release()
 
+# The other direction: a manifest line for something this release does not
+# describe -- a leftover from an earlier run, or an asset the index forgot.
+# Only meaningful when the whole release was walked (no --platform filter,
+# and an index this gate could read).
+if covers_everything and checked_chipdb and len(platforms) == 3:
+    extra = sorted(set(sums) - accounted)
+    if extra:
+        print(f"❌ SHA256SUMS lists {len(extra)} asset(s) nothing in this "
+              f"release describes: {', '.join(extra)}")
+        failed.extend(extra)
+
 if failed:
     print(f"\nasset-check: FAIL ({len(failed)}: {', '.join(failed)})")
     sys.exit(1)
 tail = (f" and for the {checked_chipdb} chipdb assets of this release"
         if checked_chipdb else "")
+if checked_chipdb and covers_everything:
+    tail += f"; SHA256SUMS ({len(sums)} entries) agrees with the index"
 print(f"\nasset-check: OK — apio's URL rule resolves for every platform{tail}")
 PYEOF

@@ -194,8 +194,10 @@ single package or for a full release:
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,
-their `SHA256SUMS`, one `apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz`
-per chipdb file it built, and `PARTS-INDEX.json`.
+one `apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz` per chipdb file it
+built, `PARTS-INDEX.json`, and a `SHA256SUMS` covering every one of them
+(written in the publishing job from the bytes it uploads, so it cannot drift
+from the release).
 
 `PARTS-INDEX.json` is published under the same name every package carries it
 at its root: which release it belongs to is written inside it (`release-tag`),

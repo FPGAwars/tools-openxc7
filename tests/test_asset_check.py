@@ -59,6 +59,27 @@ class FakeResponse(io.BytesIO):
         return False
 
 
+def resum(files: dict, promised=None) -> dict:
+    """Rewrite SHA256SUMS over whatever the release publishes right now.
+
+    The real one is written by the publishing job from the bytes it
+    uploads, so it always describes them; a test that changes an asset
+    calls this to keep that true and break only the thing under test.
+
+    *promised* gives the bytes the manifest was written from for an asset
+    whose published bytes differ -- an upload that landed something else
+    after both documents were written, which is exactly what no amount of
+    cross-checking metadata can see and --full can.
+    """
+    published = {url.rsplit("/", 1)[1]: body for url, body in files.items()
+                 if not url.endswith("/SHA256SUMS")}
+    published.update(promised or {})
+    files[f"{BASE}/SHA256SUMS"] = "".join(
+        f"{hashlib.sha256(body).hexdigest()}  {name}\n"
+        for name, body in sorted(published.items())).encode()
+    return files
+
+
 def release(**overrides) -> dict:
     """A healthy on-demand release: three tarballs, SHA256SUMS, one FPGA."""
     tgz = _tgz(BIN, CHIPDB)
@@ -66,10 +87,6 @@ def release(**overrides) -> dict:
         f"apio-openxc7-{platform}-{DATE}.tgz": f"{platform} package".encode()
         for platform in ("linux-x86-64", "darwin-arm64", "windows-amd64")
     }
-    sums = "".join(
-        f"{hashlib.sha256(body).hexdigest()}  {name}\n"
-        for name, body in sorted(tarballs.items())
-    )
     built = {
         "generated": True,
         "chipdb": CHIPDB,
@@ -97,12 +114,14 @@ def release(**overrides) -> dict:
     }
     files = {
         **{f"{BASE}/{name}": body for name, body in tarballs.items()},
-        f"{BASE}/SHA256SUMS": sums.encode(),
         f"{BASE}/{INDEX}": json.dumps(info).encode(),
         f"{BASE}/{ASSET}": tgz,
     }
     files.update(overrides)
-    return {url: body for url, body in files.items() if body is not None}
+    files = {url: body for url, body in files.items() if body is not None}
+    # SHA256SUMS covers every asset of the release (apio#990), so it is
+    # computed from what this release actually publishes.
+    return resum(files)
 
 
 def run(files, *args, flaky=0, calls=None) -> tuple:
@@ -182,7 +201,7 @@ class AssetCheckTests(unittest.TestCase):
         info = json.loads(files[f"{BASE}/{INDEX}"])
         info["generated-count"] = 3
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
-        code, output = run(files)
+        code, output = run(resum(files))
         self.assertEqual(code, 1)
         self.assertIn(f"generated-count 3 != {len(PARTS)}", output)
         self.assertIn(f"asset-check: FAIL (1: {INDEX})", output)
@@ -193,7 +212,7 @@ class AssetCheckTests(unittest.TestCase):
         info = json.loads(files[f"{BASE}/{INDEX}"])
         info.update({"date": "20260827", "release-tag": "2026-08-27"})
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
-        code, output = run(files)
+        code, output = run(resum(files))
         self.assertEqual(code, 1)
         self.assertIn("is not the release it was published in", output)
 
@@ -215,7 +234,7 @@ class AssetCheckTests(unittest.TestCase):
         """
         files = release()
         files[f"{BASE}/{PREVIOUS_INDEX}"] = files.pop(f"{BASE}/{INDEX}")
-        code, output = run(files)
+        code, output = run(resum(files))
         self.assertEqual(code, 0, output)
         self.assertIn(f"✅ {PREVIOUS_INDEX}", output)
         self.assertIn(f"✅ {ASSET}", output)
@@ -238,13 +257,16 @@ class AssetCheckTests(unittest.TestCase):
 
     def test_full_checks_the_hashes_and_the_chipdb_inside(self):
         files = release()
-        # Right size, wrong bytes: only --full can see it.
+        # Right size, wrong bytes, and both documents of the release still
+        # describing the bytes they were written from: only --full can see
+        # it.
         payload = _tgz(b"other bytes!", CHIPDB)
         info = json.loads(files[f"{BASE}/{INDEX}"])
         for part in PARTS:
             info["parts"][part]["asset-size"] = len(payload)
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
         files[f"{BASE}/{ASSET}"] = payload
+        files = resum(files, promised={ASSET: _tgz(BIN, CHIPDB)})
         code, output = run(files)
         self.assertEqual(code, 0, output)      # size-only pass
         code, output = run(files, "", "1")     # --full
@@ -261,7 +283,7 @@ class AssetCheckTests(unittest.TestCase):
                 "asset-sha256": hashlib.sha256(payload).hexdigest()})
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
         files[f"{BASE}/{ASSET}"] = payload
-        code, output = run(files, "", "1")
+        code, output = run(resum(files), "", "1")
         self.assertEqual(code, 1)
         self.assertIn(f"does not carry {CHIPDB} at its root", output)
 
@@ -276,6 +298,68 @@ class AssetCheckTests(unittest.TestCase):
     def test_a_link_that_stays_down_still_fails(self):
         with self.assertRaises(urllib.error.URLError):
             run(release(), flaky=99)
+
+    def test_an_asset_missing_from_sha256sums_fails(self):
+        """SHA256SUMS covers the whole release since apio#990: a chipdb
+        asset it does not list is a manifest that stopped describing the
+        release it travels with."""
+        files = release()
+        lines = files[f"{BASE}/SHA256SUMS"].decode().splitlines(True)
+        files[f"{BASE}/SHA256SUMS"] = "".join(
+            line for line in lines if ASSET not in line).encode()
+        code, output = run(files)
+        self.assertEqual(code, 1)
+        self.assertIn(f"❌ {ASSET}: named by the index, MISSING from "
+                      "SHA256SUMS", output)
+
+    def test_the_two_documents_of_a_release_must_agree(self):
+        """SHA256SUMS and the index are written in the same job from the
+        same bytes; if they disagree, one of them is not this release."""
+        files = release()
+        files[f"{BASE}/SHA256SUMS"] = files[f"{BASE}/SHA256SUMS"].decode(
+            ).replace(hashlib.sha256(_tgz(BIN, CHIPDB)).hexdigest(),
+                      "0" * 64).encode()
+        code, output = run(files)
+        self.assertEqual(code, 1)
+        self.assertIn("the release's two documents describe different bytes",
+                      output)
+
+    def test_a_tampered_index_line_fails(self):
+        """The index is the one asset whose SHA256SUMS line nothing else
+        can vouch for -- and its bytes are downloaded anyway."""
+        files = release()
+        digest = hashlib.sha256(files[f"{BASE}/{INDEX}"]).hexdigest()
+        files[f"{BASE}/SHA256SUMS"] = files[f"{BASE}/SHA256SUMS"].decode(
+            ).replace(digest, "1" * 64).encode()
+        code, output = run(files)
+        self.assertEqual(code, 1)
+        self.assertIn(f"❌ {INDEX}: sha256", output)
+        self.assertIn("not the one SHA256SUMS records", output)
+
+    def test_a_manifest_line_for_nothing_in_the_release_fails(self):
+        """The leftover an incremental publish would produce: a name in
+        SHA256SUMS that neither the packages nor the index describe."""
+        files = release()
+        files[f"{BASE}/SHA256SUMS"] += (
+            f"{'2' * 64}  apio-xilinx-chipdb-xc7a200tfbg484-{DATE}.bin.tgz\n"
+        ).encode()
+        code, output = run(files)
+        self.assertEqual(code, 1)
+        self.assertIn("SHA256SUMS lists 1 asset(s) nothing in this release "
+                      "describes", output)
+
+    def test_a_manifest_of_only_the_packages_is_accepted(self):
+        """How every release up to 2026-08-31 published it. Requiring the
+        chipdb assets there would fail a release that was complete when it
+        was made."""
+        files = release()
+        lines = files[f"{BASE}/SHA256SUMS"].decode().splitlines(True)
+        files[f"{BASE}/SHA256SUMS"] = "".join(
+            line for line in lines if "apio-openxc7-" in line).encode()
+        code, output = run(files)
+        self.assertEqual(code, 0, output)
+        self.assertIn("the platform packages only", output)
+        self.assertIn("asset-check: OK", output)
 
     def test_missing_platform_tarball_still_fails(self):
         gone = f"apio-openxc7-darwin-arm64-{DATE}.tgz"

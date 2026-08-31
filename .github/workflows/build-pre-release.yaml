@@ -200,15 +200,37 @@ jobs:
           GH_TOKEN: ${{ secrets.APIO_PR_TOKEN }}
           DATE: ${{ needs.prepare.outputs.date }}
         run: |
-          ls -la apio-openxc7-*.tgz
-          # every asset must carry the tag's date, or apio 404s at install
+          export LC_ALL=C          # one collation for every listing below
+          ls -la apio-openxc7-*.tgz chipdb-assets/
+          # every asset apio resolves by name must carry the tag's date, or
+          # it 404s at install time
           for f in apio-openxc7-*.tgz; do
             case "$f" in
               *"-${DATE//-/}.tgz") ;;
               *) echo "::error::asset $f is not dated ${DATE//-/}"; exit 1 ;;
             esac
           done
+          for f in chipdb-assets/*.bin.tgz; do
+            case "$f" in
+              *"-${DATE//-/}.bin.tgz") ;;
+              *) echo "::error::asset $f is not dated ${DATE//-/}"; exit 1 ;;
+            esac
+          done
+          # The index is NOT dated: it names its own release inside
+          # (release-tag), and travels under the same name it has at the
+          # root of every package (apio#990).
+          test -f chipdb-assets/PARTS-INDEX.json \
+            || { echo "::error::PARTS-INDEX.json missing from the chipdb assets"; exit 1; }
+
+          # SHA256SUMS covers EVERY asset of the release: the three
+          # packages, the index, and the per-FPGA chipdb assets that carry
+          # what the packages no longer ship (apio#947). Written HERE, in
+          # the job that uploads them, from the very bytes that the upload
+          # below sends — the manifest and the release cannot describe
+          # different bytes. The index promises the same hashes for the
+          # chipdb assets, and asset-check requires the two to agree.
           sha256sum apio-openxc7-*.tgz > SHA256SUMS
+          ( cd chipdb-assets && sha256sum PARTS-INDEX.json *.bin.tgz ) >> SHA256SUMS
           cat SHA256SUMS
           # full BUILD-INFO of each package into the release text
           # (ecosystem convention, apio#927)
@@ -242,6 +264,7 @@ jobs:
           (\`chipdb-size\`, \`chipdb-sha256\`) and the asset that carries it
           (\`asset-size\`, \`asset-sha256\`); it is published here too, under
           that same name — it says which release it belongs to inside itself.
+          \`SHA256SUMS\` covers every asset above.
           Those bins and the packages come from the same chipdb job of this run
           (identity \`${{ needs.chipdb.outputs.identity }}\`,
           ${{ needs.chipdb.outputs.mode }}), and each platform's gates validate
