@@ -31,10 +31,25 @@ PATTERN="${ROOT}ned|${ROOT}ning|re${ROOT}|re${ROOT}ned|un${ROOT}ned"
 
 # -w rather than \b: BSD/macOS regex has no \b in -E, and this must give
 # the same answer on a dev mac and on the CI runner.
-if git grep -n -i -w -E "$PATTERN" -- . ':!README-archived.md' ':!doc'; then
-    echo
-    echo "❌ terminology: the lines above say pad when they mean version."
-    echo "   Use version / tag / revision / \"bump the version\" (apio#924)."
-    exit 1
-fi
-echo "terminology: OK — no pad-vs-version wording in the tree"
+#
+# The exit code is read, not just tested for truth: `git grep` says 1 for
+# "no matches" and 128 for "I could not look" (outside a git repository,
+# which is exactly what a copy of the tree without .git is -- the build
+# server keeps one). An `if` treats both as false, so this check used to
+# report OK on a tree it had not read a single line of.
+STATUS=0
+git grep -n -i -w -E "$PATTERN" -- . ':!README-archived.md' ':!doc' || STATUS=$?
+case $STATUS in
+    0)
+        echo
+        echo "❌ terminology: the lines above say pad when they mean version."
+        echo "   Use version / tag / revision / \"bump the version\" (apio#924)."
+        exit 1
+        ;;
+    1) echo "terminology: OK — no pad-vs-version wording in the tree" ;;
+    *)
+        echo "❌ terminology: git grep failed (exit $STATUS) in $PWD" >&2
+        echo "   nothing was checked. Is this a git repository?" >&2
+        exit 2
+        ;;
+esac

@@ -201,6 +201,21 @@ class TerminologyCheckerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn("terminology: OK", result.stdout)
 
+    def test_a_tree_without_git_is_an_error_not_a_pass(self):
+        """`git grep` says 1 for "no matches" and 128 for "I could not
+        look". Treating both as false reported OK on a tree the check had
+        not read -- and a copy of the repo without .git (the build server
+        keeps one) is exactly that tree.
+        """
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        (Path(temp.name) / "note.md").write_text("nothing to see\n",
+                                                 encoding="utf-8")
+        result = run("check-terminology.sh", temp.name)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("terminology: OK", result.stdout)
+        self.assertIn("nothing was checked", result.stderr)
+
     def test_the_real_tree_is_clean(self):
         result = run("check-terminology.sh")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
