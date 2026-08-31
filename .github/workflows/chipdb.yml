@@ -40,7 +40,7 @@ on:
         description: "How the bins were obtained in this run: generated | restored-from-cache (recorded in every package's BUILD-INFO)"
         value: ${{ jobs.chipdb.outputs.mode }}
       parts_index:
-        description: "Filename of the dated PARTS-INDEX document in the parts-index artifact"
+        description: "Filename of the PARTS-INDEX document in the parts-index artifact"
         value: ${{ jobs.chipdb.outputs.parts_index }}
   workflow_dispatch:
     inputs:
@@ -164,16 +164,18 @@ jobs:
             dist/share/nextpnr/external/prjxray-db
           echo "assets built in $((SECONDS - START))s"
           # The published index carries the same name as the file inside
-          # every package, PARTS-INDEX.json (apio#947).
-          INDEX="apio-xilinx-parts-index-${{ steps.d.outputs.dateid }}.json"
+          # every package, PARTS-INDEX.json: the release it belongs to is
+          # written inside it, so its name does not repeat the date
+          # (apio#990). The per-FPGA assets stay dated.
+          INDEX="PARTS-INDEX.json"
           test -f "chipdb-assets/$INDEX"
           echo "index=$INDEX" >> "$GITHUB_OUTPUT"
           python3 - "chipdb-assets/$INDEX" >> "$GITHUB_STEP_SUMMARY" <<'PYEOF'
           import json, sys
           data = json.load(open(sys.argv[1]))
           print("### parts index (PARTS-INDEX.json)")
-          print(f"schema: **{data['schema']}** · release-tag: `{data['release-tag']}` "
-                f"· asset: `{sys.argv[1].split('/')[-1]}`")
+          print(f"schema: **{data['schema']}** · release-tag: "
+                f"`{data['release-tag']}` · date: `{data['date']}`")
           print(f"built: **{data['generated-count']}** of {data['part-count']} parts "
                 f"the packaged database supports ({data['base-part-count']} base "
                 f"parts), from **{data['chipdb-count']}** chipdb files")
@@ -209,7 +211,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: parts-index
-          path: chipdb-assets/apio-xilinx-parts-index-*.json
+          path: chipdb-assets/PARTS-INDEX.json
           retention-days: 7
           if-no-files-found: error
 

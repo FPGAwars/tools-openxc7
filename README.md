@@ -111,7 +111,7 @@ ones the Linux and macOS gates use. To reproduce that assembly locally:
 ```bash
 cp -aL result package-win && chmod -R u+w package-win
 python3 -m pack.chipdb package-win/chipdb          # the placeholder README.txt
-cp /path/to/apio-xilinx-parts-index-YYYYMMDD.json package-win/PARTS-INDEX.json
+cp /path/to/PARTS-INDEX.json package-win/PARTS-INDEX.json
 CHIPDB_SOURCE=restored-from-cache CHIPDB_ID="$(cat /path/to/chipdb-bins/chipdb-id.txt)" \
   bash scripts/build-info.sh windows-amd64 YYYY-MM-DD \
   apio-openxc7-windows-amd64-YYYYMMDD.tgz package-win/BUILD-INFO.json
@@ -194,12 +194,12 @@ single package or for a full release:
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,
-their `SHA256SUMS`, one
-`apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz` per chipdb file it built,
-and `apio-xilinx-parts-index-<YYYYMMDD>.json`.
+their `SHA256SUMS`, one `apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz`
+per chipdb file it built, and `PARTS-INDEX.json`.
 
-That last file is the document every package also carries at its root as
-`PARTS-INDEX.json`. It is keyed by the full part number
+`PARTS-INDEX.json` is published under the same name every package carries it
+at its root: which release it belongs to is written inside it (`release-tag`),
+so the file name does not repeat the date. It is keyed by the full part number
 (`xc7a200tfbg484-3`: device, package, speed grade) and says, for each one,
 whether this release built it and — if it did — the chipdb file it needs
 (`chipdb`, `chipdb-size`, `chipdb-sha256`: what must end up on disk) and the

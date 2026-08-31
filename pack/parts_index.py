@@ -1,7 +1,7 @@
 """PARTS-INDEX.json: the map from a part number to its chipdb file.
 
 Every package carries this document at its root, and the release
-publishes the same bytes as a dated asset. It is what apio's on-demand
+publishes the same bytes under the same name. It is what apio's on-demand
 loader reads: given the part a board is built for, it says which chipdb
 file that part needs, which release asset carries it and what must end
 up on disk.
@@ -61,16 +61,19 @@ NOTE = (
     "release tag; chipdb-id is the identity stamp of the set."
 )
 
-# Name of the release asset the document itself is published under. It
-# carries the same name as the file inside the package (renamed from
-# apio-xilinx-chipdb-index-<date>.json when the document became an index
-# of parts, apio#947); pack.chipdb_assets writes the file, this is the
-# reader side (scripts/asset-check.sh fetches a release by this name).
-INDEX_ASSET = "apio-xilinx-parts-index-{date}.json"
-
-# Name the document travels under at the root of every package: fixed, so
-# apio finds it without deriving the release date.
+# The one name the document travels under, at the root of every package
+# AND as the release asset: it says which release it belongs to inside
+# itself (release-tag), which is what a reader has to check anyway, so a
+# dated file name only repeated it less reliably. Published this way since
+# apio#990, like SHA256SUMS; pack.chipdb_assets writes the file, and
+# scripts/asset-check.sh fetches a release by this same name.
 PACKAGE_FILE = "PARTS-INDEX.json"
+INDEX_ASSET = PACKAGE_FILE
+
+# The name the asset carried until the 2026-08-31 release. Releases
+# published before the rename are still checked and installed from, and
+# apio's loader looks for both names, so the reader side keeps this one.
+PREVIOUS_INDEX_ASSET = "apio-xilinx-parts-index-{date}.json"
 
 
 def release_tag(date: str) -> str:
@@ -90,10 +93,10 @@ def chipdb_name(base_part: str) -> str:
     return f"{base_part}.bin"
 
 
-def index_asset_name(date: str) -> str:
-    """Release asset carrying this document for a given YYYYMMDD date."""
+def previous_index_asset_name(date: str) -> str:
+    """Name the document was published under before apio#990."""
     release_tag(date)          # rejects a date that is not YYYYMMDD
-    return INDEX_ASSET.format(date=date)
+    return PREVIOUS_INDEX_ASSET.format(date=date)
 
 
 def _sha256(path: Path) -> str:

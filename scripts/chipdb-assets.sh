@@ -10,10 +10,12 @@
 # and what it must end up with on disk is the index built here:
 #
 #   apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz  one per chipdb file
-#   apio-xilinx-parts-index-<YYYYMMDD>.json            the index itself
+#   PARTS-INDEX.json                                   the index itself
 #
-# The same JSON travels at the root of every package as PARTS-INDEX.json
-# (fixed name: apio finds it without deriving the release date).
+# The index keeps that one name everywhere -- as a release asset and at
+# the root of every package -- because the release it belongs to is
+# written inside it (release-tag), which is what a reader checks anyway
+# (apio#990). The per-FPGA assets stay dated: they are opaque payloads.
 #
 # Naming and format agreed with the apio maintainer (apio#897/#900): the
 # apio-xilinx-chipdb- prefix groups after the three platform packages in

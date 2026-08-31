@@ -19,9 +19,10 @@
 # so this script also validates the published index and every asset it
 # declares. Several parts (the speed grades of one base part) share an
 # asset, so the assets are checked once each, not once per part. A
-# release whose index is not the one apio reads today -- absent, under
-# the previous name, or an older schema -- predates this contract and is
-# reported as legacy, not failed: it is not what apio installs from.
+# release whose index is not the one apio reads today -- absent under
+# either name it has been published with, or an older schema -- predates
+# this contract and is reported as legacy, not failed: it is not what
+# apio installs from.
 #
 # Usage:
 #   scripts/asset-check.sh <tag>                     # existence + SHA256SUMS
@@ -66,7 +67,8 @@ platforms = sys.argv[5:]
 # The index is validated by the SAME code that writes it (one validator,
 # used by L1 on a package and here on a release).
 sys.path.insert(0, repo_root)
-from pack.parts_index import SCHEMA, index_asset_name, validate_document  # noqa: E402
+from pack.parts_index import (INDEX_ASSET, SCHEMA,  # noqa: E402
+                              previous_index_asset_name, validate_document)
 
 repo = os.environ.get("ASSET_CHECK_REPO", "FPGAwars/tools-openxc7")
 date = tag.replace("-", "")
@@ -253,22 +255,36 @@ def check_chipdb_asset(asset, entry, parts):
     print(line)
 
 
+def fetch_index():
+    """The published index document: (asset name, bytes), or (None, None).
+
+    Published as PARTS-INDEX.json since apio#990 -- the name it also has
+    inside every package, because which release it belongs to is written
+    in the document, not in its file name. Releases up to 2026-08-31 carry
+    it under the dated name; apio's loader accepts both, so this gate
+    reads both rather than calling those releases legacy.
+    """
+    for asset in (INDEX_ASSET, previous_index_asset_name(date)):
+        try:
+            with request(f"{base}/{asset}") as resp:
+                return asset, resp.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+    return None, None
+
+
 def check_chipdb_release():
     """Validate the published parts index and every asset it names.
 
     Returns how many per-FPGA assets were verified (0 on a legacy release).
     """
-    index_asset = index_asset_name(date)
-    try:
-        with request(f"{base}/{index_asset}") as resp:
-            raw = resp.read()
-    except urllib.error.HTTPError as exc:
-        if exc.code != 404:
-            raise
-        print(f"— {index_asset}: not published (HTTP 404)")
-        print("  legacy release: no parts index under the name apio resolves"
-              " today, so the on-demand contract this gate checks is not the"
-              " one that release was published under")
+    index_asset, raw = fetch_index()
+    if index_asset is None:
+        print(f"— {INDEX_ASSET}: not published (HTTP 404)")
+        print("  legacy release: no parts index under either name apio has"
+              " resolved, so the on-demand contract this gate checks is not"
+              " the one that release was published under")
         return 0
 
     try:

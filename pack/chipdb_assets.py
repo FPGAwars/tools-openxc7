@@ -2,12 +2,11 @@
 
 One deterministic ``.bin.tgz`` per chipdb file this release builds, plus
 the document that describes every part the packaged prjxray database
-knows about. That document travels twice: as the dated release asset
-``apio-xilinx-parts-index-<YYYYMMDD>.json`` and, under the name
-``PARTS-INDEX.json``, at the root of every platform package -- it is what
-tells apio's on-demand loader which chipdb file a part needs, which asset
-carries it, what must end up on disk, and which parts the database
-supports but this release did not build.
+knows about. That document travels twice under one name,
+``PARTS-INDEX.json``: as a release asset and at the root of every
+platform package -- it is what tells apio's on-demand loader which chipdb
+file a part needs, which asset carries it, what must end up on disk, and
+which parts the database supports but this release did not build.
 
 The format itself (schema, key order, validation) lives in
 ``pack.parts_index``.
@@ -26,8 +25,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .families import family_of
-from .parts_index import (ENTRY_KEYS, NOTE, SCHEMA, asset_name, chipdb_name,
-                          index_asset_name, release_tag)
+from .parts_index import (ENTRY_KEYS, INDEX_ASSET, NOTE, SCHEMA, asset_name,
+                          chipdb_name, release_tag)
 
 # Name of the identity stamp inside a chipdb directory (pack.chipdb owns it;
 # repeated here to keep this module importable on its own).
@@ -229,7 +228,7 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
         "note": NOTE,
         "parts": parts_doc,
     }
-    info_path = output / index_asset_name(date)
+    info_path = output / INDEX_ASSET
     info_path.write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
     print(
         f"parts index: {info_path.name} "

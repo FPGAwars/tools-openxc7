@@ -12,7 +12,8 @@ from unittest import mock
 
 from pack.assemble import write_env
 from pack.chipdb import write_placeholder
-from pack.parts_index import (index_asset_name, validate_document,
+from pack.parts_index import (INDEX_ASSET, PACKAGE_FILE,
+                              previous_index_asset_name, validate_document,
                               validate_package_info)
 
 BASE = "xc7a35tcpg236"
@@ -205,11 +206,24 @@ class PartsIndexTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not the release"):
             validate_document(info, "2026-08-28")
 
-    def test_index_asset_name_follows_the_release_date(self):
-        self.assertEqual(index_asset_name("20260827"),
+    def test_the_asset_and_the_file_in_the_package_are_one_name(self):
+        """No date in the name: the document names its own release.
+
+        Publishing it as PARTS-INDEX.json (apio#990) is what lets a reader
+        ask for the index of a release without deriving a date first, and
+        what makes "the asset and the file in the package are the same
+        bytes" a comparison of two files with the same name.
+        """
+        self.assertEqual(INDEX_ASSET, "PARTS-INDEX.json")
+        self.assertEqual(INDEX_ASSET, PACKAGE_FILE)
+
+    def test_the_previous_asset_name_is_still_resolvable(self):
+        """Releases up to 2026-08-31 published it dated, and are still
+        installed from: a reader must be able to name that file too."""
+        self.assertEqual(previous_index_asset_name("20260827"),
                          "apio-xilinx-parts-index-20260827.json")
         with self.assertRaises(ValueError):
-            index_asset_name("2026-08-27")
+            previous_index_asset_name("2026-08-27")
 
 
 if __name__ == "__main__":
