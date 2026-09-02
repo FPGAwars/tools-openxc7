@@ -22,7 +22,7 @@ Two things only this test (with `demo-arty`) covers:
 
 If a toolchain change breaks the demos the openXC7 community actually
 starts from, our property tests may all pass while every newcomer's first
-`make` fails. The sources are **pinned** in `regress/lock.json` (tree
+`make` fails. The sources are **locked by revision** in `regress/lock.json` (tree
 fetched by `scripts/fetch-demos.sh` into `regress/external/`, never
 committed); an unfetched tree reports SKIP with the fetch command — the
 suite still runs everywhere without GitHub access (bit0 gets the tree by

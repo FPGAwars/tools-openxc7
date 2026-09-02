@@ -59,9 +59,10 @@ class TestSpec:
     # Per-STEP wall-clock limit in seconds. Hangs are a real failure class
     # (the HeAP legalise loop); a hanging test must fail, not freeze CI.
     timeout: int = 900
-    # A referenced file under regress/external/ that is not there (the pinned
-    # third-party trees are fetched, not committed). The suite reports the
-    # test as SKIP with the fetch command instead of failing everyone's run.
+    # A referenced file under regress/external/ that is not there (third-party
+    # trees are fetched at their locked revision, not committed). The suite
+    # reports the test as SKIP with the fetch command instead of failing
+    # everyone's run.
     missing_external: Path | None = None
 
     @property

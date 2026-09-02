@@ -14,7 +14,7 @@ scripts/regress.sh <package> --tier 1 --markdown report.md
 scripts/regress.sh <package> --update-baseline  # record new reference values
 ```
 
-Needs `yosys` on PATH, from the oss-cad-suite pinned in `lock.json` — the same
+Needs `yosys` on PATH, from the oss-cad-suite version recorded in `lock.json` — the same
 one apio installs, so the numbers describe what users actually get.
 
 ## Adding a test
@@ -95,7 +95,10 @@ silently does nothing.
 That is what makes a test portable across every part in the manifest — the
 constraints come from the prjxray database, so no test carries board-specific
 pin assignments. Designs differ in their *internals*, never in their pinout,
-and each funnels its state into `led` so nothing can be optimised away.
+and each funnels its state into `led` so nothing can be optimised away. The
+board tests are the deliberate exception: `demo-*` and `sonata-blinky` bring
+their board's own XDC and run on that board's part only, because there the
+pinout *is* what is being tested.
 
 **2. Baselines are per platform, never compared across platforms.**
 Measured fact: each nextpnr binary is deterministic run to run, but placement
@@ -120,11 +123,13 @@ design. A big opaque design would buy realism at the cost of diagnosis — when
 | Group | Tests |
 |---|---|
 | Primitives | `carry64`, `bram`, `dsp48`, `widemux`, `srl`, `srl-cascade`, `srl-cascade-deep`, `lutram`, `pll`, `tristate` |
-| Structural properties | `hier` (never flattened), `constant` (constant straight to a pad, run across every part), `fanout` (one driver, 256 loads) |
+| Structural properties | `hier` (never flattened), `constant` (constant straight to a pad, run across every part), `fanout` (one driver, 256 loads), `carry-const-di` (a CARRY4 whose DI inputs are constant GND while a mid-chain CO fans out to the fabric — the packing class Hans Baier bisected to PR #105, graduated to a positive test at the 2026-08-11 revision bump; its tight timeout stays as a hang-class guard) |
 | Behaviour parity | `vclk` (a virtual clock must warn, not crash, and still report timing) |
-| Known gaps, on the record | *(none right now — `srl-cascade` graduated to a positive test when the `xc7-srl-cascade-packing` patch closed the gap it recorded)* |
+| Clock entry | `sonata-blinky`: a board clock arriving on a *left*-bank clock-capable pad (P15 of the lowRISC Sonata ONE) and reaching a BUFG. Every other board test clocks from a pad whose dedicated path stays clear of `HCLK_IOI3`, where prjxray's coverage runs out; a P&R that routes through those unfuzzed pips emits a feature `fasm2frames` cannot look up, and this is the test that says so |
+| Family coverage | `spartan7-blinky` (a 24-bit counter on `xc7s50csga324`, the Arty S7-50 part — ours, because upstream's spartan7 demos are DDR3/litex projects rather than smoke material) and `demo-zybo` (the untouched upstream Zybo Z7-10 blinky on `xc7z010clg400`, the PL-only zynq flow). Each is the first design of its family through the toolchain, so the family's chipdb, prjxray-db and fasm feature names run at all |
+| Known gaps, on the record | `demo-genesys2` (tagged `xfail`): the Genesys2 blinky routes, then `fasm2frames` rejects the kintex7 RIOB18 differential-input features (`IBUFDS_BANK_GLUE`, `SSTL*.IN_DIFF`, `*.IN_ONLY`) — never fuzzed in the prjxray database. Kintex-7 left the manifest on 2026-08-05 over exactly that, so today the test fails earlier still (no chipdb for the part). It is the tripwire that trips when the whole chain finally works: then it PASSES, the guard fires, and the family can come back. (`srl-cascade` was the other one and graduated to a positive test when the `xc7-srl-cascade-packing` patch closed its gap.) |
 | Scale | the `congestion-local` / `congestion-scatter` pair: ~60% utilisation with routing locality as the ONLY knob (same design, different `STRIDE`), so a regression separates "router under contention" from "everything got slower" |
-| Third-party sanity | `demo-arty`, `demo-basys3`: the openXC7/demo-projects blinkies untouched (their Verilog, their board `LOC` XDCs), pinned in `lock.json` and fetched by `scripts/fetch-demos.sh` — absent tree reports SKIP, never a gate |
+| Third-party sanity | `demo-arty`, `demo-basys3` (and `demo-zybo`, `demo-genesys2` above): the openXC7/demo-projects blinkies untouched (their Verilog, their board `LOC` XDCs), locked by revision in `lock.json` and fetched by `scripts/fetch-demos.sh` — absent tree reports SKIP, never a gate |
 
 ## What is compared
 

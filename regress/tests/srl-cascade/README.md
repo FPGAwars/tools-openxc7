@@ -15,9 +15,9 @@ SLICEM with `.SRL` on all four LUTs and the three cascade features
 **This never worked before the `xc7-srl-cascade-packing` patch** (found
 2026-08-04 by this suite's first SRL coverage, fixed the same day):
 
-- the July pin (27727428) died at pack/arch level:
+- the July revision (27727428) died at pack/arch level:
   `No wire found for port Q31`;
-- the a9badf1d pin mapped Q31→MC31, so packing succeeded — but nothing
+- the a9badf1d revision mapped Q31→MC31, so packing succeeded — but nothing
   constrained the chain, HeAP scattered it across rows, and router2
   correctly reported the cascade arc unroutable
   (`... C6LUT_MC31 -> ... ADI1MUX_OUT`);

@@ -7,10 +7,16 @@
 #   linux    x86_64-linux    ubuntu-22.04  nextpnr-xilinx / prjxray / fasm
 #   macos    aarch64-darwin  macos-14      nextpnr-xilinx / prjxray / fasm
 #   windows  mingw cross     ubuntu-22.04  nextpnr.exe / prjxray .exe tools
-#                                          (passthru outputs — WITHOUT the
-#                                          chipdb generation, which is hours
-#                                          of bbaexport and belongs to the
-#                                          nightly build-pre-release)
+#                                          (passthru outputs of the tools
+#                                          tree — the chipdb is generated
+#                                          once by chipdb.yml and injected
+#                                          into the package by CI)
+#
+# Plus `static`: everything that needs no toolchain at all (unit tests, shell
+# syntax, the workflow graph, the terminology rule). It runs in a minute next
+# to the three builds, and it covers the failures that used to be found in a
+# release run — an input a reusable workflow does not accept, an artifact name
+# nobody uploads: Actions treats both as empty rather than as errors.
 #
 # Go/nogo: a green job IS the report (no step summaries). The full package
 # assembly + L1/L2 validation runs in build-pre-release nightly.
@@ -92,11 +98,50 @@ jobs:
           summarize: false          # no branded gantt/Discord footer
           diagnostic-endpoint: ""   # no telemetry
 
-      # The passthru outputs compile the shipped .exe binaries without
-      # forcing the chipdb (nightly territory). Same one-step-per-culprit
-      # layout as the native jobs.
+      # The tools output and its passthru attributes never depend on chipdb.
+      # Keep the one-step-per-culprit layout used by the native jobs.
       - name: Build nextpnr-xilinx.exe (mingw)
-        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64.nextpnr
+        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64-tools.nextpnr
 
       - name: Build prjxray tools .exe (mingw)
-        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64.prjxray
+        run: nix build -L .#packages.x86_64-linux.openxc7-windows-amd64-tools.prjxray
+
+  static:
+    name: static (no toolchain)
+    # Not the ecosystem's ubuntu-22.04: nothing here is built or linked, so
+    # this job wants the fastest runner rather than a matching one.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # An interpreter of our own: the runner's system python is externally
+      # managed (PEP 668) and refuses pip install.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The only dependencies of this job. Fixed versions: a checker that
+      # changes behaviour on its own is a checker nobody trusts.
+      - name: Install the test and YAML tooling
+        run: python3 -m pip install --quiet pytest==8.3.4 pyyaml==6.0.2
+
+      - name: Unit tests (pack/, the packer's rules, the release gate)
+        run: python3 -m pytest tests/ -q
+
+      - name: Shell syntax
+        run: bash -n scripts/*.sh e2e/*.sh
+
+      # An input a called workflow does not declare is IGNORED by Actions,
+      # and needs.<job>.outputs.<typo> evaluates to the empty string: both
+      # surface hours into a release build, or not at all.
+      - name: Workflow interfaces (inputs and outputs)
+        run: scripts/check-workflows.py
+
+      # A download whose name nothing uploads finds nothing and fails later
+      # with a missing file (the seed_from_artifact rename, 2026-08).
+      - name: Artifact producers and consumers
+        run: scripts/check-artifacts.py
+
+      # apio#924: the pad-vs-version wording rule.
+      - name: Terminology
+        run: scripts/check-terminology.sh

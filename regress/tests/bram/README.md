@@ -40,7 +40,7 @@ signal that inference failed and the memory was built out of LUTs instead.
   before touching the expectation.
 - **`fasm2frames` rejects a feature** — the interesting failure. It means
   nextpnr emitted a BRAM feature that the packaged prjxray database does not
-  know, which usually points at a pin bump where the database and the router
+  know, which usually points at a version bump where the database and the router
   disagree.
 - **LUT count explodes** — same as the first case, seen from the metrics
   side: the memory was implemented in fabric.

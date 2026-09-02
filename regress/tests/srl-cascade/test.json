@@ -1,7 +1,7 @@
 {
   "description": "128-deep shift register: four SRLC32Es chained through the in-slice MC31 cascade",
   "exercises": ["SRL Q31/MC31 cascade", "packer cascade clustering into one SLICEM", "DI1MUX fasm features"],
-  "why": "this NEVER worked before the xc7-srl-cascade-packing patch: the old pin died at pack ('No wire found for port Q31'), the a9badf1d pin scattered the chain and the MC31 arc was unroutable. This test is the guard that the fix stays fixed.",
+  "why": "this NEVER worked before the xc7-srl-cascade-packing patch: the old revision died at pack ('No wire found for port Q31'), the a9badf1d revision scattered the chain and the MC31 arc was unroutable. This test is the guard that the fix stays fixed.",
   "tags": ["primitive", "slicem"],
   "top": "srl_cascade",
   "parameters": { "DEPTH": 128 },

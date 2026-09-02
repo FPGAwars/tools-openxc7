@@ -9,16 +9,27 @@
 #
 # Options:
 #   --wine                 the package is windows-amd64; run it under wine64
+#   --chipdb-dir DIR       directory of chipdb .bin the package does not ship
 #   --parts "<p1 p2 ...>"  restrict the E2E to these parts (E2E_PARTS)
 #   --expect-date YYYYMMDD assert the package is dated with this id
 #   --skip-e2e             layout/marker/version checks only (fast)
 #   --keep                 keep the scratch directory for inspection
 #
-# Checks: package layout, chipdb completeness vs chipdb-parts.json, feature
-# markers inside the packaged nextpnr binary, --version == the rev recorded in
-# nix/, platform extras on darwin (ad-hoc codesign + zero residual /nix/store
-# references), and the multi-part E2E (e2e/run-parts.sh) against the
-# extracted package.
+# A released package ships NO chipdb: chipdb/ holds only the placeholder
+# README.txt and apio downloads the .bin its board needs from the release
+# assets. Validating one therefore needs --chipdb-dir (in CI, the same
+# chipdb-bins artifact the release assets were built from): the bins are
+# checked against PARTS-INDEX.json and then INJECTED into the extracted
+# package, exactly where and how apio leaves them, before the E2E runs. A
+# package that does ship its chipdb (the local full pack) is validated as
+# it stands, with no --chipdb-dir.
+#
+# Checks: package layout, chipdb completeness vs chipdb-parts.json,
+# PARTS-INDEX.json and its agreement with the bins it describes, feature
+# markers inside the packaged nextpnr binary, --version == the rev recorded
+# in nix/, platform extras on darwin (ad-hoc codesign + zero residual
+# /nix/store references), and the multi-part E2E (e2e/run-parts.sh) against
+# the extracted package.
 #
 # Requirements: yosys + python3 on PATH for the E2E (per the reproducibility
 # norm, from the required oss-cad-suite version); wine64 on PATH for --wine.
@@ -33,21 +44,26 @@ fail() { printf '%s❌ %s%s\n' "$RED" "$*" "$RESET" >&2; exit 1; }
 ok()   { printf '%s✅ %s%s\n' "$GREEN" "$*" "$RESET"; }
 note() { printf '%s—  %s%s\n' "$YELLOW" "$*" "$RESET"; }
 
-PKG_IN="" WINE=0 PARTS="" EXPECT_DATE="" KEEP=0 SKIP_E2E=0
+PKG_IN="" WINE=0 PARTS="" EXPECT_DATE="" KEEP=0 SKIP_E2E=0 CHIPDB_DIR=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --wine) WINE=1 ;;
+        --chipdb-dir) CHIPDB_DIR="$2"; shift ;;
         --parts) PARTS="$2"; shift ;;
         --expect-date) EXPECT_DATE="$2"; shift ;;
         --skip-e2e) SKIP_E2E=1 ;;
         --keep) KEEP=1 ;;
-        -h|--help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         -*) fail "unknown option: $1" ;;
         *) [ -z "$PKG_IN" ] && PKG_IN="$1" || fail "unexpected argument: $1" ;;
     esac
     shift
 done
-[ -n "$PKG_IN" ] || fail "usage: validate-package.sh <package.tgz|dir> [--wine] [--parts \"...\"]"
+[ -n "$PKG_IN" ] || fail "usage: validate-package.sh <package.tgz|dir> [--wine] [--chipdb-dir DIR] [--parts \"...\"]"
+if [ -n "$CHIPDB_DIR" ]; then
+    [ -d "$CHIPDB_DIR" ] || fail "no such chipdb directory: $CHIPDB_DIR"
+    CHIPDB_DIR=$(cd "$CHIPDB_DIR" && pwd)
+fi
 
 SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/openxc7-validate.XXXXXX")
 cleanup() {
@@ -68,6 +84,36 @@ else
     PKG="$SCRATCH/pkg"
     if command -v sha256sum >/dev/null 2>&1; then sha256sum "$TARBALL"
     else shasum -a 256 "$TARBALL"; fi
+fi
+
+# --- chipdb: shipped with the package, or downloaded on demand? -------------
+# A released package carries only chipdb/README.txt: apio downloads the .bin
+# its board needs from the release assets. Everything that needs a real
+# chipdb -- the E2E below, the regression suite, the user -- gets it from
+# --chipdb-dir, injected here exactly where apio leaves it.
+ON_DEMAND=0
+if [ -z "$(find "$PKG/chipdb" -maxdepth 1 -name '*.bin' -print -quit 2>/dev/null)" ]; then
+    ON_DEMAND=1
+fi
+if [ "$ON_DEMAND" = 1 ]; then
+    [ -f "$PKG/chipdb/README.txt" ] \
+        || fail "chipdb/ has neither bins nor the on-demand README.txt placeholder"
+    STRAY=$(cd "$PKG/chipdb" && ls -A | grep -vx 'README.txt' | tr '\n' ' ' || true)
+    [ -z "$STRAY" ] || fail "chipdb/ must hold README.txt only, it also has: $STRAY"
+    [ -n "$CHIPDB_DIR" ] \
+        || fail "this package ships no chipdb: pass --chipdb-dir <dir with the release bins>"
+    note "on-demand chipdb: chipdb/ holds only README.txt; bins from $CHIPDB_DIR"
+    if [ -z "$TARBALL" ]; then
+        # A directory the caller owns: validate a copy of it, so the
+        # injection never leaves 1.1 GB of bins in someone else's tree.
+        cp -a "$PKG" "$SCRATCH/pkg"
+        PKG="$SCRATCH/pkg"
+        note "directory package copied into the scratch tree before injection"
+    fi
+    CHIPDB_SRC="$CHIPDB_DIR"
+else
+    [ -z "$CHIPDB_DIR" ] || note "--chipdb-dir ignored: this package ships its own chipdb"
+    CHIPDB_SRC="$PKG/chipdb"
 fi
 
 # --- identify the package platform -----------------------------------------
@@ -138,13 +184,41 @@ PYEOF
 [ -s "$SCRATCH/parts.txt" ] || fail "empty part list from chipdb-parts.json"
 NPARTS=0
 while read -r family part; do
-    [ -f "$PKG/chipdb/$part.bin" ] || fail "chipdb missing: chipdb/$part.bin"
+    [ -f "$CHIPDB_SRC/$part.bin" ] || fail "chipdb missing: $CHIPDB_SRC/$part.bin"
     # each family's prjxray-db must travel with its parts (fasm2frames needs
-    # the segbits + part.yaml of that family)
+    # the segbits + part.yaml of that family), on-demand chipdb or not
     [ -d "$PKG/share/nextpnr/external/prjxray-db/$family" ]         || fail "prjxray-db missing for family: $family"
     NPARTS=$((NPARTS + 1))
 done < "$SCRATCH/parts.txt"
 ok "chipdb: all $NPARTS manifest parts present (with their family dbs)"
+
+# --- PARTS-INDEX.json, and the chipdb files it describes ---------------------
+INDEX="$PKG/PARTS-INDEX.json"
+[ -f "$INDEX" ] || fail "PARTS-INDEX.json missing from package root"
+if PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 -m pack.parts_index "$INDEX" "$CHIPDB_SRC"
+then
+    ok "PARTS-INDEX.json: valid schema, and every chipdb file matches what it records"
+else
+    fail "PARTS-INDEX.json invalid"
+fi
+# The index names the assets by the release date. If it disagreed with
+# the package, apio would fetch chipdb files from another release (a run
+# crossing midnight UTC is how that happens).
+if [ -n "$EXPECT_DATE" ]; then
+    INDEX_DATE=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['date'])" "$INDEX")
+    [ "$INDEX_DATE" = "$EXPECT_DATE" ] \
+        || fail "PARTS-INDEX.json is dated $INDEX_DATE, the package $EXPECT_DATE"
+    ok "PARTS-INDEX.json dated $EXPECT_DATE, like the package"
+fi
+
+# --- inject the on-demand bins, the way apio does ---------------------------
+if [ "$ON_DEMAND" = 1 ]; then
+    cp "$CHIPDB_SRC"/*.bin "$PKG/chipdb/"
+    INJECTED=$(find "$PKG/chipdb" -maxdepth 1 -name '*.bin' | wc -l | tr -d ' ')
+    [ "$INJECTED" = "$NPARTS" ] || fail "injected $INJECTED bins, expected $NPARTS"
+    ok "chipdb injected: $INJECTED bins in chipdb/, where apio leaves them"
+fi
 
 # --- bundled tools ----------------------------------------------------------
 if [ "$PLAT" = "windows-amd64" ]; then

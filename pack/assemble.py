@@ -1,4 +1,4 @@
-"""Final assembly: dist/ tree init, env/VERSION files and the tarball."""
+"""Final assembly: dist/ tree init, the metadata files and the tarball."""
 
 import os
 import shutil
@@ -9,6 +9,7 @@ from pathlib import Path
 import ansi
 
 from .components import copy_file
+from .parts_index import PACKAGE_FILE
 from .platform import plat_token
 
 
@@ -86,6 +87,17 @@ def write_env():
         print(f"🔵 ✅BUILD-INFO.json ({build_info})")
         print()
 
+    # -- The index of the parts: which ones the packaged database supports,
+    # -- which of them this release built, and the chipdb file, asset, size
+    # -- and sha256 of each one. The release publishes it dated; inside
+    # -- every package its name is fixed, so apio locates it without
+    # -- deriving the release date.
+    parts_index = os.environ.get("OPENXC7_PARTS_INDEX")
+    if parts_index:
+        shutil.copy(parts_index, dst / PACKAGE_FILE)
+        print(f"🔵 ✅{PACKAGE_FILE} ({parts_index})")
+        print()
+
 
 # -----------------------------------
 # -- Return the current date in
@@ -96,8 +108,9 @@ def write_env():
 def get_date() -> str:
 
     # -- Allow fixing the date from outside (CI) so that the package name
-    # -- and the VERSION match the release tag on every runner. Accepts
-    # -- YYYYMMDD or YYYY-MM-DD. Without the variable -> today's date.
+    # -- matches the release tag on every runner (apio derives the date it
+    # -- downloads from the TAG). Accepts YYYYMMDD or YYYY-MM-DD. Without
+    # -- the variable -> today's date.
     override = os.environ.get("OPENXC7_PACK_DATE")
     if override:
         return override.replace("-", "")
@@ -110,29 +123,6 @@ def get_date() -> str:
     # %d = 2-digit day of the month (e.g. 26)
     date = now.strftime("%Y%m%d")
 
-    return date
-
-
-# --------------------------------------------------
-# -- Generate the file with the version, which is
-# -- copied into the distribution
-# -- Returns the text with the version
-# --------------------------------------------------
-def write_version() -> str:
-    print(f"{ansi.GREEN}──────────────────────────────────")
-    print("  GENERANDO LA VERSION")
-    print(f"{ansi.GREEN}──────────────────────────────────")
-    print(ansi.DEFAULT, end='', flush=True)
-    print()
-
-    date = get_date()
-    version_file = Path("dist/VERSION")
-    version_file.write_text(date, encoding="utf-8")
-    print(f"🏷️  Version: {date}")
-    print(f"🔵 Fichero: ✅{version_file.name}")
-    print()
-
-    # -- Return string with the version
     return date
 
 

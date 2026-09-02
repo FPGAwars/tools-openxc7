@@ -419,7 +419,7 @@ def run_phase3_fasm():
             print(msg)
 
         # -- libuuid.so.1 (util-linux-minimal). The version is fixed by the
-        # -- pinned nixpkgs -> do not hardcode it: look for the *-lib
+        # -- the nixpkgs revision is fixed -> do not hardcode it: look for the *-lib
         # -- output that actually contains the library. (The 2.40.4
         # -- hardcode worked by accident: it was provided by CI's own nix
         # -- installer, not by the devShell.)

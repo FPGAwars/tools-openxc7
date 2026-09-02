@@ -1,12 +1,27 @@
-# Reproducible build + validation of the Windows package, fully in CI (the
-# ubuntu runner has github access, so the flake's fetchFromGitHub works here).
-# Builds the flake output, tars it with the date, validates the toolchain under
-# wine end-to-end (yosys synth -> nextpnr-xilinx.exe -> fasm2frames -> bit) and
-# uploads the .tgz artifact. See nix/windows/.
+# Build + validate the Windows package. The flake produces only the tools tree;
+# this workflow adds the on-demand chipdb placeholder and the PARTS-INDEX
+# document produced once by chipdb.yml, then validates the assembled tarball
+# under Wine against the chipdb-bins artifact of that same job -- injected
+# into the extracted tarball the way apio's loader leaves it. The package
+# itself carries no chipdb (apio#947). See nix/windows/.
 name: windows-package
 
 on:
   workflow_dispatch:
+    inputs:
+      date:
+        description: "Package date YYYY-MM-DD (default: today, UTC)"
+        required: false
+      run_chipdb:
+        description: "Prepare the chipdb inputs before the package build"
+        required: false
+        default: true
+        type: boolean
+      regenerate_chipdb:
+        description: "Ignore the chipdb cache and generate every part from scratch"
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       date:
@@ -18,15 +33,44 @@ on:
         required: false
         default: ""
         type: string
+      run_chipdb:
+        description: "Prepare chipdb inputs in this workflow (standalone use)"
+        required: false
+        default: false
+        type: boolean
       chipdb_id:
-        description: "chipdb identity stamp from the chipdb job (the pre-release job asserts the nix-built bins are byte-identical to it); recorded in BUILD-INFO"
+        description: "Expected chipdb identity stamp from the chipdb job; checked against the downloaded bins"
+        required: false
+        default: ""
+        type: string
+      chipdb_source:
+        description: "How the chipdb job obtained the bins (generated | restored-from-cache); recorded in BUILD-INFO"
+        required: false
+        default: ""
+        type: string
+      parts_index:
+        description: "Filename of the dated PARTS-INDEX document in the parts-index artifact"
         required: false
         default: ""
         type: string
 
 jobs:
+  # A release caller already ran chipdb.yml and its artifacts belong to the
+  # same run. A standalone dispatch creates them here first.
+  chipdb:
+    name: prepare chipdb inputs (standalone dispatch)
+    if: inputs.run_chipdb
+    uses: ./.github/workflows/chipdb.yml
+    with:
+      date: ${{ inputs.date }}
+      # dispatch-only input: null in a workflow_call run, and the
+      # reusable workflow declares it boolean
+      regenerate: ${{ inputs.regenerate_chipdb || false }}
+
   build:
     name: build + validate windows-amd64 (cross from linux)
+    needs: chipdb
+    if: ${{ always() && (needs.chipdb.result == 'success' || needs.chipdb.result == 'skipped') }}
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - uses: actions/checkout@v7
@@ -35,21 +79,75 @@ jobs:
           summarize: false          # no branded gantt/Discord footer
           diagnostic-endpoint: ""   # no telemetry
 
-      - name: Build the Windows package tree (flake output)
+      # Not packaged: this is what the gates check the package against,
+      # and what they inject into it the way apio's loader does.
+      - name: Download the verified chipdb bins
+        uses: actions/download-artifact@v8
+        with:
+          name: chipdb-bins
+          path: chipdb-bins
+
+      # the index alone: the per-FPGA release assets next to it in
+      # chipdb-assets are ~500 MB this job has no use for
+      - name: Download the PARTS-INDEX document
+        uses: actions/download-artifact@v8
+        with:
+          name: parts-index
+          path: parts-index
+
+      - name: Build the Windows tools tree (flake output)
         run: |
           nix build -L \
-            '.#packages.x86_64-linux.openxc7-windows-amd64' --out-link result-win
-          echo "=== tree ==="; find result-win/ -maxdepth 2 | sort
-          echo "=== bin ==="; ls -la result-win/bin
-          echo "=== site-packages ==="; ls result-win/lib/python3.12/site-packages
-          echo "=== chipdb (every part of every chipdb-parts.json family must ship) ==="
-          # a separate step so a jq failure cannot pass vacuously
+            '.#packages.x86_64-linux.openxc7-windows-amd64-tools' --out-link result-win-tools
+          test ! -e result-win-tools/chipdb
+          test -f result-win-tools/bin/nextpnr-xilinx.exe
+          test -f result-win-tools/bin/xc7frames2bit.exe
+          test -f result-win-tools/bin/libpython3.11.dll
+          test -f result-win-tools/lib/python3.11/os.py
+          test -f result-win-tools/lib/python3.12/site-packages/fasm/__init__.py
+          test -f result-win-tools/share/nextpnr/external/prjxray-db/artix7/settings.sh
+          test -f result-win-tools/bin/xc7pll.cmd
+          echo "tools tree shape OK; chipdb absent"
+
+      - name: Assemble a writable package tree (placeholder + PARTS-INDEX)
+        run: |
+          cp -aL result-win-tools package-win
+          chmod -R u+w package-win
+
+          # chipdb/ is the on-demand placeholder, written by the same module
+          # the linux and darwin packer uses -- one source for that text.
+          python3 -m pack.chipdb package-win/chipdb
+          test -f package-win/chipdb/README.txt
+
+          # The bins are not packaged, but the artifact must still be the
+          # right one: exactly the manifest parts, with the identity the
+          # caller declared. L1 and L2 validate the package against them.
           jq -r 'to_entries[] | .value[]' chipdb-parts.json > /tmp/chipdb-parts.txt
           test -s /tmp/chipdb-parts.txt
           while read -r p; do
-            test -f "result-win/chipdb/$p.bin" || { echo "MISSING $p.bin"; exit 1; }
-            ls -la "result-win/chipdb/$p.bin"
+            test -f "chipdb-bins/$p.bin" || { echo "::error::chipdb artifact missing $p.bin"; exit 1; }
           done < /tmp/chipdb-parts.txt
+          for f in chipdb-bins/*.bin; do
+            grep -Fxq "$(basename "$f" .bin)" /tmp/chipdb-parts.txt \
+              || { echo "::error::unexpected chipdb artifact member: $f"; exit 1; }
+          done
+          EXPECTED=$(wc -l < /tmp/chipdb-parts.txt)
+          ACTUAL=$(find chipdb-bins -maxdepth 1 -type f -name '*.bin' | wc -l)
+          [ "$ACTUAL" -eq "$EXPECTED" ] || { echo "::error::chipdb artifact has $ACTUAL bins, expected $EXPECTED"; exit 1; }
+          test -s chipdb-bins/chipdb-id.txt
+          ARTIFACT_ID=$(cat chipdb-bins/chipdb-id.txt)
+          DECLARED_ID="${{ inputs.chipdb_id }}"
+          [ -z "$DECLARED_ID" ] || [ "$DECLARED_ID" = "$ARTIFACT_ID" ] \
+            || { echo "::error::chipdb artifact identity differs from caller input"; exit 1; }
+          echo "$ACTUAL verified chipdb bins ready for validation (identity $ARTIFACT_ID)"
+
+          # The same index the linux and darwin packages embed, under the
+          # stable in-package name; L1 checks those bins against it.
+          INDEX="parts-index/${{ inputs.parts_index || needs.chipdb.outputs.parts_index }}"
+          test -f "$INDEX" || { echo "::error::PARTS-INDEX not in the artifact: $INDEX"; exit 1; }
+          cp "$INDEX" package-win/PARTS-INDEX.json
+          echo "embedded $(basename "$INDEX") as PARTS-INDEX.json"
+          df -h . | tail -1
 
       # Installed BEFORE the tar step: build-info.sh re-exports the
       # yosys-release-tag from the installed package's own BUILD-INFO.json
@@ -81,29 +179,32 @@ jobs:
           DATE="${{ inputs.date }}"
           [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
           NAME="apio-openxc7-windows-amd64-${DATE//-/}.tgz"
-          # ecosystem convention: BUILD-INFO.json at the package root.
-          # chipdb provenance: the Windows bins are always built in this
-          # run by the nix derivation (no CI cache on this path); the
-          # pre-release job asserts they are byte-identical to the chipdb
-          # job's, so its identity stamp describes them too.
+          # provenance comes from the job that produced the bins: the
+          # caller's input, or the chipdb job this workflow chained itself
+          CHIPDB_SOURCE_IN="${{ inputs.chipdb_source || needs.chipdb.outputs.mode }}"
+          # the identity is read back from the bins this package is
+          # validated against (it no longer ships any)
+          ARTIFACT_ID=$(cat chipdb-bins/chipdb-id.txt)
           YOSYS_RELEASE_TAG="${{ inputs.yosys_release_tag }}" \
-          CHIPDB_SOURCE=generated CHIPDB_ID="${{ inputs.chipdb_id }}" \
-            bash scripts/build-info.sh windows-amd64 "$DATE" "$NAME" BUILD-INFO.json
+          CHIPDB_SOURCE="$CHIPDB_SOURCE_IN" CHIPDB_ID="$ARTIFACT_ID" \
+            bash scripts/build-info.sh windows-amd64 "$DATE" "$NAME" package-win/BUILD-INFO.json
           # --mode=u+w: the nix store tree is read-only; without it Windows
           # extracts the files with the READONLY attribute and apio cannot
           # delete/reinstall the package (PermissionError on --force/upgrade)
-          tar czhf "$NAME" --mode=u+w -C result-win . -C "$PWD" BUILD-INFO.json
+          tar czhf "$NAME" --mode=u+w -C package-win .
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           ls -la "$NAME"
 
       - name: Smoke — run the .exe under wine + import the python tools
         run: |
+          # shellcheck disable=SC2016 # variables expand in the inner Bash
           nix shell --inputs-from . nixpkgs#wine64 nixpkgs#python312 -c bash -euo pipefail -c '
             export WINEPREFIX="$PWD/.wine" WINEDEBUG=-all
-            wine64 result-win/bin/nextpnr-xilinx.exe --help | head -3
-            wine64 result-win/bin/xc7frames2bit.exe --help 2>&1 | head -2 || true
+            wine64 package-win/bin/nextpnr-xilinx.exe --help | head -3
+            wine64 package-win/bin/xc7frames2bit.exe --help 2>&1 | head -2 || true
             echo "=== import fasm (pure-python textX fallback) ==="
-            PYTHONPATH=result-win/lib/python3.12/site-packages \
+            PYTHONPATH=package-win/lib/python3.12/site-packages \
               python3 -c "import fasm, prjxray; print(\"fasm/prjxray import OK\")"
             echo "=== same imports under a WINDOWS python (the real apio path) ==="
             # on real Windows fasm2frames runs with the oss-cad-suite Windows
@@ -116,7 +217,7 @@ jobs:
             [ -z "$WINPY" ] && WINPY=$(nix build --print-out-paths --no-link \
               --inputs-from . "nixpkgs#pkgsCross.mingwW64.python311" 2>/dev/null | head -1 || true)
             if [ -n "$WINPY" ] && [ -x "$WINPY/bin/python3.exe" ]; then
-              wine64 "$WINPY/bin/python3.exe" -c "import sys; sys.path.insert(0, \"result-win/lib/python3.12/site-packages\"); import prjxray.util, prjxray.fasm_assembler, fasm; print(\"windows-python imports OK\")"
+              wine64 "$WINPY/bin/python3.exe" -c "import sys; sys.path.insert(0, \"package-win/lib/python3.12/site-packages\"); import prjxray.util, prjxray.fasm_assembler, fasm; print(\"windows-python imports OK\")"
             else
               echo "WARNING: mingw python not found; windows-python import check skipped"
             fi
@@ -124,9 +225,10 @@ jobs:
 
       - name: E2E — synth (yosys) -> nextpnr.exe -> fasm2frames -> xc7frames2bit.exe
         run: |
+          # shellcheck disable=SC2016 # variables expand in the inner Bash
           nix shell --inputs-from . nixpkgs#wine64 nixpkgs#yosys nixpkgs#python312 -c bash -euo pipefail -c '
             export WINEPREFIX="$PWD/.wine" WINEDEBUG=-all
-            PKG=result-win
+            PKG=package-win
             DB=$PKG/share/nextpnr/external/prjxray-db/artix7
             mkdir -p run && cd run
             yosys -q -p "synth_xilinx -arch xc7 -top ledon; write_json ledon.json" ../example/ledon.v
@@ -139,11 +241,12 @@ jobs:
               "Path(os.environ[\"ENV_BUILD_PATH\"], \"hardware.pnr\").write_text(json.dumps(rep))" \
               "print(\"POST_ROUTE_OK types=\", len(rep[\"utilization\"]))" > report.py
             export ENV_BUILD_PATH="$PWD"
-            wine64 ../$PKG/bin/nextpnr-xilinx.exe --chipdb ../$PKG/chipdb/xc7a35tcpg236.bin \
+            wine64 ../$PKG/bin/nextpnr-xilinx.exe --chipdb ../chipdb-bins/xc7a35tcpg236.bin \
               --xdc ../config/basys3.xdc --json ledon.json --fasm ledon.fasm \
               --post-route report.py --router router2
             test -f hardware.pnr \
               && echo "✅ parity: embedded python ran --post-route -> apio report works"
+            grep -v "^\s*#" ledon.fasm | sed "/^\s*$/d" | sort > ledon.fasm.canon
             # fasm2frames exactly like apio on real Windows: the WINDOWS
             # python + a shell redirect (catches POSIX-isms like /dev/stdout)
             WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)
@@ -167,6 +270,21 @@ jobs:
             ls -la ledon.bit && echo "✅ E2E: bitstream generated by the Windows toolchain"
           '
 
+      - name: Validate the assembled tarball under Wine (L1 gate)
+        run: |
+          # shellcheck disable=SC2016 # variables expand in the inner Bash
+          nix shell --inputs-from . nixpkgs#wine64 -c bash -euo pipefail -c '
+            export WINEPREFIX="$PWD/.wine" WINEDEBUG=-all
+            export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
+            E2E_WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)
+            [ -n "$E2E_WINPY" ] && [ -x "$E2E_WINPY/bin/python3.exe" ] \
+              || { echo "mingw Python required for the Windows package gate"; exit 1; }
+            export E2E_WINPY
+            bash scripts/validate-package.sh "${{ steps.tar.outputs.name }}" --wine \
+              --chipdb-dir chipdb-bins \
+              --expect-date "${{ steps.tar.outputs.dateid }}"
+          '
+
       # The exe-parity design checks that used to live inline here (virtual
       # clock warns + fmax getter, hierarchical merge_nets, wide-mux clock
       # table) are the regression tests vclk, hier and widemux — the L2 run
@@ -178,10 +296,14 @@ jobs:
 
       - name: Regression suite against the tarball under wine (L2 gate)
         run: |
+          # shellcheck disable=SC2016 # variables expand in the inner Bash
           nix shell --inputs-from . nixpkgs#wine64 -c bash -euo pipefail -c '
             export WINEPREFIX="$PWD/.wine" WINEDEBUG=-all
             export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
+            E2E_WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)
+            [ -n "$E2E_WINPY" ] && export E2E_WINPY
             bash scripts/regress.sh "${{ steps.tar.outputs.name }}" \
+              --chipdb-dir chipdb-bins \
               --json regress-report.json --markdown regress-report.md
           '
 

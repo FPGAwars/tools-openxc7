@@ -13,8 +13,14 @@
 # tag input):
 #
 #   1. re-verify the release the way apio will fetch it
-#      (scripts/asset-check.sh) — a broken candidate stops HERE;
-#   2. mark it stable + latest on GitHub (idempotent if already done).
+#      (scripts/asset-check.sh) — a broken candidate stops HERE. By
+#      default that is `--full`: every asset is downloaded and hashed
+#      against what the release promises, ~830 MB and a couple of
+#      minutes on a runner. This is the last gate before users install
+#      it, so it pays them;
+#   2. mark it stable + latest on GitHub (idempotent if already done);
+#   3. drop the "Pre-release note" section from the release body, which
+#      stops being true the moment the release is published.
 #
 # Updating apio's remote-config is deliberately NOT automated here: the
 # apio maintainer prefers editing it by hand, often bumping several
@@ -34,6 +40,11 @@ on:
       tag:
         description: "Dated release tag to publish (YYYY-MM-DD)"
         required: true
+      full:
+        description: "Verify the bytes of every asset, not just their sizes (~830 MB)"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -58,7 +69,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ASSET_CHECK_REPO: ${{ github.repository }}
-        run: bash scripts/asset-check.sh "${{ inputs.tag }}"
+        run: |
+          bash scripts/asset-check.sh "${{ inputs.tag }}" \
+            ${{ inputs.full && '--full' || '' }}
 
       - name: Mark the release stable + latest
         env:
@@ -68,6 +81,62 @@ jobs:
             --prerelease=false --latest
           echo "release ${{ inputs.tag }} is now stable and latest"
 
+      # build-pre-release writes the body for a PRE-release, so it ends
+      # with a note saying this one will be deleted in a few days and how
+      # to publish it. Once published that paragraph is simply false, and
+      # it is the first thing a user reads about the release they are
+      # installing (it survived the 2026-08-31 promotion and was deleted
+      # by hand). Promotion drops that section, and only it. Idempotent:
+      # a body without it is left exactly as it is, so promoting twice --
+      # or promoting a release published by hand -- changes nothing.
+      - name: Drop the pre-release note from the body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json body --jq .body > body.md
+          python3 - body.md notes.md <<'PYTRIM'
+          """Write notes.md without the "Pre-release note" section.
+
+          Only when there is one: no file is written otherwise, which is
+          how the caller tells that the body is already what it should be.
+          """
+          import re
+          import sys
+
+          SECTION = re.compile(r"^\s{0,3}#{1,6}\s+Pre-release note\s*$")
+          HEADING = re.compile(r"^\s{0,3}#{1,6}\s")
+
+          with open(sys.argv[1], encoding="utf-8", newline="") as source:
+              body = source.read()
+          # A body edited in the browser comes back with CRLF: keep
+          # whatever it has, so nothing outside the section changes.
+          newline = "\r\n" if "\r\n" in body else "\n"
+          kept, dropping, found = [], False, False
+          for line in body.splitlines():
+              if SECTION.match(line):
+                  dropping = found = True
+                  continue
+              if dropping:
+                  if not HEADING.match(line):
+                      continue
+                  dropping = False
+              kept.append(line)
+          if found:
+              while kept and not kept[-1].strip():
+                  kept.pop()
+              with open(sys.argv[2], "w", encoding="utf-8", newline="") as out:
+                  out.write(newline.join(kept) + newline)
+          PYTRIM
+          if [ -f notes.md ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --notes-file notes.md
+            echo "pre-release note dropped from the body of $TAG"
+          else
+            echo "no pre-release note in the body of $TAG: left untouched"
+          fi
+
       - name: Remote-config reminder (manual step)
         run: |
           {
@@ -76,7 +145,7 @@ jobs:
             echo "Remote-config is updated BY HAND in the apio repo (apio#927)."
             echo "Suggested local sequence:"
             echo '```'
-            echo "bash scripts/bump-remote-config.sh <apio>/remote-config/apio-1.5.x.jsonc openxc7=${{ inputs.tag }} [definitions=<tag>]"
+            echo "bash scripts/bump-remote-config.sh <apio>/remote-config/apio-1.6.x.jsonc openxc7=${{ inputs.tag }} [definitions=<tag>]"
             echo "# commit + push in the apio clone (or use scripts/create-signed-commit.sh for a Verified commit)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

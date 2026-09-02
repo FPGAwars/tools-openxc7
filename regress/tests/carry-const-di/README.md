@@ -1,6 +1,6 @@
 # carry-const-di — Hans Baier's const-DI class, GRADUATED (expect: pass)
 
-> Until the a70ae4a8 re-pin (2026-08-11) this was an expected-fail
+> Until the a70ae4a8 revision bump (2026-08-11) this was an expected-fail
 > guard for a known packer gap. The carry-O relocation transform (Hans)
 > plus the split/legaliser fix series (ours, upstream PRs) fixed the
 > class; the guard tripped "loudly" during validation exactly as
@@ -18,7 +18,7 @@ slice. Wherever it lands, that slice's 5LUT output has many fabric
 users, which conflicts with the CO output-mux requirement: the (correct)
 validity check restored by PR #105 rejects every candidate tile.
 
-On the current pin this manifests as the ORIGINAL failure mode — an
+On the current revision this manifests as the ORIGINAL failure mode — an
 infinite hang in `legalise_placement_strict` — which is why this test
 carries a tight `timeout` (the harness feature this class forced us to
 add). On toolchains with the upstream fail-fast guards (369038ed,
@@ -39,7 +39,7 @@ slices. Our `carry64` test never caught this: its sums are live.
 ## Expected result
 
 The flow FAILS (currently: pnr times out on the legalise hang; after a
-re-pin with the fail-fast guards: unplaceable error) and the test
+revision bump with the fail-fast guards: unplaceable error) and the test
 therefore reports OK.
 
 ## Reading a "failure"

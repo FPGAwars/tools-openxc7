@@ -1,22 +1,24 @@
-# Reproducible assembly of the apio-openxc7-windows-amd64 package, cross-built
-# CI: windows-package.yml triggers on pushes touching nix/** (this file included).
-# from x86_64-linux with pkgsCross.mingwW64. Build with:
-#   nix build .#packages.x86_64-linux.openxc7-windows-amd64
+# Reproducible assembly of the Windows tools tree, cross-built from
+# x86_64-linux with pkgsCross.mingwW64. Build with:
+#   nix build .#packages.x86_64-linux.openxc7-windows-amd64-tools
+#
+# CI: test.yaml compiles the passthru outputs on every push; the package is
+# assembled and validated by windows-package.yml (dispatch, or called by
+# build-pre-release.yaml).
 #
 # Full feature parity with Linux/macOS: nextpnr-xilinx.exe embeds a Python
 # interpreter (boost::python), so apio's `--post-route` report (apio report)
 # works on Windows too.
 #
-# The result ($out) is the package TREE; the dated .tgz is produced by CI
-# (.github/workflows/windows-package.yml). Reuses the flake's native
-# derivations for the platform-independent parts (chipdb .bin, prjxray-db data,
-# fasm/prjxray python). Only the native .exe come from the mingw cross here.
+# The result ($out) is a chipdb-less tools tree. CI injects the verified bins
+# from the chipdb job before producing the dated package tarball. This reuses
+# the flake's native derivations for prjxray-db data and fasm/prjxray Python;
+# only the native .exe come from the mingw cross here.
 { pkgs
 , lib
 , nextpnr-xilinx           # native: provides share/ data
 , prjxray                  # native: provides prjxray python + fasm2frames/bit2fasm
 , fasm                     # native python package (pulls textx -> arpeggio)
-, nextpnr-xilinx-chipdb    # native: artix7 chipdb (every footprint's .bin)
 }:
 
 let
@@ -37,18 +39,18 @@ let
   # -- Sources come from the native derivations, never re-declared here.
   # -- They used to be a second copy of the same owner/rev/hash "kept in sync
   # -- by hand" with nix/nextpnr-xilinx.nix and nix/prjxray.nix, which is
-  # -- exactly how a pin bump ships a half-updated package: re-pinning prjxray
+  # -- exactly how a version bump ships a half-updated package: bumping prjxray
   # -- left this copy behind and the cross build failed on POSIX headers the
-  # -- new tree no longer includes. One pin, one place.
+  # -- new tree no longer includes. One revision, one place.
   nextpnrSrc = nextpnr-xilinx.src;
   prjxraySrc = prjxray.src;
 
   commonFlags = [
     "-DARCH=xilinx" "-DBUILD_GUI=OFF" "-DBUILD_TESTS=OFF" "-DUSE_OPENMP=OFF"
     "-Wno-deprecated"
-    # version stamp derived from the pinned source, like the native build --
+    # version stamp derived from the source revision, like the native build --
     # this was a hardcoded 2772742 from the spike era, so every windows exe
-    # since the August pins reported July's revision (caught by the baseline
+    # since the August bump reported July's revision (caught by the baseline
     # env fingerprint of the regression suite, 2026-08-05)
     "-DCURRENT_GIT_VERSION=${lib.substring 0 7 nextpnr-xilinx.src.rev}"
     "-DPython3_EXECUTABLE=${python.interpreter}"
@@ -93,7 +95,7 @@ let
       # mingw-only ones that used to be seds — router2's flat_map, whose
       # sorted invariant breaks on this build, and the chipdb PODs copied by
       # value, which read past the mapping end and page-faulted under the
-      # Windows file mapping. Asserted rather than assumed, so a future pin
+      # Windows file mapping. Asserted rather than assumed, so a future bump
       # that loses them fails here instead of shipping a crashing .exe.
       grep -q 'std::map<int, std::pair<int, PipId>> bound_nets;' common/router2.cc \
         || { echo "upstream router2 std::map fix missing"; exit 1; }
@@ -153,12 +155,6 @@ let
   # families and parts to ship, from the shared manifest (same list as pack/)
   chipdbManifest = builtins.fromJSON (builtins.readFile ../../chipdb-parts.json);
   chipdbFamilies = builtins.attrNames chipdbManifest;
-  chipdbParts = lib.concatLists (builtins.attrValues chipdbManifest);
-
-  # build only the manifest parts, per family (a full family would also build
-  # GB-class package variants we don't ship)
-  chipdbFor = family:
-    nextpnr-xilinx-chipdb.${family}.override { parts = chipdbManifest.${family}; };
   gccLib = "${cross.stdenv.cc.cc.lib}/x86_64-w64-mingw32/lib";
 
   # pure-python tool env (fasm pulls textx -> arpeggio; + prjxray's python deps).
@@ -172,13 +168,12 @@ let
     printf '@echo off\r\nset "PKG=%%~dp0.."\r\nset "PYTHONPATH=%%PKG%%\\lib\\python3.12\\site-packages;%%PYTHONPATH%%"\r\npython "%%PKG%%\\libexec\\${name}" %%*\r\n' > $out/bin/${name}.cmd
   '';
 
-in pkgs.runCommand "apio-openxc7-windows-amd64" {
-  # The cross-compiled binaries, buildable WITHOUT dragging in the chipdb
-  # generation (hours of bbaexport): the per-commit test workflow builds
-  # .#openxc7-windows-amd64.nextpnr / .prjxray as its windows compile gate.
+in pkgs.runCommand "apio-openxc7-windows-amd64-tools" {
+  # The cross-compiled binaries are exposed separately so the per-commit test
+  # workflow can isolate nextpnr and prjxray compilation failures.
   passthru = { nextpnr = nextpnrWin; prjxray = prjxrayWin; };
 } ''
-  mkdir -p $out/bin $out/chipdb $out/libexec
+  mkdir -p $out/bin $out/libexec
   mkdir -p $out/share/nextpnr/external/prjxray-db $out/lib/python3.12/site-packages
 
   # -- native Windows executables
@@ -213,11 +208,7 @@ in pkgs.runCommand "apio-openxc7-windows-amd64" {
   cp ${../../xc7pll} $out/libexec/xc7pll
   chmod u+w $out/libexec/xc7pll
 
-  # -- chipdb (the parts from chipdb-parts.json, like openxc7-pack.py) + data
-  ${lib.concatMapStringsSep "\n  " (family:
-      lib.concatMapStringsSep "\n  "
-        (p: "cp ${chipdbFor family}/${p}.bin $out/chipdb/")
-        chipdbManifest.${family}) chipdbFamilies}
+  # -- shared data (chipdb bins are injected later by CI)
   ${lib.concatMapStringsSep "\n  " (family:
       "cp -r ${nextpnr-xilinx}/share/nextpnr/external/prjxray-db/${family} $out/share/nextpnr/external/prjxray-db/")
       chipdbFamilies}
@@ -282,6 +273,5 @@ PYEOF
   ${cmdLauncher "bit2fasm"}
   ${cmdLauncher "xc7pll"}
 
-  echo "windows-amd64" > $out/VERSION.platform
   chmod -R u+w $out
 ''

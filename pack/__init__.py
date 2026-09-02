@@ -8,7 +8,7 @@ The implementation lives here:
 * ``pack.relocate``   -- executables, dynamic libraries and python deps
 * ``pack.components`` -- per-tool phases (copy, wrappers, tool data)
 * ``pack.chipdb``     -- chipdb generation, identity stamp and seeding
-* ``pack.assemble``   -- dist/ tree init, env/VERSION files and the tarball
+* ``pack.assemble``   -- dist/ tree init, the metadata files and the tarball
 
 ``macpack.py`` (repo root) is the Darwin Mach-O relocation backend used by
 ``pack.relocate``.

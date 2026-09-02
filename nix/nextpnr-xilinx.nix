@@ -39,7 +39,7 @@ stdenv.mkDerivation rec {
     "-DBUILD_TESTS=OFF"
     "-DUSE_OPENMP=ON"
     "-Wno-deprecated"
-    # Pin FindPython3 to the nix interpreter EXPLICITLY. Without these,
+    # Point FindPython3 at the nix interpreter EXPLICITLY. Without these,
     # cmake's search can wander into the host (macOS SDK/CLT): the same
     # derivation built on a dev Mac (where an impure Python.h happened to
     # be findable) and died on the clean macos-14 runner with

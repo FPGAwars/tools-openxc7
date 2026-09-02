@@ -5,15 +5,19 @@
 # on its own native runner (windows is cross-built from linux; nixpkgs cannot
 # cross Linux<->macOS, and Nix does not run on Windows):
 #
-#   chipdb.yml           ubuntu-22.04   generates/caches the chipdb bins
-#   linux-package.yml    ubuntu-22.04   native   (seeds from chipdb)
-#   darwin-package.yml   macos-14        native   (seeds from chipdb)
-#   windows-package.yml  ubuntu-22.04   cross    (same nix derivation; wine)
+#   chipdb.yml           ubuntu-22.04   bins + per-FPGA assets + PARTS-INDEX
+#   linux-package.yml    ubuntu-22.04   native   (consumes chipdb artifacts)
+#   darwin-package.yml   macos-14        native   (consumes chipdb artifacts)
+#   windows-package.yml  ubuntu-22.04   cross    (consumes chipdb artifacts; wine)
 #
-# Each carries its own gate, so the exact same build+validation runs whether
-# you dispatch it standalone or through a release. This workflow only picks
-# the date, wires the chipdb seed, asserts the three packages carry
-# byte-identical chipdb, and — if EVERYTHING is green — publishes.
+# There is ONE chipdb source: the per-FPGA assets published below, built by
+# that single job. No package ships a chipdb any more (apio#947): each one
+# embeds that job's PARTS-INDEX.json and its L1/L2 gates validate it with
+# the very bins the assets were made from, injected the way apio's loader
+# does. Each platform carries its own gate, so the exact same
+# build+validation runs whether you dispatch it standalone or through a
+# release. This workflow only picks the date, wires the chipdb artifacts,
+# and — if EVERYTHING is green — publishes.
 #
 # The release is created at the END, as a dated PRERELEASE (never latest),
 # following the FPGAwars ecosystem convention (fpgawars/apio-workflows):
@@ -103,13 +107,13 @@ jobs:
           just-check: "true"
 
   # The chipdb is generated ONCE (platform-independent bins, revision-keyed
-  # cache) and every platform package seeds from it: linux and darwin from
-  # the chipdb-bins artifact, windows from the same nix derivation. The
-  # pre-release job asserts the three packages carry byte-identical bins.
+  # cache). The same job also builds the public per-FPGA assets and the
+  # PARTS-INDEX document before any platform starts.
   chipdb:
     needs: prepare
     uses: ./.github/workflows/chipdb.yml
     with:
+      date: ${{ needs.prepare.outputs.date }}
       regenerate: ${{ github.event.inputs.regenerate_chipdb == 'true' }}
 
   linux:
@@ -118,9 +122,9 @@ jobs:
     with:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
-      seed_from_artifact: true
       chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
+      parts_index: ${{ needs.chipdb.outputs.parts_index }}
 
   darwin:
     needs: [prepare, chipdb]
@@ -128,9 +132,9 @@ jobs:
     with:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
-      seed_from_artifact: true
       chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
+      parts_index: ${{ needs.chipdb.outputs.parts_index }}
 
   windows:
     needs: [prepare, chipdb]
@@ -138,61 +142,35 @@ jobs:
     with:
       date: ${{ needs.prepare.outputs.date }}
       yosys_release_tag: "2026-03-24"   # keep in sync with env.YOSYS_RELEASE_TAG (env is not visible to reusable-workflow inputs)
+      chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
+      parts_index: ${{ needs.chipdb.outputs.parts_index }}
 
   pre-release:
     needs: [prepare, chipdb, linux, darwin, windows]
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
-      - uses: actions/checkout@v7    # scripts/ for chipdb-assets + asset-check
+      - uses: actions/checkout@v7    # scripts/asset-check.sh
 
       - uses: actions/download-artifact@v8
         with:
           pattern: apio-openxc7-*     # the 3 package artifacts (not chipdb-bins)
           merge-multiple: true
 
-      # The platform-independent per-FPGA assets (apio's upcoming on-demand
-      # loader): one gzipped bin per manifest part + an index with both
-      # hashes and the chipdb identity stamp. Same bins the packages carry.
+      # Built by chipdb.yml from the same verified bins and packaged database.
+      # They are release inputs now, not derived again by the publisher —
+      # and, since no package ships a chipdb, they are how users get one.
+      #
+      # There is no three-way parity check any more: nothing to compare, the
+      # three packages carry no bins. What every user will end up with is
+      # proved where each package is assembled — its L1 gate injects THESE
+      # bins into the extracted tarball and checks them against the size and
+      # sha256 the chipdb job recorded in PARTS-INDEX.json. The per-part
+      # `bytes | sha256` table lives in that job's summary.
       - uses: actions/download-artifact@v8
         with:
-          name: chipdb-bins
-          path: chipdb-bins
-
-      - name: Build the per-FPGA chipdb assets
-        run: |
-          D="${{ needs.prepare.outputs.date }}"
-          bash scripts/chipdb-assets.sh chipdb-bins chipdb-assets "${D//-/}" && ls -la chipdb-assets | head -5
-
-      # The chipdb is generated once (chipdb job) and platform-independent;
-      # this proves, per build, that the THREE packages carry byte-identical
-      # bins (linux and darwin seed from the artifact, windows is assembled
-      # from the same nix derivation) - and that they are the ones the
-      # chipdb job produced (index of name/size/sha256 in the summary).
-      - name: Assert the chipdb is byte-identical linux<->darwin<->windows
-        run: |
-          mkdir lin mac win
-          tar xzf apio-openxc7-linux-x86-64-*.tgz -C lin
-          tar xzf apio-openxc7-darwin-arm64-*.tgz -C mac
-          tar xzf apio-openxc7-windows-amd64-*.tgz -C win
-          n=0
-          for f in chipdb-bins/*.bin; do
-            b=$(basename "$f")
-            for p in lin mac win; do
-              cmp "$f" "$p/chipdb/$b" || { echo "::error::chipdb differs from the chipdb job: $p/chipdb/$b"; exit 1; }
-            done
-            n=$((n + 1))
-          done
-          echo "chipdb parity OK ($n bins byte-identical across linux, darwin, windows and the chipdb job)"
-          {
-            echo "### chipdb parity (per build)"
-            echo "identity: \`$(cat chipdb-bins/chipdb-id.txt)\` — $n bins byte-identical in the three packages"
-            echo "linux and darwin package the bins from the chipdb job (generated or restored from the revision-keyed cache); windows regenerates its own inside its nix derivation — so this check is a continuous proof that the cached bins equal a fresh generation."
-            echo ""
-            echo "| part | bytes | sha256 |"; echo "|---|---|---|"
-            for f in chipdb-bins/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
-          } >> "$GITHUB_STEP_SUMMARY"
-          rm -rf lin mac win
+          name: chipdb-assets
+          path: chipdb-assets
 
       # Ecosystem convention (fpgawars/apio-workflows): keep only the newest
       # pre-releases, then replace today's pre-release if it exists — and FAIL
@@ -222,15 +200,37 @@ jobs:
           GH_TOKEN: ${{ secrets.APIO_PR_TOKEN }}
           DATE: ${{ needs.prepare.outputs.date }}
         run: |
-          ls -la apio-openxc7-*.tgz
-          # every asset must carry the tag's date, or apio 404s at install
+          export LC_ALL=C          # one collation for every listing below
+          ls -la apio-openxc7-*.tgz chipdb-assets/
+          # every asset apio resolves by name must carry the tag's date, or
+          # it 404s at install time
           for f in apio-openxc7-*.tgz; do
             case "$f" in
               *"-${DATE//-/}.tgz") ;;
               *) echo "::error::asset $f is not dated ${DATE//-/}"; exit 1 ;;
             esac
           done
+          for f in chipdb-assets/*.bin.tgz; do
+            case "$f" in
+              *"-${DATE//-/}.bin.tgz") ;;
+              *) echo "::error::asset $f is not dated ${DATE//-/}"; exit 1 ;;
+            esac
+          done
+          # The index is NOT dated: it names its own release inside
+          # (release-tag), and travels under the same name it has at the
+          # root of every package (apio#990).
+          test -f chipdb-assets/PARTS-INDEX.json \
+            || { echo "::error::PARTS-INDEX.json missing from the chipdb assets"; exit 1; }
+
+          # SHA256SUMS covers EVERY asset of the release: the three
+          # packages, the index, and the per-FPGA chipdb assets that carry
+          # what the packages no longer ship (apio#947). Written HERE, in
+          # the job that uploads them, from the very bytes that the upload
+          # below sends — the manifest and the release cannot describe
+          # different bytes. The index promises the same hashes for the
+          # chipdb assets, and asset-check requires the two to agree.
           sha256sum apio-openxc7-*.tgz > SHA256SUMS
+          ( cd chipdb-assets && sha256sum PARTS-INDEX.json *.bin.tgz ) >> SHA256SUMS
           cat SHA256SUMS
           # full BUILD-INFO of each package into the release text
           # (ecosystem convention, apio#927)
@@ -251,9 +251,25 @@ jobs:
             } >> BUILD-INFOS.md
           done
           cat > RELEASE-BODY.md <<EOFBODY
-          openXC7 toolchain — $DATE. Validated by CI (package gate, regression
-          suite on the three platforms, three-way chipdb parity — linux, darwin,
-          windows and the chipdb job).
+          openXC7 toolchain — $DATE. Validated by CI (package gate and
+          regression suite on the three platforms).
+
+          ### On-demand chipdb
+          The three packages ship **no chipdb**: their \`chipdb/\` directory
+          holds a README.txt and apio downloads the device database its board
+          needs from the per-FPGA assets below, into that same directory.
+          \`PARTS-INDEX.json\`, at the root of every package, lists every
+          part the packaged prjxray database supports, which of them this
+          release built, and for each one the chipdb file it needs
+          (\`chipdb-size\`, \`chipdb-sha256\`) and the asset that carries it
+          (\`asset-size\`, \`asset-sha256\`); it is published here too, under
+          that same name — it says which release it belongs to inside itself.
+          \`SHA256SUMS\` covers every asset above.
+          Those bins and the packages come from the same chipdb job of this run
+          (identity \`${{ needs.chipdb.outputs.identity }}\`,
+          ${{ needs.chipdb.outputs.mode }}), and each platform's gates validate
+          its package with them injected the way apio leaves them. A bin only
+          works with the package of the SAME tag.
 
           ### Build info
           $(cat BUILD-INFOS.md)

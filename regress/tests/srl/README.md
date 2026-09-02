@@ -41,4 +41,4 @@ inside the SRL, so there are no FF-to-FF timing paths.
   an SRL landed in a SLICEL. That is a placer/legaliser bug, and this test
   exists to catch exactly it.
 - **`fasm2frames` rejects a feature** — SRL configuration features are less
-  travelled than plain-LUT ones; suspect the database/pin bump.
+  travelled than plain-LUT ones; suspect the database/toolchain bump.

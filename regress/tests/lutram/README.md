@@ -2,7 +2,7 @@
 
 ## What it probes
 
-A 64x8 memory with a synchronous write and an asynchronous read, pinned to
+A 64x8 memory with a synchronous write and an asynchronous read, forced to
 distributed RAM with `(* ram_style = "distributed" *)` so a yosys heuristic
 change can never silently turn it into a second copy of the `bram` test.
 Asserted: at least one RAM64M in the netlist.
@@ -15,7 +15,7 @@ the three memory idioms of the fabric each have a guard.
 LUTRAM shares the SLICEM machinery with SRLs (the write port needs WE/WCLK
 and the DI pins) but drives a *different* packing path — RAM64M bundles
 four 64x1 ports into one slice — and a different set of fasm features.
-The pin attribute matters: without it, small memories sit on the boundary
+The `ram_style` attribute matters: without it, small memories sit on the boundary
 of yosys' BRAM-vs-LUTRAM heuristic, and a flip of that heuristic would
 change what this test covers without anyone noticing.
 
