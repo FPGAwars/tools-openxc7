@@ -13,14 +13,14 @@
 #
 # Since the on-demand chipdb (apio#947) that is no longer only the three
 # platform tarballs. The packages ship no device database: apio reads
-# PARTS-INDEX.json, resolves the asset for the board's part and downloads
-# it from the same release. A missing or truncated per-FPGA asset is a
+# XILINX-PARTS-INDEX.json, resolves the asset for the board's part and
+# downloads it from the same release. A missing or truncated per-FPGA asset is a
 # user who cannot build for that board, and the release gate must see it,
 # so this script also validates the published index and every asset it
 # declares. Several parts (the speed grades of one base part) share an
 # asset, so the assets are checked once each, not once per part. A
 # release whose index is not the one apio reads today -- absent under
-# either name it has been published with, or an older schema -- predates
+# every name it has been published with, or an older schema -- predates
 # this contract and is reported as legacy, not failed: it is not what
 # apio installs from.
 #
@@ -38,7 +38,7 @@
 #   scripts/asset-check.sh <tag> --full              # download + hash for real
 #                                                    # (tarballs without
 #                                                    # SHA256SUMS, and every
-#                                                    # chipdb asset: ~830 MB)
+#                                                    # chipdb asset: ~2 GB)
 #   scripts/asset-check.sh <tag> --platform linux-x86-64   # repeatable filter
 #
 # Env: ASSET_CHECK_REPO to point at a fork (default FPGAwars/tools-openxc7);
@@ -74,7 +74,7 @@ platforms = sys.argv[5:]
 # used by L1 on a package and here on a release).
 sys.path.insert(0, repo_root)
 from pack.parts_index import (INDEX_ASSET, SCHEMA,  # noqa: E402
-                              previous_index_asset_name, validate_document)
+                              previous_index_asset_names, validate_document)
 
 repo = os.environ.get("ASSET_CHECK_REPO", "FPGAwars/tools-openxc7")
 date = tag.replace("-", "")
@@ -94,8 +94,8 @@ def request(url, method="GET", attempts=3):
     if token and url.startswith("https://api.github.com/"):
         req.add_header("Authorization", f"Bearer {token}")
     # A transient connection failure is not an answer about the release, and
-    # this check now makes one request per published asset -- twenty on an
-    # on-demand release, ~830 MB with --full. Retried, with a pause; an
+    # this check now makes one request per published asset -- about fifty on
+    # a full-manifest release, ~2 GB with --full. Retried, with a pause; an
     # HTTPError is NOT retried, because 404 is the answer we came for.
     for attempt in range(1, attempts + 1):
         try:
@@ -298,13 +298,14 @@ def check_chipdb_asset(asset, entry, parts):
 def fetch_index():
     """The published index document: (asset name, bytes), or (None, None).
 
-    Published as PARTS-INDEX.json since apio#990 -- the name it also has
-    inside every package, because which release it belongs to is written
-    in the document, not in its file name. Releases up to 2026-08-31 carry
-    it under the dated name; apio's loader accepts both, so this gate
-    reads both rather than calling those releases legacy.
+    Published as XILINX-PARTS-INDEX.json since the apio#1002 rename -- the
+    name it also has inside every package, because which release it belongs
+    to is written in the document, not in its file name. Earlier releases
+    carry it as PARTS-INDEX.json (apio#990) and, up to 2026-08-31, under
+    the dated name; apio's loader accepts every one, so this gate reads
+    them all rather than calling those releases legacy.
     """
-    for asset in (INDEX_ASSET, previous_index_asset_name(date)):
+    for asset in [INDEX_ASSET, *previous_index_asset_names(date)]:
         try:
             with request(f"{base}/{asset}") as resp:
                 return asset, resp.read()
@@ -322,9 +323,9 @@ def check_chipdb_release():
     index_asset, raw = fetch_index()
     if index_asset is None:
         print(f"— {INDEX_ASSET}: not published (HTTP 404)")
-        print("  legacy release: no parts index under either name apio has"
-              " resolved, so the on-demand contract this gate checks is not"
-              " the one that release was published under")
+        print("  legacy release: no parts index under any of the names apio"
+              " has resolved, so the on-demand contract this gate checks is"
+              " not the one that release was published under")
         return 0
     accounted.add(index_asset)
 

@@ -6,9 +6,9 @@ nix/windows/default.nix), guarded by the identity stamp so that bins from
 another toolchain are never reused.
 
 Released packages do not carry those bins any more: apio downloads the
-one the board needs (PARTS-INDEX.json says which asset carries it) and
-leaves it in chipdb/, next to the README.txt this module writes. Run as
-a script to write that placeholder into a directory -- the Windows
+one the board needs (XILINX-PARTS-INDEX.json says which asset carries
+it) and leaves it in chipdb/, next to the README.txt this module writes.
+Run as a script to write that placeholder into a directory -- the Windows
 package is assembled by CI, not by this packer, and must not grow its
 own copy of the text:
 
@@ -43,7 +43,7 @@ This directory is the placeholder for the on-demand chipdb files.
 This package does not ship the per-FPGA device databases. Apio downloads
 the one your board needs and leaves it here.
 
-PARTS-INDEX.json, at the root of this package, lists every part the
+XILINX-PARTS-INDEX.json, at the root of this package, lists every part the
 packaged database supports, which of them this release built, the chipdb
 file each one needs and what it must be on disk (chipdb, chipdb-size,
 chipdb-sha256), and the asset that carries it (asset, asset-size,

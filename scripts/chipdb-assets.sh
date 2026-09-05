@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # chipdb-assets.sh -- build the per-FPGA chipdb release assets and the
-# PARTS-INDEX document that maps parts to them.
+# XILINX-PARTS-INDEX document that maps parts to them.
 #
 # The chipdb .bin files are platform-independent, so they are published
 # ONCE per release as individual gzipped assets next to the platform
@@ -10,12 +10,13 @@
 # and what it must end up with on disk is the index built here:
 #
 #   apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz  one per chipdb file
-#   PARTS-INDEX.json                                   the index itself
+#   XILINX-PARTS-INDEX.json                            the index itself
 #
 # The index keeps that one name everywhere -- as a release asset and at
 # the root of every package -- because the release it belongs to is
-# written inside it (release-tag), which is what a reader checks anyway
-# (apio#990). The per-FPGA assets stay dated: they are opaque payloads.
+# written inside it (release-tag), which is what a reader checks anyway.
+# Named XILINX-PARTS-INDEX.json since apio#1002 (PARTS-INDEX.json before
+# it, apio#990). The per-FPGA assets stay dated: they are opaque payloads.
 #
 # Naming and format agreed with the apio maintainer (apio#897/#900): the
 # apio-xilinx-chipdb- prefix groups after the three platform packages in

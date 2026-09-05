@@ -40,7 +40,7 @@ on:
         description: "How the bins were obtained in this run: generated | restored-from-cache (recorded in every package's BUILD-INFO)"
         value: ${{ jobs.chipdb.outputs.mode }}
       parts_index:
-        description: "Filename of the PARTS-INDEX document in the parts-index artifact"
+        description: "Filename of the XILINX-PARTS-INDEX document in the parts-index artifact"
         value: ${{ jobs.chipdb.outputs.parts_index }}
   workflow_dispatch:
     inputs:
@@ -97,8 +97,9 @@ jobs:
       # The .bin.tgz of a part is a pure function of its .bin, so the same
       # tuple keys them. Separate entry, not another path on the bins cache:
       # actions/cache does not re-save on an exact key hit, so adding a path
-      # to a populated key would never fill it. Compressing 1.1 GB is 12-14
-      # min of the job (measured 2026-08-26) and this skips it.
+      # to a populated key would never fill it. Compressing the bins is the
+      # slow half of the job (12-14 min for the 15-part set, measured
+      # 2026-08-26; ~3x that with the full 46-part manifest) and this skips it.
       - name: Restore the chipdb asset cache (same revisions + manifest)
         if: ${{ !inputs.regenerate }}
         uses: actions/cache@v6
@@ -149,7 +150,7 @@ jobs:
             for f in dist/chipdb/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Build the per-FPGA assets and the PARTS-INDEX document
+      - name: Build the per-FPGA assets and the XILINX-PARTS-INDEX document
         id: assets
         env:
           # a pure function of the bins: reused across dates, refreshed when
@@ -164,16 +165,17 @@ jobs:
             dist/share/nextpnr/external/prjxray-db
           echo "assets built in $((SECONDS - START))s"
           # The published index carries the same name as the file inside
-          # every package, PARTS-INDEX.json: the release it belongs to is
-          # written inside it, so its name does not repeat the date
-          # (apio#990). The per-FPGA assets stay dated.
-          INDEX="PARTS-INDEX.json"
+          # every package, XILINX-PARTS-INDEX.json: the release it belongs
+          # to is written inside it, so its name does not repeat the date
+          # (PARTS-INDEX.json before the apio#1002 rename). The per-FPGA
+          # assets stay dated.
+          INDEX="XILINX-PARTS-INDEX.json"
           test -f "chipdb-assets/$INDEX"
           echo "index=$INDEX" >> "$GITHUB_OUTPUT"
           python3 - "chipdb-assets/$INDEX" >> "$GITHUB_STEP_SUMMARY" <<'PYEOF'
           import json, sys
           data = json.load(open(sys.argv[1]))
-          print("### parts index (PARTS-INDEX.json)")
+          print("### parts index (XILINX-PARTS-INDEX.json)")
           print(f"schema: **{data['schema']}** · release-tag: "
                 f"`{data['release-tag']}` · date: `{data['date']}`")
           print(f"built: **{data['generated-count']}** of {data['part-count']} parts "
@@ -206,12 +208,13 @@ jobs:
           if-no-files-found: error
 
       # The index alone (~50 kB), for the three package jobs: they embed it
-      # as PARTS-INDEX.json and never need the ~500 MB of assets next to it.
-      - name: Publish the PARTS-INDEX document for the platform jobs
+      # as XILINX-PARTS-INDEX.json and never need the ~1.5 GB of assets next
+      # to it.
+      - name: Publish the XILINX-PARTS-INDEX document for the platform jobs
         uses: actions/upload-artifact@v7
         with:
           name: parts-index
-          path: chipdb-assets/PARTS-INDEX.json
+          path: chipdb-assets/XILINX-PARTS-INDEX.json
           retention-days: 7
           if-no-files-found: error
 

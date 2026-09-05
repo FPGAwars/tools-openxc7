@@ -5,16 +5,16 @@
 # on its own native runner (windows is cross-built from linux; nixpkgs cannot
 # cross Linux<->macOS, and Nix does not run on Windows):
 #
-#   chipdb.yml           ubuntu-22.04   bins + per-FPGA assets + PARTS-INDEX
+#   chipdb.yml           ubuntu-22.04   bins + per-FPGA assets + XILINX-PARTS-INDEX
 #   linux-package.yml    ubuntu-22.04   native   (consumes chipdb artifacts)
 #   darwin-package.yml   macos-14        native   (consumes chipdb artifacts)
 #   windows-package.yml  ubuntu-22.04   cross    (consumes chipdb artifacts; wine)
 #
 # There is ONE chipdb source: the per-FPGA assets published below, built by
 # that single job. No package ships a chipdb any more (apio#947): each one
-# embeds that job's PARTS-INDEX.json and its L1/L2 gates validate it with
-# the very bins the assets were made from, injected the way apio's loader
-# does. Each platform carries its own gate, so the exact same
+# embeds that job's XILINX-PARTS-INDEX.json and its L1/L2 gates validate it
+# with the very bins the assets were made from, injected the way apio's
+# loader does. Each platform carries its own gate, so the exact same
 # build+validation runs whether you dispatch it standalone or through a
 # release. This workflow only picks the date, wires the chipdb artifacts,
 # and — if EVERYTHING is green — publishes.
@@ -108,7 +108,7 @@ jobs:
 
   # The chipdb is generated ONCE (platform-independent bins, revision-keyed
   # cache). The same job also builds the public per-FPGA assets and the
-  # PARTS-INDEX document before any platform starts.
+  # XILINX-PARTS-INDEX document before any platform starts.
   chipdb:
     needs: prepare
     uses: ./.github/workflows/chipdb.yml
@@ -165,8 +165,8 @@ jobs:
       # three packages carry no bins. What every user will end up with is
       # proved where each package is assembled — its L1 gate injects THESE
       # bins into the extracted tarball and checks them against the size and
-      # sha256 the chipdb job recorded in PARTS-INDEX.json. The per-part
-      # `bytes | sha256` table lives in that job's summary.
+      # sha256 the chipdb job recorded in XILINX-PARTS-INDEX.json. The
+      # per-part `bytes | sha256` table lives in that job's summary.
       - uses: actions/download-artifact@v8
         with:
           name: chipdb-assets
@@ -218,9 +218,10 @@ jobs:
           done
           # The index is NOT dated: it names its own release inside
           # (release-tag), and travels under the same name it has at the
-          # root of every package (apio#990).
-          test -f chipdb-assets/PARTS-INDEX.json \
-            || { echo "::error::PARTS-INDEX.json missing from the chipdb assets"; exit 1; }
+          # root of every package (XILINX-PARTS-INDEX.json since the
+          # apio#1002 rename).
+          test -f chipdb-assets/XILINX-PARTS-INDEX.json \
+            || { echo "::error::XILINX-PARTS-INDEX.json missing from the chipdb assets"; exit 1; }
 
           # SHA256SUMS covers EVERY asset of the release: the three
           # packages, the index, and the per-FPGA chipdb assets that carry
@@ -230,7 +231,7 @@ jobs:
           # different bytes. The index promises the same hashes for the
           # chipdb assets, and asset-check requires the two to agree.
           sha256sum apio-openxc7-*.tgz > SHA256SUMS
-          ( cd chipdb-assets && sha256sum PARTS-INDEX.json *.bin.tgz ) >> SHA256SUMS
+          ( cd chipdb-assets && sha256sum XILINX-PARTS-INDEX.json *.bin.tgz ) >> SHA256SUMS
           cat SHA256SUMS
           # full BUILD-INFO of each package into the release text
           # (ecosystem convention, apio#927)
@@ -258,7 +259,7 @@ jobs:
           The three packages ship **no chipdb**: their \`chipdb/\` directory
           holds a README.txt and apio downloads the device database its board
           needs from the per-FPGA assets below, into that same directory.
-          \`PARTS-INDEX.json\`, at the root of every package, lists every
+          \`XILINX-PARTS-INDEX.json\`, at the root of every package, lists every
           part the packaged prjxray database supports, which of them this
           release built, and for each one the chipdb file it needs
           (\`chipdb-size\`, \`chipdb-sha256\`) and the asset that carries it

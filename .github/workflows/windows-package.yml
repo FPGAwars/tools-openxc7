@@ -1,5 +1,5 @@
 # Build + validate the Windows package. The flake produces only the tools tree;
-# this workflow adds the on-demand chipdb placeholder and the PARTS-INDEX
+# this workflow adds the on-demand chipdb placeholder and the XILINX-PARTS-INDEX
 # document produced once by chipdb.yml, then validates the assembled tarball
 # under Wine against the chipdb-bins artifact of that same job -- injected
 # into the extracted tarball the way apio's loader leaves it. The package
@@ -49,7 +49,7 @@ on:
         default: ""
         type: string
       parts_index:
-        description: "Filename of the dated PARTS-INDEX document in the parts-index artifact"
+        description: "Filename of the XILINX-PARTS-INDEX document in the parts-index artifact"
         required: false
         default: ""
         type: string
@@ -88,8 +88,8 @@ jobs:
           path: chipdb-bins
 
       # the index alone: the per-FPGA release assets next to it in
-      # chipdb-assets are ~500 MB this job has no use for
-      - name: Download the PARTS-INDEX document
+      # chipdb-assets are ~1.5 GB this job has no use for
+      - name: Download the XILINX-PARTS-INDEX document
         uses: actions/download-artifact@v8
         with:
           name: parts-index
@@ -109,7 +109,7 @@ jobs:
           test -f result-win-tools/bin/xc7pll.cmd
           echo "tools tree shape OK; chipdb absent"
 
-      - name: Assemble a writable package tree (placeholder + PARTS-INDEX)
+      - name: Assemble a writable package tree (placeholder + XILINX-PARTS-INDEX)
         run: |
           cp -aL result-win-tools package-win
           chmod -R u+w package-win
@@ -144,9 +144,9 @@ jobs:
           # The same index the linux and darwin packages embed, under the
           # stable in-package name; L1 checks those bins against it.
           INDEX="parts-index/${{ inputs.parts_index || needs.chipdb.outputs.parts_index }}"
-          test -f "$INDEX" || { echo "::error::PARTS-INDEX not in the artifact: $INDEX"; exit 1; }
-          cp "$INDEX" package-win/PARTS-INDEX.json
-          echo "embedded $(basename "$INDEX") as PARTS-INDEX.json"
+          test -f "$INDEX" || { echo "::error::XILINX-PARTS-INDEX not in the artifact: $INDEX"; exit 1; }
+          cp "$INDEX" package-win/XILINX-PARTS-INDEX.json
+          echo "embedded $(basename "$INDEX") as XILINX-PARTS-INDEX.json"
           df -h . | tail -1
 
       # Installed BEFORE the tar step: build-info.sh re-exports the
