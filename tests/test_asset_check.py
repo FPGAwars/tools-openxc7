@@ -174,7 +174,7 @@ class AssetCheckTests(unittest.TestCase):
     def test_one_request_per_asset_not_per_part(self):
         """The speed grades of a base part share a file: ask for it once.
 
-        A release has ~150 parts and 15 assets; one request per part would
+        A release has ~150 parts and ~46 assets; one request per part would
         be ten times the gate, and ten times the bytes with --full.
         """
         calls = []
@@ -305,7 +305,7 @@ class AssetCheckTests(unittest.TestCase):
 
     def test_a_dropped_connection_is_retried_not_reported_as_missing(self):
         """A flaky link must not read as 'the release is broken' — and on
-        an on-demand release this makes twenty requests, not four."""
+        an on-demand release this makes about fifty requests, not four."""
         code, output = run(release(), flaky=2)
         self.assertEqual(code, 0, output)
         self.assertIn("retrying (1/2)", output)

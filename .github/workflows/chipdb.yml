@@ -97,8 +97,9 @@ jobs:
       # The .bin.tgz of a part is a pure function of its .bin, so the same
       # tuple keys them. Separate entry, not another path on the bins cache:
       # actions/cache does not re-save on an exact key hit, so adding a path
-      # to a populated key would never fill it. Compressing 1.1 GB is 12-14
-      # min of the job (measured 2026-08-26) and this skips it.
+      # to a populated key would never fill it. Compressing the bins is the
+      # slow half of the job (12-14 min for the 15-part set, measured
+      # 2026-08-26; ~3x that with the full 46-part manifest) and this skips it.
       - name: Restore the chipdb asset cache (same revisions + manifest)
         if: ${{ !inputs.regenerate }}
         uses: actions/cache@v6
@@ -207,7 +208,7 @@ jobs:
           if-no-files-found: error
 
       # The index alone (~50 kB), for the three package jobs: they embed it
-      # as XILINX-PARTS-INDEX.json and never need the ~500 MB of assets next
+      # as XILINX-PARTS-INDEX.json and never need the ~1.5 GB of assets next
       # to it.
       - name: Publish the XILINX-PARTS-INDEX document for the platform jobs
         uses: actions/upload-artifact@v7

@@ -1,23 +1,54 @@
 {
   "artix7": [
-    "xc7a35tcpg236",
-    "xc7a35tcsg324",
-    "xc7a35tfgg484",
-    "xc7a35tftg256",
-    "xc7a50tcsg324",
-    "xc7a50tfgg484",
     "xc7a100tcsg324",
-    "xc7a100tftg256",
     "xc7a100tfgg484",
     "xc7a100tfgg676",
-    "xc7a200tfbg484"
+    "xc7a100tftg256",
+    "xc7a200tfbg484",
+    "xc7a200tfbg676",
+    "xc7a200tfbv484",
+    "xc7a200tfbv676",
+    "xc7a200tffg1156",
+    "xc7a200tffv1156",
+    "xc7a200tsbg484",
+    "xc7a200tsbv484",
+    "xc7a35tcpg236",
+    "xc7a35tcsg324",
+    "xc7a35tcsg325",
+    "xc7a35tfgg484",
+    "xc7a35tftg256",
+    "xc7a50tcpg236",
+    "xc7a50tcsg324",
+    "xc7a50tcsg325",
+    "xc7a50tfgg484",
+    "xc7a50tftg256"
   ],
   "spartan7": [
-    "xc7s50csga324"
+    "xc7s50csga324",
+    "xc7s50fgga484",
+    "xc7s50ftgb196"
   ],
   "zynq7": [
+    "xc7z010clg225",
     "xc7z010clg400",
     "xc7z020clg400",
-    "xc7z020clg484"
+    "xc7z020clg484",
+    "xc7z030fbg676",
+    "xc7z035fbg676",
+    "xc7z035fbv676",
+    "xc7z035ffg676",
+    "xc7z035ffg900",
+    "xc7z035ffv676",
+    "xc7z035ffv900",
+    "xc7z045fbg676",
+    "xc7z045fbv676",
+    "xc7z045ffg676",
+    "xc7z045ffg900",
+    "xc7z045ffv676",
+    "xc7z045ffv900",
+    "xc7z100ffg1156",
+    "xc7z100ffg900",
+    "xc7z100ffv1156",
+    "xc7z100ffv900"
   ]
 }
