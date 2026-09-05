@@ -27,8 +27,9 @@ BASE_PART = "xc7a35tcpg236"
 PARTS = (f"{BASE_PART}-1", f"{BASE_PART}-2L")   # one chipdb file, two parts
 CHIPDB = f"{BASE_PART}.bin"
 ASSET = f"apio-xilinx-chipdb-{BASE_PART}-{DATE}.bin.tgz"
-INDEX = "PARTS-INDEX.json"                 # since apio#990
-PREVIOUS_INDEX = f"apio-xilinx-parts-index-{DATE}.json"   # up to 2026-08-31
+INDEX = "XILINX-PARTS-INDEX.json"        # since the apio#1002 rename
+PREVIOUS_INDEX = "PARTS-INDEX.json"      # apio#990, up to the rename
+LEGACY_INDEX = f"apio-xilinx-parts-index-{DATE}.json"   # up to 2026-08-31
 BASE = f"https://github.com/{REPO_SLUG}/releases/download/{TAG}"
 BIN = b"chipdb bytes"
 
@@ -217,26 +218,41 @@ class AssetCheckTests(unittest.TestCase):
         self.assertIn("is not the release it was published in", output)
 
     def test_release_without_an_index_is_legacy_not_a_failure(self):
-        """Neither name resolves: a release from before the contract."""
+        """No published name resolves: a release from before the contract."""
         code, output = run(release(**{f"{BASE}/{INDEX}": None}))
         self.assertEqual(code, 0, output)
         self.assertIn("not published (HTTP 404)", output)
-        self.assertIn("legacy release: no parts index under either name",
+        self.assertIn("legacy release: no parts index under any of the names",
                       output)
         self.assertIn("asset-check: OK", output)
 
     def test_the_previous_index_name_is_still_read(self):
-        """Every release up to 2026-08-31 published the index dated.
+        """Releases between apio#990 and the apio#1002 rename published
+        the index as PARTS-INDEX.json.
 
         They are still installed from and still promotable, and apio's
-        loader looks for both names, so calling them legacy would drop
-        their 15 chipdb assets from the gate that promotes them.
+        loader accepts that name, so calling them legacy would drop
+        their chipdb assets from the gate that promotes them.
         """
         files = release()
         files[f"{BASE}/{PREVIOUS_INDEX}"] = files.pop(f"{BASE}/{INDEX}")
         code, output = run(resum(files))
         self.assertEqual(code, 0, output)
         self.assertIn(f"✅ {PREVIOUS_INDEX}", output)
+        self.assertIn(f"✅ {ASSET}", output)
+        self.assertIn("1 chipdb assets", output)
+
+    def test_the_legacy_dated_index_name_is_still_read(self):
+        """Every release up to 2026-08-31 published the index dated.
+
+        The oldest name this gate resolves: those releases predate the
+        fixed-name convention (apio#990) and are still installed from.
+        """
+        files = release()
+        files[f"{BASE}/{LEGACY_INDEX}"] = files.pop(f"{BASE}/{INDEX}")
+        code, output = run(resum(files))
+        self.assertEqual(code, 0, output)
+        self.assertIn(f"✅ {LEGACY_INDEX}", output)
         self.assertIn(f"✅ {ASSET}", output)
         self.assertIn("1 chipdb assets", output)
 

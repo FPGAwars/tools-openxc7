@@ -38,8 +38,9 @@ CHIPDB_ONLY = "--chipdb-only" in sys.argv[1:]
 
 # -- `--no-chipdb` (or OPENXC7_NO_CHIPDB=1): pack WITHOUT the device
 # -- databases. chipdb/ ships a README.txt and apio downloads the .bin its
-# -- board needs from the release assets, guided by PARTS-INDEX.json. This
-# -- is what the release packages are; the full variant stays for local
+# -- board needs from the release assets, guided by the package's
+# -- XILINX-PARTS-INDEX.json. This is what the release packages are; the
+# -- full variant stays for local
 # -- work and for anyone wanting a self-contained tree.
 NO_CHIPDB = ("--no-chipdb" in sys.argv[1:]
              or os.environ.get("OPENXC7_NO_CHIPDB") == "1")

@@ -89,8 +89,9 @@ class ChipdbAssetsTests(unittest.TestCase):
         pack.chipdb_assets writes the file; INDEX_ASSET is what
         scripts/asset-check.sh fetches a release by, and PACKAGE_FILE what
         pack.assemble puts at the root of every package -- one name for
-        both since apio#990. The name is a release contract, so a
-        divergence must fail here rather than at a release gate.
+        both (XILINX-PARTS-INDEX.json since the apio#1002 rename). The
+        name is a release contract, so a divergence must fail here rather
+        than at a release gate.
         """
         self.fixture()
         info_path = build_assets(

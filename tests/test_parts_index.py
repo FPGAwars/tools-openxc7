@@ -1,4 +1,4 @@
-"""Tests for PARTS-INDEX.json: packaging it and validating it."""
+"""Tests for XILINX-PARTS-INDEX.json: packaging it and validating it."""
 
 import hashlib
 import io
@@ -13,7 +13,7 @@ from unittest import mock
 from pack.assemble import write_env
 from pack.chipdb import write_placeholder
 from pack.parts_index import (INDEX_ASSET, PACKAGE_FILE,
-                              previous_index_asset_name, validate_document,
+                              previous_index_asset_names, validate_document,
                               validate_package_info)
 
 BASE = "xc7a35tcpg236"
@@ -89,7 +89,7 @@ class PartsIndexTests(unittest.TestCase):
         finally:
             os.chdir(old_cwd)
 
-        packaged = self.root / "dist" / "PARTS-INDEX.json"
+        packaged = self.root / "dist" / PACKAGE_FILE
         self.assertEqual(packaged.read_bytes(), index_path.read_bytes())
 
     def test_accepts_the_chipdb_files_it_describes(self):
@@ -209,21 +209,28 @@ class PartsIndexTests(unittest.TestCase):
     def test_the_asset_and_the_file_in_the_package_are_one_name(self):
         """No date in the name: the document names its own release.
 
-        Publishing it as PARTS-INDEX.json (apio#990) is what lets a reader
-        ask for the index of a release without deriving a date first, and
-        what makes "the asset and the file in the package are the same
-        bytes" a comparison of two files with the same name.
+        Publishing it under the same fixed name it has inside every
+        package (XILINX-PARTS-INDEX.json since the apio#1002 rename,
+        PARTS-INDEX.json under apio#990) is what lets a reader ask for
+        the index of a release without deriving a date first, and what
+        makes "the asset and the file in the package are the same bytes"
+        a comparison of two files with the same name.
         """
-        self.assertEqual(INDEX_ASSET, "PARTS-INDEX.json")
+        self.assertEqual(INDEX_ASSET, "XILINX-PARTS-INDEX.json")
         self.assertEqual(INDEX_ASSET, PACKAGE_FILE)
 
-    def test_the_previous_asset_name_is_still_resolvable(self):
-        """Releases up to 2026-08-31 published it dated, and are still
-        installed from: a reader must be able to name that file too."""
-        self.assertEqual(previous_index_asset_name("20260827"),
-                         "apio-xilinx-parts-index-20260827.json")
+    def test_the_previous_asset_names_are_still_resolvable(self):
+        """Releases published before the apio#1002 rename are still
+        installed from: a reader must be able to name those files too.
+
+        Newest first: PARTS-INDEX.json (apio#990, releases up to the
+        rename), then the dated name every release up to 2026-08-31 used.
+        """
+        self.assertEqual(previous_index_asset_names("20260827"),
+                         ["PARTS-INDEX.json",
+                          "apio-xilinx-parts-index-20260827.json"])
         with self.assertRaises(ValueError):
-            previous_index_asset_name("2026-08-27")
+            previous_index_asset_names("2026-08-27")
 
 
 if __name__ == "__main__":

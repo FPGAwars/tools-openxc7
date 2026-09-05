@@ -7,7 +7,7 @@
 # not a guard; test.yaml is the per-commit guard).
 #
 # chipdb.yml owns generation, cache, identity, per-FPGA assets and the
-# PARTS-INDEX document. The package itself ships NO chipdb: apio downloads
+# XILINX-PARTS-INDEX document. The package itself ships NO chipdb: apio downloads
 # the .bin its board needs (apio#947), so the bins downloaded here are what
 # the L1 and L2 gates validate the package against -- injected into the
 # extracted tarball exactly as apio leaves them.
@@ -54,7 +54,7 @@ on:
         default: ""
         type: string
       parts_index:
-        description: "Filename of the dated PARTS-INDEX document in the parts-index artifact"
+        description: "Filename of the XILINX-PARTS-INDEX document in the parts-index artifact"
         required: false
         default: ""
         type: string
@@ -104,7 +104,7 @@ jobs:
 
       # the index alone: the per-FPGA release assets next to it in
       # chipdb-assets are ~500 MB this job has no use for
-      - name: Download the PARTS-INDEX document
+      - name: Download the XILINX-PARTS-INDEX document
         uses: actions/download-artifact@v8
         with:
           name: parts-index
@@ -161,7 +161,7 @@ jobs:
           ls -la "$TGZ"
 
       # --chipdb-dir: the package ships no bins, so L1 checks the ones the
-      # release publishes against PARTS-INDEX.json and injects them into the
+      # release publishes against XILINX-PARTS-INDEX.json and injects them into the
       # extracted tarball before the E2E -- the tree the user ends up with.
       - name: Validate the package inside the tarball (L1 gate)
         run: |

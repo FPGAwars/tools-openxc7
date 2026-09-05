@@ -3,7 +3,7 @@
 One deterministic ``.bin.tgz`` per chipdb file this release builds, plus
 the document that describes every part the packaged prjxray database
 knows about. That document travels twice under one name,
-``PARTS-INDEX.json``: as a release asset and at the root of every
+``XILINX-PARTS-INDEX.json``: as a release asset and at the root of every
 platform package -- it is what tells apio's on-demand loader which chipdb
 file a part needs, which asset carries it, what must end up on disk, and
 which parts the database supports but this release did not build.
