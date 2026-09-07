@@ -506,9 +506,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca-dirty, aarch64-apple-darwin23.5-clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 38,
-      "fmax_mhz": 369.0,
+      "fmax_mhz": 357.14,
       "luts": 35,
-      "pnr_seconds": 1.53
+      "pnr_seconds": 1.91
     }
   }
 }

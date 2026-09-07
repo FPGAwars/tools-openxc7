@@ -506,9 +506,9 @@
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 38,
-      "fmax_mhz": 364.17,
+      "fmax_mhz": 332.89,
       "luts": 35,
-      "pnr_seconds": 7.04
+      "pnr_seconds": 7.53
     }
   }
 }
