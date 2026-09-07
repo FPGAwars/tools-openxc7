@@ -223,34 +223,49 @@ jobs:
           test -f chipdb-assets/XILINX-PARTS-INDEX.json \
             || { echo "::error::XILINX-PARTS-INDEX.json missing from the chipdb assets"; exit 1; }
 
-          # SHA256SUMS covers EVERY asset of the release: the three
-          # packages, the index, and the per-FPGA chipdb assets that carry
-          # what the packages no longer ship (apio#947). Written HERE, in
-          # the job that uploads them, from the very bytes that the upload
-          # below sends — the manifest and the release cannot describe
-          # different bytes. The index promises the same hashes for the
-          # chipdb assets, and asset-check requires the two to agree.
-          sha256sum apio-openxc7-*.tgz > SHA256SUMS
-          ( cd chipdb-assets && sha256sum XILINX-PARTS-INDEX.json *.bin.tgz ) >> SHA256SUMS
-          cat SHA256SUMS
-          # full BUILD-INFO of each package into the release text
-          # (ecosystem convention, apio#927)
+          # The BUILD-INFO.json of each package, which goes into the
+          # release text (ecosystem convention, apio#927) and, composed
+          # into one release-level document, travels as an asset of its
+          # own (apio#1009, asked by the apio maintainer so a crawler can
+          # read the build identity without downloading a package).
           # Member naming differs per platform (the linux/darwin packer tars
           # "-C dist ." -> "./BUILD-INFO.json"; the windows job appends the
           # bare "BUILD-INFO.json"), so resolve the actual member name from
           # the listing instead of hardcoding one form (2026-08-13 body
           # showed '{ "missing": true }' for two of the three packages).
+          mkdir -p build-infos
           : > BUILD-INFOS.md
           for f in apio-openxc7-*.tgz; do
             M=$(tar tzf "$f" | grep -Ex '(\./)?BUILD-INFO\.json' | head -1 || true)
+            [ -n "$M" ] \
+              || { echo "::error::$f carries no BUILD-INFO.json"; exit 1; }
+            tar xzf "$f" -O "$M" > "build-infos/$f.json"
             {
               echo "**\`$f\`**"
               echo '```json'
-              if [ -n "$M" ]; then tar xzf "$f" -O "$M"; else echo '{ "missing": true }'; fi
+              cat "build-infos/$f.json"
               echo '```'
               echo
             } >> BUILD-INFOS.md
           done
+          # The release-level document: the fields the three packages agree
+          # on, plus a row per package for the ones that are properly
+          # per-package. Composing it IS the agreement check — three
+          # packages built from different sources stop the release here.
+          python3 scripts/release-build-info.py build-infos/*.json > BUILD-INFO.json
+          cat BUILD-INFO.json
+
+          # SHA256SUMS covers EVERY asset of the release: the three
+          # packages, the build info, the index, and the per-FPGA chipdb
+          # assets that carry what the packages no longer ship (apio#947).
+          # Written HERE, in the job that uploads them, from the very bytes
+          # that the upload below sends — the manifest and the release
+          # cannot describe different bytes. The index promises the same
+          # hashes for the chipdb assets, and asset-check requires the two
+          # to agree.
+          sha256sum apio-openxc7-*.tgz BUILD-INFO.json > SHA256SUMS
+          ( cd chipdb-assets && sha256sum XILINX-PARTS-INDEX.json *.bin.tgz ) >> SHA256SUMS
+          cat SHA256SUMS
           cat > RELEASE-BODY.md <<EOFBODY
           openXC7 toolchain — $DATE. Validated by CI (package gate and
           regression suite on the three platforms).
@@ -273,6 +288,13 @@ jobs:
           works with the package of the SAME tag.
 
           ### Build info
+          The \`BUILD-INFO.json\` asset of this release carries what the three
+          packages agree on — toolchain revisions, oss-cad-suite tag, chipdb
+          identity, the commit and the run that built them — plus the file
+          name and build time of each one, so a crawler can read the identity
+          of this build without downloading a package (apio#1009). Each
+          package's own document, as it travels at its root:
+
           $(cat BUILD-INFOS.md)
 
           ### Pre-release note
@@ -290,7 +312,7 @@ jobs:
             --title "$DATE" --prerelease --latest=false \
             --notes-file RELEASE-BODY.md
           gh release upload "$DATE" apio-openxc7-*.tgz SHA256SUMS \
-            chipdb-assets/* --repo "$GITHUB_REPOSITORY"
+            BUILD-INFO.json chipdb-assets/* --repo "$GITHUB_REPOSITORY"
 
       # Close the loop: re-resolve every asset by apio's tag->date->name rule
       # against what GitHub actually serves, and require the published

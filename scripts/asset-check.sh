@@ -30,6 +30,12 @@
 # them from the same bytes in the same job: the hash comparison itself
 # happens once, against the index, and never twice over the same bytes.
 #
+# BUILD-INFO.json is published alongside them since apio#1009: the identity
+# of this build -- toolchain revisions, oss-cad-suite tag, chipdb identity,
+# the commit and the run -- readable without downloading a 100 MB package,
+# the way apio's own releases publish theirs. It must describe THIS release;
+# a release without one predates the convention and is legacy, not failed.
+#
 # Usage:
 #   scripts/asset-check.sh <tag>                     # existence + SHA256SUMS
 #                                                    # + parts index and assets
@@ -53,7 +59,7 @@ while [ $# -gt 0 ]; do
         --expect-dir) EXPECT_DIR="$2"; shift 2 ;;
         --full) FULL=1; shift ;;
         --platform) PLATFORMS+=("$2"); shift 2 ;;
-        -h|--help) sed -n '3,42p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '3,48p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         -*) echo "unknown option: $1" >&2; exit 2 ;;
         *) TAG="$1"; shift ;;
     esac
@@ -208,6 +214,98 @@ for platform in platforms:
 
     print(line)
 
+
+# ---------------------------------------------------------------------------
+# The build info: the one document that says what this build is (apio#1009).
+# ---------------------------------------------------------------------------
+BUILD_INFO = "BUILD-INFO.json"
+
+
+def check_build_info():
+    """Validate the published build info; True when the release has one.
+
+    It answers "what exactly is this build" without downloading a package,
+    which is what apio's crawler reads it for, so the thing that must hold
+    is that it describes THIS release: a run crossing midnight UTC, or a
+    leftover from an earlier one, would publish another release's identity
+    under this tag.
+
+    Absent, it is only a failure when SHA256SUMS names it -- that manifest
+    is written from the bytes this same job uploads, so a release that
+    lists the document and does not serve it lost it on the way up.
+    Without such a line the release simply predates the convention.
+    """
+    try:
+        with request(f"{base}/{BUILD_INFO}") as resp:
+            raw = resp.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            raise
+        if BUILD_INFO in sums:
+            print(f"❌ {BUILD_INFO}: in SHA256SUMS, not in the release")
+            print("   the upload lost the document its own manifest describes")
+            failed.append(BUILD_INFO)
+        else:
+            print(f"— {BUILD_INFO}: not published (HTTP 404)")
+            print("  legacy release: published before the build info"
+                  " travelled as an asset of its own")
+        return False
+    accounted.add(BUILD_INFO)
+
+    try:
+        info = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as error:
+        print(f"❌ {BUILD_INFO}: not readable as JSON ({error})")
+        failed.append(BUILD_INFO)
+        return False
+
+    if info.get("release-tag") != tag:
+        print(f"❌ {BUILD_INFO}: release-tag {info.get('release-tag')!r}, not "
+              f"{tag!r}")
+        print("   the identity published under this tag is another"
+              " release's")
+        failed.append(BUILD_INFO)
+        return False
+
+    # Each package it names must be the one apio resolves for that platform
+    # from this tag: the same date rule the tarballs above go through,
+    # applied to the document that claims to describe them.
+    packages = info.get("packages") or {}
+    for platform, entry in sorted(packages.items()):
+        expected = f"apio-openxc7-{platform}-{date}.tgz"
+        if entry.get("file-name") != expected:
+            print(f"❌ {BUILD_INFO}: for {platform} it names "
+                  f"{entry.get('file-name')!r}, this release ships "
+                  f"{expected}")
+            failed.append(BUILD_INFO)
+            return False
+
+    line = (f"✅ {BUILD_INFO}: HTTP 200 ({len(raw)} B) · release-tag"
+            f" {info['release-tag']} · {len(packages)} packages ·"
+            f" nextpnr-xilinx {str(info.get('nextpnr-xilinx-revision'))[:12]}"
+            f" · oss-cad-suite {info.get('yosys-release-tag')}")
+    # Same free hash as the index: the bytes are already here, and nothing
+    # else in the release vouches for this document.
+    if covers_everything:
+        published = sums.get(BUILD_INFO)
+        digest = hashlib.sha256(raw).hexdigest()
+        if published is None:
+            print(f"❌ {BUILD_INFO}: published but MISSING from SHA256SUMS")
+            failed.append(BUILD_INFO)
+            return False
+        if published != digest:
+            print(f"❌ {BUILD_INFO}: sha256 {digest[:12]}… != SHA256SUMS "
+                  f"{published[:12]}…")
+            print("   the published build info is not the one SHA256SUMS"
+                  " records")
+            failed.append(BUILD_INFO)
+            return False
+        line += " · sha256 == SHA256SUMS"
+    print(line)
+    return True
+
+
+has_build_info = check_build_info()
 
 # ---------------------------------------------------------------------------
 # The on-demand chipdb: the parts index, and every per-FPGA asset it names.
@@ -409,6 +507,8 @@ if failed:
     sys.exit(1)
 tail = (f" and for the {checked_chipdb} chipdb assets of this release"
         if checked_chipdb else "")
+if has_build_info:
+    tail += "; its BUILD-INFO.json names this very tag"
 if checked_chipdb and covers_everything:
     tail += f"; SHA256SUMS ({len(sums)} entries) agrees with the index"
 print(f"\nasset-check: OK — apio's URL rule resolves for every platform{tail}")
