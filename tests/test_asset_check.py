@@ -28,6 +28,7 @@ PARTS = (f"{BASE_PART}-1", f"{BASE_PART}-2L")   # one chipdb file, two parts
 CHIPDB = f"{BASE_PART}.bin"
 ASSET = f"apio-xilinx-chipdb-{BASE_PART}-{DATE}.bin.tgz"
 INDEX = "XILINX-PARTS-INDEX.json"        # since the apio#1002 rename
+BUILD_INFO = "BUILD-INFO.json"           # the release-level one, apio#1009
 PREVIOUS_INDEX = "PARTS-INDEX.json"      # apio#990, up to the rename
 LEGACY_INDEX = f"apio-xilinx-parts-index-{DATE}.json"   # up to 2026-08-31
 BASE = f"https://github.com/{REPO_SLUG}/releases/download/{TAG}"
@@ -113,8 +114,22 @@ def release(**overrides) -> dict:
             for part in PARTS
         },
     }
+    build_info = {
+        "package-name": "openxc7",
+        "release-tag": TAG,
+        "yosys-release-tag": "2026-03-24",
+        "nextpnr-xilinx-revision": "68aeeb39f92e39bfb239c7e4a44dd93451fc1889",
+        "chipdb-id": "fixture-id",
+        "commit": "3931811fdb26d2eaf484f2eb63d7db976e43316f",
+        "packages": {
+            platform: {"file-name": f"apio-openxc7-{platform}-{DATE}.tgz",
+                       "build-time": "2026-08-28 09:00:00 UTC"}
+            for platform in ("linux-x86-64", "darwin-arm64",
+                             "windows-amd64")},
+    }
     files = {
         **{f"{BASE}/{name}": body for name, body in tarballs.items()},
+        f"{BASE}/{BUILD_INFO}": json.dumps(build_info).encode(),
         f"{BASE}/{INDEX}": json.dumps(info).encode(),
         f"{BASE}/{ASSET}": tgz,
     }
@@ -376,6 +391,79 @@ class AssetCheckTests(unittest.TestCase):
         self.assertEqual(code, 0, output)
         self.assertIn("the platform packages only", output)
         self.assertIn("asset-check: OK", output)
+
+    def test_the_build_info_of_the_release_is_checked(self):
+        """apio's crawler reads it to learn what this build is (apio#1009);
+        the gate reads it to confirm it is THIS build."""
+        code, output = run(release())
+        self.assertEqual(code, 0, output)
+        self.assertIn(f"✅ {BUILD_INFO}", output)
+        self.assertIn("3 packages", output)
+        self.assertIn("sha256 == SHA256SUMS", output)
+        self.assertIn("names this very tag", output)
+
+    def test_a_build_info_the_manifest_names_but_the_release_lacks_fails(self):
+        """The upload that lost one file: SHA256SUMS is written from the
+        bytes the same job uploads, so a line without an asset is a
+        release that did not finish going up."""
+        files = release()
+        promised = files.pop(f"{BASE}/{BUILD_INFO}")
+        code, output = run(resum(files, promised={BUILD_INFO: promised}))
+        self.assertEqual(code, 1)
+        self.assertIn(f"❌ {BUILD_INFO}: in SHA256SUMS, not in the release",
+                      output)
+
+    def test_a_release_without_a_build_info_is_legacy_not_a_failure(self):
+        """Releases before apio#1009 carried it inside the packages only,
+        and they are still installed from and still promotable."""
+        files = release(**{f"{BASE}/{BUILD_INFO}": None})
+        lines = files[f"{BASE}/SHA256SUMS"].decode().splitlines(True)
+        files[f"{BASE}/SHA256SUMS"] = "".join(
+            line for line in lines if BUILD_INFO not in line).encode()
+        code, output = run(files)
+        self.assertEqual(code, 0, output)
+        self.assertIn("legacy release: published before the build info",
+                      output)
+        self.assertIn("asset-check: OK", output)
+
+    def test_a_build_info_from_another_release_fails(self):
+        """The same midnight-UTC failure the index is guarded against."""
+        files = release()
+        info = json.loads(files[f"{BASE}/{BUILD_INFO}"])
+        info["release-tag"] = "2026-08-27"
+        files[f"{BASE}/{BUILD_INFO}"] = json.dumps(info).encode()
+        code, output = run(resum(files))
+        self.assertEqual(code, 1)
+        self.assertIn("release-tag '2026-08-27'", output)
+        self.assertIn("another release's", output)
+
+    def test_a_build_info_naming_another_releases_package_fails(self):
+        files = release()
+        info = json.loads(files[f"{BASE}/{BUILD_INFO}"])
+        info["packages"]["darwin-arm64"]["file-name"] = (
+            "apio-openxc7-darwin-arm64-20260827.tgz")
+        files[f"{BASE}/{BUILD_INFO}"] = json.dumps(info).encode()
+        code, output = run(resum(files))
+        self.assertEqual(code, 1)
+        self.assertIn("for darwin-arm64 it names", output)
+        self.assertIn(f"this release ships apio-openxc7-darwin-arm64-{DATE}",
+                      output)
+
+    def test_a_tampered_build_info_line_fails(self):
+        files = release()
+        digest = hashlib.sha256(files[f"{BASE}/{BUILD_INFO}"]).hexdigest()
+        files[f"{BASE}/SHA256SUMS"] = files[f"{BASE}/SHA256SUMS"].decode(
+            ).replace(digest, "3" * 64).encode()
+        code, output = run(files)
+        self.assertEqual(code, 1)
+        self.assertIn(f"❌ {BUILD_INFO}: sha256", output)
+        self.assertIn("not the one SHA256SUMS records", output)
+
+    def test_a_build_info_that_is_not_json_fails(self):
+        files = release(**{f"{BASE}/{BUILD_INFO}": b"<html>404</html>"})
+        code, output = run(resum(files))
+        self.assertEqual(code, 1)
+        self.assertIn(f"❌ {BUILD_INFO}: not readable as JSON", output)
 
     def test_missing_platform_tarball_still_fails(self):
         gone = f"apio-openxc7-darwin-arm64-{DATE}.tgz"
