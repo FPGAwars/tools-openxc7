@@ -208,7 +208,7 @@ jobs:
           if-no-files-found: error
 
       # The index alone (~50 kB), for the three package jobs: they embed it
-      # as XILINX-PARTS-INDEX.json and never need the ~1.5 GB of assets next
+      # as XILINX-PARTS-INDEX.json and never need the ~2 GB of assets next
       # to it.
       - name: Publish the XILINX-PARTS-INDEX document for the platform jobs
         uses: actions/upload-artifact@v7

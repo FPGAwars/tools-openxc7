@@ -100,7 +100,7 @@ def request(url, method="GET", attempts=3):
     if token and url.startswith("https://api.github.com/"):
         req.add_header("Authorization", f"Bearer {token}")
     # A transient connection failure is not an answer about the release, and
-    # this check now makes one request per published asset -- about fifty on
+    # this check now makes one request per published asset -- about forty on
     # a full-manifest release, ~2 GB with --full. Retried, with a pause; an
     # HTTPError is NOT retried, because 404 is the answer we came for.
     for attempt in range(1, attempts + 1):
