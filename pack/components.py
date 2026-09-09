@@ -26,6 +26,7 @@ from .relocate import (
     is_shell_script,
     nix_locate,
     python_shebang_add,
+    resolve_needed,
     write_access,
 )
 
@@ -413,23 +414,29 @@ def run_phase3_fasm():
         antlr_dir = nix_locate("antl")
         lib_dir = antlr_dir / "lib"
         pattern = "libantlr4-runtime.so.*"
-        files = list(lib_dir.glob(pattern))
+        files = sorted(lib_dir.glob(pattern))
+        if not files:
+            raise SystemExit(f"❌ antlr: ningun {pattern} en {lib_dir}")
         for lib_file in files:
             msg = copy_file(lib_file, dst)
             print(msg)
 
-        # -- libuuid.so.1 (util-linux-minimal). The version is fixed by the
-        # -- the nixpkgs revision is fixed -> do not hardcode it: look for the *-lib
-        # -- output that actually contains the library. (The 2.40.4
-        # -- hardcode worked by accident: it was provided by CI's own nix
-        # -- installer, not by the devShell.)
-        candidates = sorted(
-            d for d in Path("/nix/store").glob("*util-linux-minimal-*-lib")
-            if (d / "lib" / "libuuid.so.1").exists())
-        if not candidates:
-            raise SystemExit(
-                "❌ libuuid: ningun util-linux-minimal-*-lib en /nix/store")
-        src = candidates[0] / "lib" / "libuuid.so.1"
+        # -- libuuid.so.1: the exact copy libantlr4-runtime was linked
+        # -- against, resolved through its RUNPATH.
+        # --
+        # -- It used to be the first /nix/store/*util-linux-minimal-*-lib
+        # -- the glob returned, which is a property of the BUILD HOST's
+        # -- store and not of this flake. On a host whose store also
+        # -- carries a newer nixpkgs, that is a util-linux built against a
+        # -- newer glibc: the package then shipped a libuuid.so.1 needing
+        # -- GLIBC_ABI_GNU2_TLS next to a libc.so.6 that does not have it,
+        # -- libantlr4-runtime failed to load, and every single
+        # -- fasm2frames died falling back to a textX parser whose
+        # -- arpeggio we do not ship (all 36 parts, measured on the build
+        # -- server 2026-09-09; CI never saw it because a fresh runner's
+        # -- store holds only this flake's closure). Asking the library
+        # -- that needs it cannot pick a stranger.
+        src = resolve_needed(files[0], "libuuid.so.1")
         msg = copy_file(src, dst)
         print(msg)
 
