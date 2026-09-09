@@ -12,8 +12,9 @@
 # YOSYS_RELEASE_TAG env, declared at the top of build-pre-release.yaml and
 # propagated through the platform workflows. GITHUB_* envs identify the
 # build; local developer builds fall back to git so they get an honest
-# BUILD-INFO too. When GITHUB_STEP_SUMMARY is set the JSON is also exported
-# to the run summary (same convention).
+# BUILD-INFO too. The eigen-version is evaluated from the flake (see below).
+# When GITHUB_STEP_SUMMARY is set the JSON is also exported to the run
+# summary (same convention).
 
 set -euo pipefail
 
@@ -62,6 +63,31 @@ esac
 
 NEXTPNR_REV=$(sed -n 's/.*rev = "\([0-9a-f]\{7,40\}\)".*/\1/p' "$REPO_ROOT/nix/nextpnr-xilinx.nix" | head -1)
 
+# The Eigen release nextpnr was compiled against. placer_heap solves its
+# analytic placement with Eigen, so its results move with the library even
+# when the nextpnr revision does not -- the "same revision, different
+# binary" trap behind the re-goldens upstream keeps hitting. The revision
+# alone does not identify a build; this does.
+#
+# Read from the flake, never hardcoded: nix/nextpnr-xilinx.nix takes eigen
+# from the flake's locked nixpkgs, so this reports whatever that revision
+# of nixpkgs carries. The Windows package cross-compiles against the same
+# nixpkgs (pkgsCross.mingwW64.eigen, nix/windows/default.nix), so the three
+# platforms report the same release and the release-level composition
+# (scripts/release-build-info.py) can treat it as a shared field.
+# EIGEN_VERSION overrides, for a caller that already knows it.
+EIGEN_VERSION="${EIGEN_VERSION:-}"
+if [ -z "$EIGEN_VERSION" ]; then
+    EIGEN_VERSION=$(nix --extra-experimental-features 'nix-command flakes' \
+        eval --raw "$REPO_ROOT#nextpnr-xilinx" --apply \
+        'drv: let found = builtins.filter (p: (p.pname or "") == "eigen") drv.buildInputs; in if found == [] then "unknown" else (builtins.head found).version' \
+        2>/dev/null) || EIGEN_VERSION=""
+    if [ -z "$EIGEN_VERSION" ]; then
+        echo "warning: could not evaluate the eigen version from the flake; eigen-version=unknown" >&2
+        EIGEN_VERSION="unknown"
+    fi
+fi
+
 COMMIT=${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)}
 
 cat > "$OUT" <<EOF
@@ -71,6 +97,7 @@ cat > "$OUT" <<EOF
   "release-tag"                    : "$DATE",
   "yosys-release-tag"              : "$YOSYS_TAG",
   "nextpnr-xilinx-revision"        : "${NEXTPNR_REV:-unknown}",
+  "eigen-version"                  : "$EIGEN_VERSION",
   "chipdb-source"                  : "$CHIPDB_SOURCE",
   "use-cached-chipdb"              : $CHIPDB_CACHE_USED,
   "chipdb-id"                      : "$CHIPDB_ID",
