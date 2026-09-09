@@ -170,7 +170,12 @@ PYEOF
     else fail "BUILD-INFO.json invalid (bad JSON, platform mismatch or missing fields)"
     fi
 else
-    note "BUILD-INFO.json missing (pre-convention package)"
+    # Every package the CI builds composes one (scripts/build-info.sh) and
+    # the release publishes the three of them composed into an asset
+    # (scripts/release-build-info.py, apio#1009): a package without it is
+    # not a package this pipeline produced, and the composition downstream
+    # would fail on it anyway.
+    fail "BUILD-INFO.json missing"
 fi
 
 # --- chipdb completeness vs the manifest ------------------------------------
