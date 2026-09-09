@@ -15,12 +15,21 @@
 #   1. re-verify the release the way apio will fetch it
 #      (scripts/asset-check.sh) — a broken candidate stops HERE. By
 #      default that is `--full`: every asset is downloaded and hashed
-#      against what the release promises, ~830 MB and a couple of
+#      against what the release promises, ~2 GB and a couple of
 #      minutes on a runner. This is the last gate before users install
 #      it, so it pays them;
-#   2. mark it stable + latest on GitHub (idempotent if already done);
+#   2. mark it stable on GitHub (idempotent if already done);
 #   3. drop the "Pre-release note" section from the release body, which
 #      stops being true the moment the release is published.
+#
+# The repository's LATEST release is a SEPARATE decision, and off by
+# default (`latest` input). Latest is what a browser, a crawler and a
+# plain `gh release download` land on, so it should name the release
+# apio's remote-config actually points clients at — which is not always
+# the one being published here, and was not on 2026-09-08 when apio's
+# repository crawler flagged this repository for exactly that mismatch
+# (apio#1009). Publishing a release and telling the world it is THE
+# release are two different acts; this workflow separates them.
 #
 # Updating apio's remote-config is deliberately NOT automated here: the
 # apio maintainer prefers editing it by hand, often bumping several
@@ -41,9 +50,14 @@ on:
         description: "Dated release tag to publish (YYYY-MM-DD)"
         required: true
       full:
-        description: "Verify the bytes of every asset, not just their sizes (~830 MB)"
+        description: "Verify the bytes of every asset, not just their sizes (~2 GB)"
         required: false
         default: true
+        type: boolean
+      latest:
+        description: "Also make it the repository's latest release (what crawlers and plain download links follow)"
+        required: false
+        default: false
         type: boolean
 
 permissions:
@@ -73,13 +87,29 @@ jobs:
           bash scripts/asset-check.sh "${{ inputs.tag }}" \
             ${{ inputs.full && '--full' || '' }}
 
-      - name: Mark the release stable + latest
+      # --latest is always passed explicitly, in one direction or the
+      # other: the update endpoint's default is to make the release it
+      # edits the latest one, so staying silent about it would move the
+      # badge as a side effect — the very thing this input exists to
+      # prevent. The one case where "do not move latest" means keeping
+      # the flag on is a release that already IS latest (a re-run, or a
+      # release published by hand): demoting it would move the badge too.
+      - name: Mark the release stable
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          WANT_LATEST: ${{ inputs.latest }}
         run: |
-          gh release edit "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" \
-            --prerelease=false --latest
-          echo "release ${{ inputs.tag }} is now stable and latest"
+          CURRENT=$(gh release view --repo "$GITHUB_REPOSITORY" \
+            --json tagName --jq .tagName 2>/dev/null || echo "")
+          if [ "$WANT_LATEST" = "true" ] || [ "$CURRENT" = "$TAG" ]; then
+            LATEST=--latest=true
+          else
+            LATEST=--latest=false
+          fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --prerelease=false "$LATEST"
+          echo "release $TAG is now stable ($LATEST; latest was ${CURRENT:-none})"
 
       # build-pre-release writes the body for a PRE-release, so it ends
       # with a note saying this one will be deleted in a few days and how
