@@ -8,23 +8,43 @@ let
   upstream = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr-xilinx";
-    rev = "68aeeb39f92e39bfb239c7e4a44dd93451fc1889";
-    hash = "sha256-+ZGrahxZsTV0LYH9LmDluuRScZSWILSoaK5B3tdt/bY=";
+    rev = "ece39e171b03180c0efd6ba024ef175ce3ad0aad";
+    hash = "sha256-6xzb3N86mRlh81uSNRR1q1hoYPceW4nvCP6wbY062ag=";
     fetchSubmodules = true;
   };
 in
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
-  version = "0.9.3";
+  version = "0.9.4";
 
-  # Upstream release 0.9.3 (2026-08-18) = tip of the development branch
-  # (renamed stable-backports -> main the same day). Everything of ours is
-  # merged: #102/#104/#105/#106/#116/#138/#139/#140/#144/#146 and the ddr3
-  # series; plus #134 (carry fanout), #148 (LUT6_2 UAF), #150 (SDP BRAM
-  # widths), #151 (BUFR config), #153 (fasm run-identity header: comments,
-  # which our canonical-fasm tooling strips). ZERO local patches. constids
-  # and bba untouched since the previous revision: same chipdb content, new
-  # identity stamp (CI regenerates; old seeds are rejected, as designed).
+  # Upstream release 0.9.4 (2026-09-09), 45 commits over 0.9.3. The
+  # regional-clocking series lands complete: create_clock propagated through
+  # buffers and PLL/MMCM (#156), BUFIO packed onto its own bel (#157), a
+  # pad-fed BUFIO and BUFR each constrained to the site their pad reaches
+  # (#168, #170), a regional buffer's sinks kept inside its clock region
+  # (#171) and BUFIO_Yn.IN_USE emitted for a placed BUFIO (#167) -- 0.9.3
+  # could not place a BUFIO at all. With it: CARRY4 O fanout relocated at
+  # the chain root (#164), the X_ORIG_PORT naming fixes, and AssassinK786's
+  # round of encoding fixes -- FDSE/FDPE undefined INIT (#179), SRL16E and
+  # SRLC32E INIT actually reaching the bitstream (#185), WEMUX consistency
+  # across a SLICEM half-tile (#186), constant-tied STARTUPE2 control pins
+  # disconnected instead of routed (#190), MMCM/PLL IS_PWRDWN_INVERTED and
+  # the MMCM PHASE default (#191); #183 is reverted upstream. ZERO local
+  # patches.
+  #
+  # Two database bumps ride along (77e52f10 -> 6b8695e -> e8b8e8e4): the
+  # artix7 BUFRCLK enables and MMCM performance-clock rows, the zynq7 and
+  # spartan7 CLK_HROW BUFG-cascade rows -- which is what lets the two
+  # xc7z045 900-ball footprints back into the manifest -- and the spartan7
+  # part databases for xc7s6/xc7s15/xc7s25/xc7s75/xc7s100, which take the
+  # packaged database from 154 parts to 202.
+  #
+  # constids.inc and bbaexport are untouched, and so are every tile_type
+  # json and every packaged fabric's tilegrid/tileconn: the database grew
+  # segbits (read by fasm2frames, not by the exporter) and parts of families
+  # we do not build. The chipdb bins therefore keep their content and only
+  # the identity stamp moves -- CI regenerates them, old seeds are rejected,
+  # as designed.
   src = upstream;
 
   # 0.9.x detects eigen via pkg-config (upstream 77911357)
