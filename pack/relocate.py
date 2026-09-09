@@ -240,6 +240,31 @@ def nix_locate(text: str) -> Path:
     return paths[0]
 
 
+# ------------------------------------------------------------------
+# -- Resolve one DT_NEEDED library of an ELF object to the file the
+# -- loader would actually open for it (its RUNPATH decides, so the
+# -- answer is the copy this object was linked against).
+# --
+# -- Use this instead of globbing /nix/store whenever the library is
+# -- loaded at RUNTIME and therefore has to be copied by hand: the glob
+# -- answers with a property of the build HOST's store, this answers
+# -- with a property of the thing that needs the library.
+# ------------------------------------------------------------------
+def resolve_needed(obj: Path, soname: str) -> Path:
+
+    deps = subprocess.run(["ldd", str(obj)],
+                          capture_output=True, text=True, check=True)
+
+    for line in deps.stdout.splitlines():
+        match = re.search(r'(\S+)\s+=>\s+(\S+)', line.strip())
+        if match and match.group(1) == soname:
+            return Path(match.group(2))
+
+    raise SystemExit(
+        f"❌ {soname}: no aparece entre las dependencias de {obj.name} "
+        "(¿cambió como se enlaza?)")
+
+
 # -----------------------------------------------------------------------
 # -- Copy a python library from nix into the distribution
 # -- The package directory is copied to dist/lib/python3.12/site-packages
