@@ -24,9 +24,11 @@ from .relocate import (
     is_elf,
     is_python_script,
     is_shell_script,
-    nix_locate,
+    python_ctypes,
     python_shebang_add,
     resolve_needed,
+    resolve_needed_in,
+    resolve_python_package,
     write_access,
 )
 
@@ -344,7 +346,7 @@ def run_phase3_yosys():
     copy_python()
 
     # -- Copy the specific python packages
-    copy_python_dep("click", "8.1.7")
+    copy_python_dep("click")
 
 
 def run_phase3_nextpnr_xilinx():
@@ -399,20 +401,46 @@ def run_phase3_fasm():
     print(ansi.DEFAULT, end='')
 
     # --- Copy fasm and its dependencies
-    copy_python_dep("fasm", "")
-    copy_python_dep("textx", "4.0.1")
+    copy_python_dep("fasm")
+    copy_python_dep("textx")
 
     # -- Native libraries loaded at RUNTIME via ctypes/dlopen (they are not
     # -- LC_LOAD_DYLIB/DT_NEEDED dependencies of the executables), so they
-    # -- must be copied explicitly. On Linux: .so (antlr/libuuid/libffi).
-    # -- On macOS: only the libffi .dylib (for _ctypes) and libantlr (for
-    # -- the fast parser's libparse_fasm.dylib); libuuid is provided by
+    # -- must be copied explicitly. Each one is resolved from the object of
+    # -- the devShell closure that actually links it -- never by globbing
+    # -- /nix/store, whose first match is a property of the build HOST's
+    # -- store, not of this flake (see the libuuid note below). On Linux:
+    # -- .so (antlr/libuuid/libffi). On macOS: .dylib; libuuid comes from
     # -- libSystem.
     dst = Path.cwd() / "dist" / "lib"
-    if not IS_DARWIN:
-        # -- libantlr4
-        antlr_dir = nix_locate("antl")
-        lib_dir = antlr_dir / "lib"
+
+    # -- libffi: the copy the _ctypes extension of the shipped python3.12
+    # -- loads (looked up via @rpath -> dist/lib on macOS).
+    src = resolve_needed(python_ctypes(), r"libffi\..*")
+    msg = copy_file(src, dst)
+    print(msg)
+
+    # -- libantlr4-runtime: the copy the fasm fast parser links. The
+    # -- parser's native objects live inside the fasm package
+    # -- (fasm/parser/); which of them carries the dependency differs by
+    # -- platform (the cython extension dlopens libparse_fasm), so the
+    # -- lookup scans them all.
+    parser_dir = resolve_python_package("fasm") / "parser"
+    objects = sorted([*parser_dir.glob("*.so"), *parser_dir.glob("*.dylib")])
+    if not objects:
+        raise SystemExit(f"❌ antlr: ningun objeto nativo en {parser_dir}")
+    antlr_lib = resolve_needed_in(objects, r"libantlr4-runtime\..*")
+
+    if IS_DARWIN:
+        # -- macOS: the LC_LOAD_DYLIB path already names the real file
+        # -- (looked up by libparse_fasm.dylib via @rpath -> dist/lib).
+        msg = copy_file(antlr_lib, dst)
+        print(msg)
+    else:
+        # -- Linux: the loader looks the library up by soname in dist/lib,
+        # -- so every libantlr4-runtime.so.* of the resolved directory goes
+        # -- in (the soname link and the real file), as before.
+        lib_dir = antlr_lib.parent
         pattern = "libantlr4-runtime.so.*"
         files = sorted(lib_dir.glob(pattern))
         if not files:
@@ -436,28 +464,9 @@ def run_phase3_fasm():
         # -- server 2026-09-09; CI never saw it because a fresh runner's
         # -- store holds only this flake's closure). Asking the library
         # -- that needs it cannot pick a stranger.
-        src = resolve_needed(files[0], "libuuid.so.1")
+        src = resolve_needed(files[0], r"libuuid\.so\.1")
         msg = copy_file(src, dst)
         print(msg)
-
-        # -- libffi.so
-        ffi_dir = nix_locate("libffi-3.4.6")
-        src = ffi_dir / "lib" / "libffi.so.8"
-        msg = copy_file(src, dst)
-        print(msg)
-    else:
-        # -- libffi.*.dylib (looked up by _ctypes via @rpath -> dist/lib)
-        ffi_dir = nix_locate("libffi-3.4.6")
-        for f in (ffi_dir / "lib").glob("libffi.*.dylib"):
-            if not f.is_symlink():
-                print(copy_file(f, dst))
-
-        # -- libantlr4-runtime.*.dylib (looked up by libparse_fasm.dylib
-        # -- via @rpath)
-        antlr_dir = nix_locate("antlr-runtime-cpp")
-        for f in (antlr_dir / "lib").glob("libantlr4-runtime.*.dylib"):
-            if not f.is_symlink():
-                print(copy_file(f, dst))
 
 
 def run_phase3_prjxray():
@@ -470,26 +479,17 @@ def run_phase3_prjxray():
     # ---- Prjxray
     # {prjxray}/usr/share/python3/prjxray -->
     # ---> dist/lib/python3.12/site-packages/prjxray
-    # -- Locate the folder where the package lives
-    pkg_dir = nix_locate("prjxray")
-    src = pkg_dir / "usr" / "share" / "python3" / "prjxray"
-    dst = Path.cwd() / DIST / LIB / "python3.12" \
-        / "site-packages" / "prjxray"
-
-    mark = ""
-    if dst.exists():
-        mark = "📌"
-    else:
-        shutil.copytree(src, dst, dirs_exist_ok=True)
-        mark = "✅"
-
-    print(f"➡️  Dep: {mark}prjxray")
+    # -- The devShell puts the prjxray derivation's usr/share/python3 on
+    # -- PYTHONPATH, so the interpreter resolves exactly the tree the shell
+    # -- linked. The store can hold several prjxray builds at once; the
+    # -- first glob match used to pick one of them at random.
+    copy_python_dep("prjxray")
 
     # -- Python packages
-    copy_python_dep("pyyaml", "6.0.1", "yaml")
-    copy_python_dep("simplejson", "3.19.2")
-    copy_python_dep("intervaltree", "3.1.0")
-    copy_python_dep("sortedcontainers", "2.4.0")
+    copy_python_dep("yaml")
+    copy_python_dep("simplejson")
+    copy_python_dep("intervaltree")
+    copy_python_dep("sortedcontainers")
 
     # -- File locking: best-effort instead of fatal
     # --
@@ -583,10 +583,6 @@ def run_phase3_prjxray():
         raise SystemExit(f"❌ {PATCH_DIR}/util.py: el parche de locking no quedó aplicado")
     mark = "✅"
     print(f"➡️  Dep: {mark}{PATCH_DIR}/util.py (locking best-effort)")
-
-    # -- DEBUG
-    # dir = nix_locate("nextpnr-xilinx")
-    # print(dir)
 
 
 def process_binaries(name: str):
