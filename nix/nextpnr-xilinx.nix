@@ -8,43 +8,52 @@ let
   upstream = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr-xilinx";
-    rev = "ece39e171b03180c0efd6ba024ef175ce3ad0aad";
-    hash = "sha256-6xzb3N86mRlh81uSNRR1q1hoYPceW4nvCP6wbY062ag=";
+    rev = "a9ceeec26770f6d1ea97c6afd8cf731a587afcf1";
+    hash = "sha256-f9t1HdpmV/Wucga19RJXdagik3qbcF0IMTVsm7qWmVw=";
     fetchSubmodules = true;
   };
 in
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
-  version = "0.9.4";
+  version = "0.9.5";
 
-  # Upstream release 0.9.4 (2026-09-09), 45 commits over 0.9.3. The
-  # regional-clocking series lands complete: create_clock propagated through
-  # buffers and PLL/MMCM (#156), BUFIO packed onto its own bel (#157), a
-  # pad-fed BUFIO and BUFR each constrained to the site their pad reaches
-  # (#168, #170), a regional buffer's sinks kept inside its clock region
-  # (#171) and BUFIO_Yn.IN_USE emitted for a placed BUFIO (#167) -- 0.9.3
-  # could not place a BUFIO at all. With it: CARRY4 O fanout relocated at
-  # the chain root (#164), the X_ORIG_PORT naming fixes, and AssassinK786's
-  # round of encoding fixes -- FDSE/FDPE undefined INIT (#179), SRL16E and
-  # SRLC32E INIT actually reaching the bitstream (#185), WEMUX consistency
-  # across a SLICEM half-tile (#186), constant-tied STARTUPE2 control pins
-  # disconnected instead of routed (#190), MMCM/PLL IS_PWRDWN_INVERTED and
-  # the MMCM PHASE default (#191); #183 is reverted upstream. ZERO local
+  # Upstream release 0.9.5 (2026-09-13), 17 commits over 0.9.4, in three
+  # blocks.
+  #
+  # shenki's constant-net series (#184): routeVcc() hands back the constant
+  # sinks it could not reach, routeConstants() places a constant INIT LUT
+  # next to each of them, moves that sink wire's whole group of users onto
+  # it and re-routes, and anything still unreached is an ERROR unless
+  # --allow-const-holdouts is given. An unprogrammed IMUX reads 1 on xc7, so
+  # a RAM32M address bit tied to ground used to float high while nextpnr
+  # exited 0. Two router2 fixes come with it -- release a net's old binding
+  # before rebinding, and adopt pre-existing routing with the arc state the
+  # ripup path expects -- both needed because that series re-routes an
+  # already routed design. The new flag is a plain bool on Arch, not a
+  # ctx->settings entry, so it interns no IdString before packing (the
+  # ordering effect measured in nextpnr-xilinx#184).
+  #
+  # AssassinK786's #187 closes the BUFHCE pass-through: the CE pin of a
+  # BUFHCE used as a pure route-thru was left floating with ZINV_CE set
+  # unconditionally. It is now bridged explicitly to $PACKER_VCC_NET, which
+  # is what the database already defaults that IMUX to, so every pip the
+  # bridge binds is bitless and the emitted bitstream is unchanged -- the
+  # variant measured against the five Vivado golden references of #177.
+  #
+  # And the database gitlink follows prjxray-db to 1768fb35 (db#15): the
+  # REAL xc7s25 device model, in place of the copy of the xc7s50 fabric that
+  # addressed the wrong frames (clock configuration column 19 against the
+  # model's 23, a 3060-frame image against 4970), plus the MONITOR_*_FUJI2
+  # tile types it needs; complete part.json for the xc7s6/xc7s15/xc7s50-1Q/
+  # xc7s75/xc7s100 packages; and xc7s75 off its own bogus fabric copy. That
+  # model is the precondition xc7s25csga324 was waiting on to enter the
+  # manifest.
+  #
+  # constids.inc and bbaexport are untouched and no family other than
+  # spartan7 changes in the database, so the chipdb bins of the parts we
+  # already built keep their content: only the identity stamp moves, CI
+  # regenerates them and rejects older seeds, as designed. ZERO local
   # patches.
-  #
-  # Two database bumps ride along (77e52f10 -> 6b8695e -> e8b8e8e4): the
-  # artix7 BUFRCLK enables and MMCM performance-clock rows, the zynq7 and
-  # spartan7 CLK_HROW BUFG-cascade rows -- which is what lets the two
-  # xc7z045 900-ball footprints back into the manifest -- and the spartan7
-  # part databases for xc7s6/xc7s15/xc7s25/xc7s75/xc7s100, which take the
-  # packaged database from 154 parts to 202.
-  #
-  # constids.inc and bbaexport are untouched, and so are every tile_type
-  # json and every packaged fabric's tilegrid/tileconn: the database grew
-  # segbits (read by fasm2frames, not by the exporter) and parts of families
-  # we do not build. The chipdb bins therefore keep their content and only
-  # the identity stamp moves -- CI regenerates them, old seeds are rejected,
-  # as designed.
   src = upstream;
 
   # 0.9.x detects eigen via pkg-config (upstream 77911357)
