@@ -2,18 +2,24 @@
 , ... }:
 stdenv.mkDerivation rec {
   pname = "prjxray";
-  version = "ef5203e9d06e9ffda79168439723579217ca8110";
+  version = "9346969e7bfb9d070221957f8ccbaec28d5f1a93";
 
-  # openXC7/prjxray master 2026-08-18: on top of the previous revision (our
-  # Windows/ODR work, PR #5) it carries our bitread use-after-free fix (PR #6:
-  # bit2fasm works again), the OSERDES DATA_WIDTH 10/14 fuzzing, and regymm's
-  # Zynq 7030/7035/7045/7100 support.
+  # openXC7/prjxray master 2026-09-11. On top of ef5203e9 (our Windows/ODR
+  # work, PR #5, and the bitread use-after-free fix, PR #6) the shipped
+  # surface gains: fasm2frames auto-injects HP-bank glue on LIOB18/RIOB18
+  # tiles (written for virtex7; a silent no-op on databases without those
+  # segbits keys, like our zynq7), grid.py lets a tile type's own segbits
+  # win over the alias path, the STEPDOWN lookup copes with fabric/package
+  # tile-name mismatches (none left in our manifest), PUDC_B gets an
+  # HP-bank template, XRAY_ALLOW_MISSING_FEATURES is an opt-in escape, and
+  # bitread.cc is upstream's own rewrite of our PR #6 fix. The rest is
+  # fuzzers, utils/ lab tooling and docs (our PRs #16 and #18).
   src = fetchFromGitHub {
     owner = "openXC7";
     repo = "prjxray";
-    rev = "ef5203e9d06e9ffda79168439723579217ca8110";
+    rev = "9346969e7bfb9d070221957f8ccbaec28d5f1a93";
     fetchSubmodules = true;
-    hash = "sha256-lSj5bMPbLPD3Eu8ZZlebA0K14w9XelBAWqFbWRB77t4=";
+    hash = "sha256-EuMiSApVPeMaJV5SM5Gp6/0bS4LiVDdr5oirSx2wuR8=";
   };
 
   nativeBuildInputs = [ cmake git ];
