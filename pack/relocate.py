@@ -8,6 +8,7 @@ is resolved globally at the end of the flow by ``macpack.relocate_dist()``
 signing must come after relocation.
 """
 
+import importlib.util
 import re
 import shutil
 import stat
@@ -210,89 +211,145 @@ def copy_python():
     print(f"➡️  Dep: {mark}lib/{src.name}/")
 
 
-# ----------------------------------------------------------------
-# -- Locate the nix path whose name contains the string 'text'
-# -- Returns the full path
+# ------------------------------------------------------------------
+# -- Locate the python package the devShell interpreter imports
 # --
-# --  E.g.  nix_locate("python3.12-click-8.1.7") returns
-# --       7b7509xv9aqdrayjf1fv5ialf4gbi5wd-python3.12-click-8.1.7
-# -- Packages ending in "-dev" are discarded
+# -- The devShell's PYTHONPATH points at the site-packages of every
+# -- python derivation in the shell's closure, so what THIS interpreter
+# -- resolves is by construction what the shell linked. The store glob
+# -- this replaces answered with a property of the build HOST's store:
+# -- with more than one version of a package present, its first match
+# -- could be (and was) a stranger.
+# --
+# -- Returns the package directory (the file, for a single-file
+# -- module). E.g. resolve_python_package("textx") ->
+# -- /nix/store/...-python3.12-textx-4.0.1/lib/python3.12/site-packages/textx
 # ------------------------------------------------------------------
-def nix_locate(text: str) -> Path:
+def resolve_python_package(modname: str) -> Path:
 
-    # -- Path of the nix store
-    nix_store = Path("/nix/store")
+    spec = importlib.util.find_spec(modname)
 
-    # -- Search pattern
-    pattern = f"*{text}*"
+    if spec is None:
+        raise SystemExit(
+            f"❌ {modname}: no lo encuentra el intérprete "
+            "(¿se empaqueta fuera de `nix develop .#pack`?)")
 
-    # -- The auxiliary nix outputs that do not contain the wanted files
-    # -- are discarded: "-dev" (headers) and "-dist" (sdist/wheel). On
-    # -- macOS the "-dist" output tends to appear first in the glob and
-    # -- used to break the copy of the python packages (it has no
-    # -- site-packages/<pkg>).
-    paths = [path for path in nix_store.glob(pattern)
-             if path.is_dir()
-             and not str(path).endswith("-dev")
-             and not str(path).endswith("-dist")]
+    # -- Regular/namespace package: the package directory
+    if spec.submodule_search_locations:
+        return Path(spec.submodule_search_locations[0])
 
-    # -- Return the first match
-    return paths[0]
+    # -- Single-file module
+    return Path(spec.origin)
 
 
 # ------------------------------------------------------------------
-# -- Resolve one DT_NEEDED library of an ELF object to the file the
-# -- loader would actually open for it (its RUNPATH decides, so the
-# -- answer is the copy this object was linked against).
+# -- Runtime dependencies of a native object, as the loader resolves
+# -- them: {dependency name: file the loader would open}.
+# --
+# -- Linux: the DT_NEEDED entries resolved through the object's RUNPATH
+# -- (ldd). Darwin: the absolute LC_LOAD_DYLIB entries keyed by basename
+# -- (otool -L via macpack, which already filters out the system and
+# -- @rpath references). Entries the loader cannot resolve ("not
+# -- found") are left out.
+# ------------------------------------------------------------------
+def needed_deps(obj: Path) -> dict:
+
+    if IS_DARWIN:
+        import macpack
+        return {Path(dep).name: Path(dep)
+                for dep in macpack._otool_deps(obj)}
+
+    out = subprocess.run(["ldd", str(obj)],
+                         capture_output=True, text=True, check=True).stdout
+
+    deps = {}
+    for line in out.splitlines():
+        match = re.search(r'(\S+)\s+=>\s+(\S+)', line.strip())
+        if match and match.group(2).startswith("/"):
+            deps[match.group(1)] = Path(match.group(2))
+
+    return deps
+
+
+# ------------------------------------------------------------------
+# -- Resolve one runtime dependency of a native object to the file the
+# -- loader would actually open for it (its RUNPATH / install names
+# -- decide, so the answer is the copy this object was linked against).
+# --
+# -- `pattern` is a regex FULLY matched against the dependency name
+# -- (the soname on Linux, the dylib basename on Darwin).
 # --
 # -- Use this instead of globbing /nix/store whenever the library is
 # -- loaded at RUNTIME and therefore has to be copied by hand: the glob
 # -- answers with a property of the build HOST's store, this answers
 # -- with a property of the thing that needs the library.
 # ------------------------------------------------------------------
-def resolve_needed(obj: Path, soname: str) -> Path:
+def resolve_needed(obj: Path, pattern: str) -> Path:
 
-    deps = subprocess.run(["ldd", str(obj)],
-                          capture_output=True, text=True, check=True)
-
-    for line in deps.stdout.splitlines():
-        match = re.search(r'(\S+)\s+=>\s+(\S+)', line.strip())
-        if match and match.group(1) == soname:
-            return Path(match.group(2))
+    for name, path in needed_deps(obj).items():
+        if re.fullmatch(pattern, name):
+            return path
 
     raise SystemExit(
-        f"❌ {soname}: no aparece entre las dependencias de {obj.name} "
+        f"❌ {pattern}: no aparece entre las dependencias de {obj.name} "
         "(¿cambió como se enlaza?)")
 
 
-# -----------------------------------------------------------------------
-# -- Copy a python library from nix into the distribution
-# -- The package directory is copied to dist/lib/python3.12/site-packages
+# ------------------------------------------------------------------
+# -- Like resolve_needed, but trying each object in turn: which file
+# -- carries a dependency can differ by platform (the fasm parser's
+# -- libantlr4-runtime is linked by libparse_fasm, next to the cython
+# -- extension that dlopens it).
+# ------------------------------------------------------------------
+def resolve_needed_in(objects: list, pattern: str) -> Path:
+
+    for obj in objects:
+        for name, path in needed_deps(obj).items():
+            if re.fullmatch(pattern, name):
+                return path
+
+    names = ", ".join(obj.name for obj in objects)
+    raise SystemExit(
+        f"❌ {pattern}: no aparece entre las dependencias de {names} "
+        "(¿cambió como se enlaza?)")
+
+
+# ------------------------------------------------------------------
+# -- The _ctypes extension of the python3.12 the package ships (the
+# -- interpreter copy_python() bundles): the libffi it loads is the
+# -- libffi the bundled interpreter needs at runtime.
 # --
-# -- E.g. package click
-# --    - Source:
-# --    /nix/store/xxx-python3.12-click/lib/python3.12/site-packages/
-# --    - Target:
-# --      dist/lib/python3.12/site-packages
+# -- The name filter is "_ctypes." with the dot: lib-dynload also
+# -- carries _ctypes_test, which is NOT the ctypes runtime.
+# ------------------------------------------------------------------
+def python_ctypes() -> Path:
+
+    python = Path(str(shutil.which("python3.12")))
+    dynload = python.parent.parent / "lib" / "python3.12" / "lib-dynload"
+
+    objects = sorted(p for p in dynload.glob("_ctypes*.so")
+                     if p.name.startswith("_ctypes."))
+    if not objects:
+        raise SystemExit(f"❌ _ctypes: ningun _ctypes.*.so en {dynload}")
+
+    return objects[0]
+
+
 # -----------------------------------------------------------------------
-def copy_python_dep(pyname: str, version: str, name: str = ""):
+# -- Copy a python package into the distribution
+# --
+# -- The package copied is the one the devShell interpreter imports
+# -- (resolve_python_package), never a /nix/store glob match. It lands in
+# -- dist/lib/python3.12/site-packages
+# -----------------------------------------------------------------------
+def copy_python_dep(modname: str):
 
-    if name == "":
-        name = pyname
-
-    # -- Package name (name + version)
-    pack_name = f"{pyname}" if version == "" else f"{pyname}-{version}"
-
-    # -- Locate the folder where the package lives
-    pkg_dir = nix_locate(f"python3.12-{pack_name}")
-
-    # -- Source directory
-    site_pack = pkg_dir / "lib" / "python3.12" / "site-packages"
-    src = site_pack / name
+    # -- The package/module the devShell interpreter resolves
+    src = resolve_python_package(modname)
 
     # -- Target directory
     dst_site_pack = Path.cwd() / DIST / LIB / "python3.12" / "site-packages"
-    dst = dst_site_pack / name
+    dst = dst_site_pack / src.name
 
     # -- Give write permissions to the "site-packages" directory
     # -- of the distribution
@@ -304,10 +361,14 @@ def copy_python_dep(pyname: str, version: str, name: str = ""):
     if dst.exists():
         mark = "📌"
     else:
-        shutil.copytree(src, dst, dirs_exist_ok=True)
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+        else:
+            dst_site_pack.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
         mark = "✅"
 
-    print(f"➡️  Dep: {mark}{pack_name}")
+    print(f"➡️  Dep: {mark}{modname} <- {src}")
 
 
 # ------------------------------------
