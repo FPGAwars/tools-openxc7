@@ -222,6 +222,31 @@ Asset names must match the release tag: apio derives the package date from the
 **tag** (`2026-07-31` → `20260731`), not from the file name, so a mismatch turns
 into a 404 at install time.
 
+### Rebuilding today's tag
+
+`build-pre-release.yaml` replaces a same-tag **pre-release** only at the end of
+the run, after every platform is green. That delete-and-publish window is about
+50 seconds. Deleting the GitHub release by hand before dispatching opens a gap
+of hours while the three platforms rebuild, and every installer that follows
+that tag gets a 404.
+
+To rebuild an existing tag without leaving anyone without a package:
+
+1. **Do not delete the release.** If it is already a pre-release, leave it. If
+   it is stable, mark it as a pre-release first (GitHub moves `latest` back to
+   the previous stable). A still-stable tag makes the workflow fail on purpose.
+2. Dispatch `build-pre-release.yaml` with that date. Set `regenerate_chipdb` to
+   true to generate every chipdb part from scratch (no cache). The existing
+   pre-release stays up until the last minute.
+3. Wait for the run to finish green: the dated pre-release is then the newly
+   validated packages.
+4. Re-promote with `make-pre-release-stable.yaml` (and bump apio's remote-config
+   by hand if clients install this tag).
+
+Never delete `latest`, and never delete a release that apio's remote-config
+already points at: that is an immediate 404 for every installer on that
+channel.
+
 ## Repository layout
 
 | Path | What it is |

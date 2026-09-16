@@ -32,9 +32,11 @@ on:
   schedule:
     - cron: "0 0 * * *"      # daily, like the other FPGAwars libraries
   workflow_dispatch:
+    # To rebuild an existing tag: mark it pre-release first, never
+    # delete it — see README, Rebuilding today's tag.
     inputs:
       date:
-        description: "Release date YYYY-MM-DD (default: today, UTC)"
+        description: "Release date YYYY-MM-DD (default: today, UTC). To rebuild an existing tag: mark it pre-release first, never delete it — see README, Rebuilding today's tag"
         required: false
       regenerate_chipdb:
         description: "Ignore the chipdb cache and generate every part from scratch (tests the generation path)"
@@ -93,6 +95,11 @@ jobs:
 
       # Fail FAST if today's tag already exists as a stable release — before
       # spending 3 platform builds on a run that must not publish.
+      # just-check does not delete; a same-tag pre-release is replaced later,
+      # in the pre-release job, after every platform is green (~50 s window).
+      # To rebuild a stable tag: mark it pre-release first, never delete it
+      # — see README, Rebuilding today's tag. The existence messages come
+      # from fpgawars/apio-workflows (ensure-no-conflicting-release).
       - name: Ensure no conflicting release (early, just-check)
         uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
         env:
@@ -180,6 +187,9 @@ jobs:
         with:
           pre-release-keep-count: "5"
 
+      # This delete is the start of the ~50 s publish window; do not delete
+      # the release by hand before dispatching — see README, Rebuilding
+      # today's tag.
       - name: Ensure no conflicting release (delete same-tag pre-release, fail on stable)
         uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
         env:
