@@ -90,6 +90,9 @@ fi
 
 COMMIT=${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)}
 
+# Normalize repo to lower case as we do with the other Apio packages..
+repo="${GITHUB_REPOSITORY,,}"
+
 cat > "$OUT" <<EOF
 {
   "package-name"                   : "openxc7",
@@ -99,9 +102,9 @@ cat > "$OUT" <<EOF
   "nextpnr-xilinx-revision"        : "${NEXTPNR_REV:-unknown}",
   "eigen-version"                  : "$EIGEN_VERSION",
   "chipdb-source"                  : "$CHIPDB_SOURCE",
-  "use-cached-chipdb"              : $CHIPDB_CACHE_USED,
+  "use-cached-chipdb"              : "$CHIPDB_CACHE_USED",
   "chipdb-id"                      : "$CHIPDB_ID",
-  "build-repo"                     : "${GITHUB_REPOSITORY:-local}",
+  "build-repo"                     : "${repo:-local}",
   "build-workflow"                 : "${GITHUB_WORKFLOW:-local}",
   "workflow-run-id"                : "${GITHUB_RUN_ID:-local}",
   "workflow-run-number"            : "${GITHUB_RUN_NUMBER:-local}",
