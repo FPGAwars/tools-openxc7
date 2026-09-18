@@ -247,6 +247,20 @@ Never delete `latest`, and never delete a release that apio's remote-config
 already points at: that is an immediate 404 for every installer on that
 channel.
 
+### Running the workflows on a fork
+
+The workflows run on a fork as they do here and publish the dated
+pre-release on the fork itself, the way the other Apio packages do; that is
+the way to test a change end to end before opening a PR. One detail: the
+release step uses the `APIO_PR_TOKEN` secret when the repository has one,
+and the workflow's own `github.token` otherwise. The integration token
+cannot create a release tag that points at a commit whose diff touches
+`.github/workflows/**` (GitHub refuses with "Resource not accessible by
+integration"), so a fork whose tip commit changes a workflow needs a
+personal access token with `Contents: read and write` on the fork stored
+as the `APIO_PR_TOKEN` secret; any other commit publishes with the default
+token.
+
 ## Repository layout
 
 | Path | What it is |

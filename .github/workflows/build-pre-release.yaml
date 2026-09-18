@@ -199,15 +199,21 @@ jobs:
 
       - name: Create the dated prerelease (never latest) and upload assets
         env:
-          # PAT, not github.token: the integration token CANNOT create a
-          # ref (the release tag, via --target) that points at a commit
-          # whose diff touches .github/workflows/** — known GitHub
-          # limitation ("Resource not accessible by integration", hit
-          # 2026-08-09 the first time a deploy batch's tip was a workflow
-          # commit; the deletes in the steps above work fine with it).
-          # The push-tags trigger is removed above, so the PAT-created tag
+          # PAT when the repository has one, github.token otherwise. The
+          # integration token CANNOT create a ref (the release tag, via
+          # --target) that points at a commit whose diff touches
+          # .github/workflows/** — known GitHub limitation ("Resource not
+          # accessible by integration", hit 2026-08-09 the first time a
+          # deploy batch's tip was a workflow commit; the deletes in the
+          # steps above work fine with it), hence the PAT on FPGAwars. A
+          # fork has no such secret, and without the fallback `gh` exits 4
+          # with an empty GH_TOKEN (apio#1047): on a fork the release is
+          # created with github.token, which works unless the tip commit
+          # itself touches a workflow — then add an APIO_PR_TOKEN secret
+          # to the fork (see README, Running the workflows on a fork).
+          # The push-tags trigger is removed above, so a PAT-created tag
           # cannot recurse into this workflow.
-          GH_TOKEN: ${{ secrets.APIO_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.APIO_PR_TOKEN || github.token }}
           DATE: ${{ needs.prepare.outputs.date }}
         run: |
           export LC_ALL=C          # one collation for every listing below
