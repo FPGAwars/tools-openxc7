@@ -44,8 +44,9 @@ on:
         default: false
         type: boolean
   # NOTE: no push-tags trigger. It was redundant with dispatch, and the
-  # release step now creates the tag with a PAT (see below) — a PAT-created
-  # tag WOULD fire a tags trigger, recursing into this very workflow.
+  # release step creates a tag: a tag made with the workflow's own token
+  # never fires another workflow, but one made with a PAT would, recursing
+  # into this very workflow -- keep it out even if a PAT ever returns.
 
 # The upstream YosysHQ oss-cad-suite release this package expects at
 # runtime (the cross-package matching key apio checks, apio#927). Declared
@@ -197,23 +198,8 @@ jobs:
         with:
           release-tag: ${{ needs.prepare.outputs.date }}
 
-      - name: Create the dated prerelease (never latest) and upload assets
+      - name: Check the assets and compose the release body
         env:
-          # PAT when the repository has one, github.token otherwise. The
-          # integration token CANNOT create a ref (the release tag, via
-          # --target) that points at a commit whose diff touches
-          # .github/workflows/** — known GitHub limitation ("Resource not
-          # accessible by integration", hit 2026-08-09 the first time a
-          # deploy batch's tip was a workflow commit; the deletes in the
-          # steps above work fine with it), hence the PAT on FPGAwars. A
-          # fork has no such secret, and without the fallback `gh` exits 4
-          # with an empty GH_TOKEN (apio#1047): on a fork the release is
-          # created with github.token, which works unless the tip commit
-          # itself touches a workflow — then add an APIO_PR_TOKEN secret
-          # to the fork (see README, Running the workflows on a fork).
-          # The push-tags trigger is removed above, so a PAT-created tag
-          # cannot recurse into this workflow.
-          GH_TOKEN: ${{ secrets.APIO_PR_TOKEN || github.token }}
           DATE: ${{ needs.prepare.outputs.date }}
         run: |
           export LC_ALL=C          # one collation for every listing below
@@ -323,12 +309,25 @@ jobs:
             marks the release stable + latest), then update apio's
             remote-config by hand (apio#927).
           EOFBODY
-          gh release create "$DATE" --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "$DATE" --prerelease --latest=false \
-            --notes-file RELEASE-BODY.md
-          gh release upload "$DATE" apio-openxc7-*.tgz SHA256SUMS \
-            BUILD-INFO.json chipdb-assets/* --repo "$GITHUB_REPOSITORY"
+
+      # The ecosystem's own action (fpgawars/apio-workflows): it creates the
+      # dated pre-release with the workflow's token and tags the DEFAULT
+      # BRANCH by name, which is what the other Apio packages do and what
+      # the integration token accepts. `gh release create --target <sha>`
+      # is the form it refuses on a commit whose diff touches
+      # .github/workflows/** ("Resource not accessible by integration",
+      # 2026-08-09) -- that refusal is why this step once carried a PAT,
+      # which a fork does not have (apio#1047). No secret is needed now.
+      - name: Create the dated prerelease (never latest) and upload assets
+        uses: fpgawars/apio-workflows/.github/actions/create-pre-release@main
+        with:
+          release_tag: ${{ needs.prepare.outputs.date }}
+          body_path: RELEASE-BODY.md
+          files: |
+            apio-openxc7-*.tgz
+            SHA256SUMS
+            BUILD-INFO.json
+            chipdb-assets/*
 
       # Close the loop: re-resolve every asset by apio's tag->date->name rule
       # against what GitHub actually serves, and require the published
