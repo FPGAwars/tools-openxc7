@@ -2,61 +2,41 @@
 # Apple Silicon). nixpkgs does not cross Linux<->macOS, so this is always a
 # native build.
 #
-# Reusable (workflow_call) and standalone (workflow_dispatch), like
-# linux-package.yml. No push trigger on purpose (packing is a deliverable,
-# not a guard; test.yaml is the per-commit guard).
+# Reusable only (workflow_call), like linux-package.yml: build-pre-release.yaml
+# calls it after chipdb.yml. No push or dispatch trigger on purpose (packing
+# is a deliverable, not a guard; test.yaml is the per-commit guard).
 #
 # chipdb.yml owns generation, cache, identity, per-FPGA assets and the
 # XILINX-PARTS-INDEX document. The package itself ships NO chipdb: apio downloads
 # the .bin its board needs (apio#947), so the bins downloaded here are what
 # the L1 and L2 gates validate the package against -- injected into the
 # extracted tarball exactly as apio leaves them.
-# A standalone dispatch calls chipdb.yml first on Linux; an orchestrated call consumes
-# the artifacts the outer workflow already produced. This macOS runner only
-# packages and validates those inputs.
+# This macOS runner only packages and validates the artifacts the calling
+# run already produced on Linux.
 name: darwin-package
 
 on:
-  workflow_dispatch:
-    inputs:
-      date:
-        description: "Package date YYYY-MM-DD (default: today, UTC)"
-        required: false
-      run_chipdb:
-        description: "Prepare the chipdb inputs before the package build"
-        required: false
-        default: true
-        type: boolean
   workflow_call:
     inputs:
       date:
-        description: "Package date YYYY-MM-DD (default: today, UTC)"
-        required: false
+        description: "Package date YYYY-MM-DD (the release tag; apio derives the asset date from it)"
+        required: true
         type: string
-      run_chipdb:
-        description: "Prepare chipdb inputs in this workflow (standalone use)"
-        required: false
-        default: false
-        type: boolean
       yosys_release_tag:
         description: "Upstream YosysHQ oss-cad-suite release this package expects at runtime (BUILD-INFO matching key)"
-        required: false
-        default: ""
+        required: true
         type: string
       chipdb_source:
-        description: "How the chipdb job obtained the bins (generated | restored-from-cache)"
-        required: false
-        default: ""
+        description: "How the chipdb job obtained the bins (generated | restored-from-cache); recorded in BUILD-INFO"
+        required: true
         type: string
       chipdb_id:
         description: "chipdb identity stamp of the bins this package is validated against; recorded in BUILD-INFO"
-        required: false
-        default: ""
+        required: true
         type: string
       parts_index:
         description: "Filename of the XILINX-PARTS-INDEX document in the parts-index artifact"
-        required: false
-        default: ""
+        required: true
         type: string
     outputs:
       tarball:
@@ -64,17 +44,8 @@ on:
         value: ${{ jobs.build.outputs.tarball }}
 
 jobs:
-  chipdb:
-    name: prepare chipdb inputs (standalone dispatch)
-    if: inputs.run_chipdb
-    uses: ./.github/workflows/chipdb.yml
-    with:
-      date: ${{ inputs.date }}
-
   build:
     name: build + validate darwin-arm64 (native)
-    needs: chipdb
-    if: ${{ always() && (needs.chipdb.result == 'success' || needs.chipdb.result == 'skipped') }}
     runs-on: macos-14              # Apple Silicon => darwin-arm64
     outputs:
       tarball: ${{ steps.pack.outputs.tarball }}
@@ -89,7 +60,6 @@ jobs:
         id: d
         run: |
           DATE="${{ inputs.date }}"
-          [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
           echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Package date: $DATE"
@@ -126,22 +96,17 @@ jobs:
           # assert the installed apio oss-cad-suite repackages exactly the
           # yosys release this package will declare in BUILD-INFO (apio#927)
           DECLARED="${{ inputs.yosys_release_tag }}"
-          if [ -n "$DECLARED" ]; then
-            GOT=$(python3 -c "import json;print(json.load(open('$HOME/.local/oss-cad-suite/BUILD-INFO.json')).get('yosys-release-tag','?'))" 2>/dev/null || echo "?")
-            if [ "$GOT" != "$DECLARED" ]; then
-              echo "::error::validation env yosys release ($GOT) != declared yosys_release_tag ($DECLARED)"
-              exit 1
-            fi
-          fi
+          GOT=$(python3 -c "import json;print(json.load(open('$HOME/.local/oss-cad-suite/BUILD-INFO.json')).get('yosys-release-tag','?'))" 2>/dev/null || echo "?")
+          [ "$GOT" = "$DECLARED" ] \
+            || { echo "::error::validation env yosys release ($GOT) != declared yosys_release_tag ($DECLARED)"; exit 1; }
 
-      # chipdb provenance comes only from the workflow that produced the
-      # verified inputs. The fallback expressions select its nested outputs
-      # for a standalone dispatch.
+      # chipdb provenance comes from the chipdb job of the calling run (its
+      # outputs are this workflow's inputs).
       - name: Compose BUILD-INFO.json (ecosystem convention)
         env:
           YOSYS_RELEASE_TAG: ${{ inputs.yosys_release_tag }}
-          CHIPDB_SOURCE: ${{ inputs.chipdb_source || needs.chipdb.outputs.mode }}
-          CHIPDB_ID: ${{ inputs.chipdb_id || needs.chipdb.outputs.identity }}
+          CHIPDB_SOURCE: ${{ inputs.chipdb_source }}
+          CHIPDB_ID: ${{ inputs.chipdb_id }}
         run: |
           DATE="${{ steps.d.outputs.date }}"
           bash scripts/build-info.sh darwin-arm64 "$DATE" \
@@ -151,7 +116,7 @@ jobs:
         id: pack
         env:
           OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
-          OPENXC7_PARTS_INDEX: ${{ github.workspace }}/parts-index/${{ inputs.parts_index || needs.chipdb.outputs.parts_index }}
+          OPENXC7_PARTS_INDEX: ${{ github.workspace }}/parts-index/${{ inputs.parts_index }}
           OPENXC7_BUILD_INFO: ${{ github.workspace }}/BUILD-INFO.json
         run: |
           rm -rf dist   # stale-dist guard (see linux-package.yml)

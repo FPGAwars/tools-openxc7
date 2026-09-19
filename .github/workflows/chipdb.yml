@@ -23,9 +23,8 @@ on:
   workflow_call:
     inputs:
       date:
-        description: "Asset date YYYY-MM-DD (default: today, UTC)"
-        required: false
-        default: ""
+        description: "Asset date YYYY-MM-DD (the release tag the assets are named after)"
+        required: true
         type: string
       regenerate:
         description: "Ignore the cache and generate every part from scratch (exercises the generation path even when nothing changed)"
@@ -42,16 +41,6 @@ on:
       parts_index:
         description: "Filename of the XILINX-PARTS-INDEX document in the parts-index artifact"
         value: ${{ jobs.chipdb.outputs.parts_index }}
-  workflow_dispatch:
-    inputs:
-      date:
-        description: "Asset date YYYY-MM-DD (default: today, UTC)"
-        required: false
-      regenerate:
-        description: "Ignore the cache and generate every part from scratch"
-        required: false
-        default: false
-        type: boolean
 
 jobs:
   chipdb:
@@ -72,7 +61,6 @@ jobs:
         id: d
         run: |
           DATE="${{ inputs.date }}"
-          [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
           echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Asset date: $DATE"
