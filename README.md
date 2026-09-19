@@ -179,8 +179,9 @@ scripts/check-versions.sh            # promoted release vs apio's remote-config
 ## Releases and CI
 
 Each platform has its own reusable workflow, on its own native runner, carrying
-the same gate — so the very same build and validation runs whether you ask for a
-single package or for a full release:
+the same gate. They are `workflow_call`-only consumers of the chipdb artifacts:
+`build-pre-release.yaml` is the one entry point, and a validated package of any
+branch is a dispatch of it on that branch:
 
 | Workflow | What it does |
 |---|---|
@@ -251,10 +252,9 @@ channel.
 
 The workflows run on a fork as they do here and publish the dated
 pre-release on the fork itself, the way the other Apio packages do; that is
-the way to test a change end to end before opening a PR. Every step uses
-the workflow's own `github.token` and `${{ github.repository }}`; the
-release is created by the ecosystem's `create-pre-release` action
-(fpgawars/apio-workflows), so no secret has to exist on the fork.
+the way to test a change end to end before opening a PR. Dispatch
+`build-pre-release.yaml` on the branch you want to test; it needs no
+configuration on the fork.
 
 ## Repository layout
 
