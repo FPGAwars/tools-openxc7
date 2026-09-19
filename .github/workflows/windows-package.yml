@@ -7,70 +7,34 @@
 name: windows-package
 
 on:
-  workflow_dispatch:
-    inputs:
-      date:
-        description: "Package date YYYY-MM-DD (default: today, UTC)"
-        required: false
-      run_chipdb:
-        description: "Prepare the chipdb inputs before the package build"
-        required: false
-        default: true
-        type: boolean
-      regenerate_chipdb:
-        description: "Ignore the chipdb cache and generate every part from scratch"
-        required: false
-        default: false
-        type: boolean
   workflow_call:
     inputs:
       date:
-        description: "Package date YYYY-MM-DD (default: today, UTC)"
-        required: false
+        description: "Package date YYYY-MM-DD (the release tag; apio derives the asset date from it)"
+        required: true
         type: string
       yosys_release_tag:
         description: "Upstream YosysHQ oss-cad-suite release this package expects at runtime (BUILD-INFO matching key)"
-        required: false
-        default: ""
-        type: string
-      run_chipdb:
-        description: "Prepare chipdb inputs in this workflow (standalone use)"
-        required: false
-        default: false
-        type: boolean
-      chipdb_id:
-        description: "Expected chipdb identity stamp from the chipdb job; checked against the downloaded bins"
-        required: false
-        default: ""
+        required: true
         type: string
       chipdb_source:
         description: "How the chipdb job obtained the bins (generated | restored-from-cache); recorded in BUILD-INFO"
-        required: false
-        default: ""
+        required: true
+        type: string
+      chipdb_id:
+        description: "Expected chipdb identity stamp from the chipdb job; checked against the downloaded bins and recorded in BUILD-INFO"
+        required: true
         type: string
       parts_index:
         description: "Filename of the XILINX-PARTS-INDEX document in the parts-index artifact"
-        required: false
-        default: ""
+        required: true
         type: string
 
 jobs:
-  # A release caller already ran chipdb.yml and its artifacts belong to the
-  # same run. A standalone dispatch creates them here first.
-  chipdb:
-    name: prepare chipdb inputs (standalone dispatch)
-    if: inputs.run_chipdb
-    uses: ./.github/workflows/chipdb.yml
-    with:
-      date: ${{ inputs.date }}
-      # dispatch-only input: null in a workflow_call run, and the
-      # reusable workflow declares it boolean
-      regenerate: ${{ inputs.regenerate_chipdb || false }}
-
+  # The chipdb-bins and parts-index artifacts come from the chipdb.yml job of
+  # the calling run (build-pre-release.yaml); this job only consumes them.
   build:
     name: build + validate windows-amd64 (cross from linux)
-    needs: chipdb
-    if: ${{ always() && (needs.chipdb.result == 'success' || needs.chipdb.result == 'skipped') }}
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     steps:
       - uses: actions/checkout@v7
@@ -137,13 +101,13 @@ jobs:
           test -s chipdb-bins/chipdb-id.txt
           ARTIFACT_ID=$(cat chipdb-bins/chipdb-id.txt)
           DECLARED_ID="${{ inputs.chipdb_id }}"
-          [ -z "$DECLARED_ID" ] || [ "$DECLARED_ID" = "$ARTIFACT_ID" ] \
-            || { echo "::error::chipdb artifact identity differs from caller input"; exit 1; }
+          [ "$DECLARED_ID" = "$ARTIFACT_ID" ] \
+            || { echo "::error::chipdb artifact identity ($ARTIFACT_ID) differs from the caller's chipdb_id ($DECLARED_ID)"; exit 1; }
           echo "$ACTUAL verified chipdb bins ready for validation (identity $ARTIFACT_ID)"
 
           # The same index the linux and darwin packages embed, under the
           # stable in-package name; L1 checks those bins against it.
-          INDEX="parts-index/${{ inputs.parts_index || needs.chipdb.outputs.parts_index }}"
+          INDEX="parts-index/${{ inputs.parts_index }}"
           test -f "$INDEX" || { echo "::error::XILINX-PARTS-INDEX not in the artifact: $INDEX"; exit 1; }
           cp "$INDEX" package-win/XILINX-PARTS-INDEX.json
           echo "embedded $(basename "$INDEX") as XILINX-PARTS-INDEX.json"
@@ -163,13 +127,9 @@ jobs:
           [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
           # the validation env must BE the declared runtime expectation (apio#927)
           DECLARED="${{ inputs.yosys_release_tag }}"
-          if [ -n "$DECLARED" ]; then
-            GOT=$(python3 -c "import json;print(json.load(open('$HOME/.local/oss-cad-suite/BUILD-INFO.json')).get('yosys-release-tag','?'))" 2>/dev/null || echo "?")
-            if [ "$GOT" != "$DECLARED" ]; then
-              echo "::error::validation env yosys release ($GOT) != declared yosys_release_tag ($DECLARED)"
-              exit 1
-            fi
-          fi
+          GOT=$(python3 -c "import json;print(json.load(open('$HOME/.local/oss-cad-suite/BUILD-INFO.json')).get('yosys-release-tag','?'))" 2>/dev/null || echo "?")
+          [ "$GOT" = "$DECLARED" ] \
+            || { echo "::error::validation env yosys release ($GOT) != declared yosys_release_tag ($DECLARED)"; exit 1; }
 
       - name: Tar with date
         id: tar
@@ -177,11 +137,9 @@ jobs:
           # same convention as linux-package/darwin-package: YYYY-MM-DD in,
           # YYYYMMDD in the asset name (what apio derives from the tag)
           DATE="${{ inputs.date }}"
-          [ -n "$DATE" ] || DATE=$(date -u +%Y-%m-%d)
           NAME="apio-openxc7-windows-amd64-${DATE//-/}.tgz"
-          # provenance comes from the job that produced the bins: the
-          # caller's input, or the chipdb job this workflow chained itself
-          CHIPDB_SOURCE_IN="${{ inputs.chipdb_source || needs.chipdb.outputs.mode }}"
+          # provenance comes from the chipdb job of the calling run
+          CHIPDB_SOURCE_IN="${{ inputs.chipdb_source }}"
           # the identity is read back from the bins this package is
           # validated against (it no longer ships any)
           ARTIFACT_ID=$(cat chipdb-bins/chipdb-id.txt)

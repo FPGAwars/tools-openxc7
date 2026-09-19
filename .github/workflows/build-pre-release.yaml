@@ -14,10 +14,11 @@
 # that single job. No package ships a chipdb any more (apio#947): each one
 # embeds that job's XILINX-PARTS-INDEX.json and its L1/L2 gates validate it
 # with the very bins the assets were made from, injected the way apio's
-# loader does. Each platform carries its own gate, so the exact same
-# build+validation runs whether you dispatch it standalone or through a
-# release. This workflow only picks the date, wires the chipdb artifacts,
-# and — if EVERYTHING is green — publishes.
+# loader does. Each platform carries its own gate. The platform workflows
+# are workflow_call-only, so this is the ONE entry point: a validated
+# package of any branch is a dispatch of this workflow on that branch. It
+# only picks the date, wires the chipdb artifacts, and — if EVERYTHING is
+# green — publishes.
 #
 # The release is created at the END, as a dated PRERELEASE (never latest),
 # following the FPGAwars ecosystem convention (fpgawars/apio-workflows):
@@ -43,10 +44,6 @@ on:
         required: false
         default: false
         type: boolean
-  # NOTE: no push-tags trigger. It was redundant with dispatch, and the
-  # release step creates a tag: a tag made with the workflow's own token
-  # never fires another workflow, but one made with a PAT would, recursing
-  # into this very workflow -- keep it out even if a PAT ever returns.
 
 # The upstream YosysHQ oss-cad-suite release this package expects at
 # runtime (the cross-package matching key apio checks, apio#927). Declared
@@ -310,14 +307,7 @@ jobs:
             remote-config by hand (apio#927).
           EOFBODY
 
-      # The ecosystem's own action (fpgawars/apio-workflows): it creates the
-      # dated pre-release with the workflow's token and tags the DEFAULT
-      # BRANCH by name, which is what the other Apio packages do and what
-      # the integration token accepts. `gh release create --target <sha>`
-      # is the form it refuses on a commit whose diff touches
-      # .github/workflows/** ("Resource not accessible by integration",
-      # 2026-08-09) -- that refusal is why this step once carried a PAT,
-      # which a fork does not have (apio#1047). No secret is needed now.
+      # The same shared action the other Apio packages use.
       - name: Create the dated prerelease (never latest) and upload assets
         uses: fpgawars/apio-workflows/.github/actions/create-pre-release@main
         with:
