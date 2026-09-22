@@ -10,8 +10,10 @@ The naming is Vivado's. ``xc7a200t`` is the device, ``fbg484`` the
 package and ``3`` the speed grade; ``xc7a200tfbg484-3`` is the **part**
 and ``xc7a200tfbg484`` its **base part**. The index is keyed by the part,
 because which parts share a chipdb file is an implementation detail of
-this repository (apio#947): today one file serves every speed grade of a
-base part, and if that ever changes only this document does.
+this repository (apio#947): today one file serves every part of a die --
+every package and speed grade of the device, and of the devices that are
+the same die (an xc7a35t is an xc7a50t) -- and when that changed, from
+one file per base part, only this document did.
 
 This module owns the format (schema, note, asset names) and validates it:
 ``pack.chipdb_assets`` writes the document, L1 checks a package against
@@ -26,21 +28,29 @@ import hashlib
 import json
 from pathlib import Path
 
-from .families import family_of
+from .families import die_of, family_of
 
 SCHEMA = 6
 
 # The place-and-route engine the chipdb files of this package are built
 # for: what every entry's pnr says. It names the ENGINE, not the
 # executable -- both engines install as nextpnr-xilinx (apio#1070) -- and
-# it changes when the package moves to another engine. Schema 6 added it
-# (apio#1070); a schema 5 index is nextpnr-xilinx by definition.
-PNR_ENGINE = "nextpnr-xilinx"
+# it changes when the package moves to another engine, as it did here:
+# the himbaechel xilinx uarch of openXC7/nextpnr, with one chipdb per die.
+# Schema 6 added it (apio#1070); a schema 5 index is nextpnr-xilinx by
+# definition.
+PNR_ENGINE = "nextpnr-himbaechel"
 
-# Every engine a reader may find in pnr: today's, and the himbaechel-based
-# one the package is moving to. apio refuses a part whose engine it does
-# not know, so a value outside this list must never be published.
+# Every engine a reader may find in pnr: the nextpnr-xilinx fork's and the
+# himbaechel uarch's. apio refuses a part whose engine it does not know,
+# so a value outside this list must never be published.
 PNR_ENGINES = ("nextpnr-xilinx", "nextpnr-himbaechel")
+
+# The engine whose chipdb files are one per BASE PART, <base-part>.bin:
+# the fork's bbaexport built them that way. Every other engine's are one
+# per die, chipdb-<die>.bin -- the file names follow the entry's pnr, so a
+# schema 6 index written for either engine validates.
+PER_BASE_PART_ENGINE = "nextpnr-xilinx"
 
 # Keys an entry has only when this release built the part's chipdb. Each
 # name says WHAT it describes -- the chipdb file that must end up on disk,
@@ -61,10 +71,12 @@ NOTE = (
     "directory. chipdb-size/chipdb-sha256 describe that uncompressed "
     "chipdb file (what must end up on disk); asset-size/asset-sha256 "
     "describe the downloaded asset, a tar.gz carrying the file at its "
-    "root. The speed grades of one base part deliberately repeat chipdb, "
-    "asset and hashes: one file serves them all today, so 'already on "
-    "disk with that sha256' is the only deduplication a loader needs, "
-    "and a future release may split them without any change outside this "
+    "root. The parts of one die -- the speed grades of a base part, and "
+    "the packages of the device or of another device on the same die -- "
+    "deliberately repeat chipdb, asset and hashes: one file, "
+    "chipdb-<die>.bin, serves them all, so 'already on disk with that "
+    "sha256' is the only deduplication a loader needs, and a future "
+    "release may split or merge them without any change outside this "
     "document. family is the "
     "prjxray database directory the part lives in "
     "($PRJXRAY_DB_DIR/<family>/<part>/part.yaml). An entry with "
@@ -105,14 +117,30 @@ def release_tag(date: str) -> str:
     return f"{date[:4]}-{date[4:6]}-{date[6:]}"
 
 
-def asset_name(base_part: str, date: str) -> str:
-    """Release asset carrying one base part's chipdb, for a given date."""
-    return f"apio-xilinx-chipdb-{base_part}-{date}.bin.tgz"
+def _chipdb_unit(base_part: str, engine: str) -> str:
+    """What one chipdb file covers for *engine*: the die, or the base part."""
+    return base_part if engine == PER_BASE_PART_ENGINE else die_of(base_part)
 
 
-def chipdb_name(base_part: str) -> str:
-    """Chipdb file name of a base part: what apio leaves in chipdb/."""
-    return f"{base_part}.bin"
+def asset_name(base_part: str, date: str, engine: str = PNR_ENGINE) -> str:
+    """Release asset carrying a base part's chipdb, for a given date.
+
+    One per die (every base part of a die names the same asset), or one
+    per base part for the nextpnr-xilinx engine.
+    """
+    return (f"apio-xilinx-chipdb-{_chipdb_unit(base_part, engine)}-"
+            f"{date}.bin.tgz")
+
+
+def chipdb_name(base_part: str, engine: str = PNR_ENGINE) -> str:
+    """Chipdb file a base part needs: what apio leaves in chipdb/.
+
+    The file of its die, chipdb-xc7a50t.bin for an xc7a35tcsg324; for the
+    nextpnr-xilinx engine, the base part's own, xc7a35tcsg324.bin.
+    """
+    if engine == PER_BASE_PART_ENGINE:
+        return f"{base_part}.bin"
+    return f"chipdb-{die_of(base_part)}.bin"
 
 
 def previous_index_asset_names(date: str) -> list[str]:
@@ -167,14 +195,15 @@ def _check_entry(part: str, entry: dict, date: str) -> None:
     for key in GENERATED_KEYS:
         if key not in entry:
             raise ValueError(f"XILINX-PARTS-INDEX: generated {part} has no {key}")
-    if entry["chipdb"] != chipdb_name(base):
+    engine = entry["pnr"]
+    if entry["chipdb"] != chipdb_name(base, engine):
         raise ValueError(
             f"XILINX-PARTS-INDEX: {part} chipdb {entry['chipdb']!r} is not the file "
-            f"apio leaves in chipdb/ for {base} ({chipdb_name(base)})")
-    if entry["asset"] != asset_name(base, date):
+            f"apio leaves in chipdb/ for {base} ({chipdb_name(base, engine)})")
+    if entry["asset"] != asset_name(base, date, engine):
         raise ValueError(
             f"XILINX-PARTS-INDEX: {part} asset {entry['asset']!r} is not the "
-            f"name apio resolves for {date} ({asset_name(base, date)})")
+            f"name apio resolves for {date} ({asset_name(base, date, engine)})")
     for key in ("chipdb-size", "asset-size"):
         if not isinstance(entry[key], int) or entry[key] <= 0:
             raise ValueError(f"XILINX-PARTS-INDEX: {part} has an invalid {key}")
@@ -223,17 +252,27 @@ def validate_document(info: dict, expect_tag: str | None = None) -> dict:
         if entry["generated"]:
             generated[part] = entry
 
-    # The speed grades of one base part share a chipdb file, so they must
-    # promise the same bytes. Divergence here would have a loader fetch
-    # one file and check it against another's hash.
-    by_base: dict = {}
+    # The parts that name one chipdb file -- every part of a die -- must
+    # promise the same bytes and the same engine. Divergence here would
+    # have a loader fetch one file and check it against another's hash,
+    # or run it with an engine it was not built for.
+    by_file: dict = {}
     for part, entry in generated.items():
-        promise = tuple(entry[key] for key in GENERATED_KEYS)
-        first = by_base.setdefault(entry["base-part"], (part, promise))
+        promise = tuple(entry[key] for key in ("pnr",) + GENERATED_KEYS)
+        first = by_file.setdefault(entry["chipdb"], (part, promise))
         if first[1] != promise:
             raise ValueError(
+                f"XILINX-PARTS-INDEX: {part} and {first[0]} share chipdb "
+                f"file {entry['chipdb']} but describe different files")
+    # The speed grades of a base part are one device in one package: one
+    # engine, built or not.
+    engines: dict = {}
+    for part, entry in parts.items():
+        first = engines.setdefault(entry["base-part"], (part, entry["pnr"]))
+        if first[1] != entry["pnr"]:
+            raise ValueError(
                 f"XILINX-PARTS-INDEX: {part} and {first[0]} share base part "
-                f"{entry['base-part']} but describe different files")
+                f"{entry['base-part']} but name different engines")
 
     chipdb_files = {entry["chipdb"] for entry in generated.values()}
     base_parts = {entry["base-part"] for entry in parts.values()}
@@ -277,6 +316,40 @@ def validate_package_info(info_path: Path, chipdb: Path) -> dict:
             raise ValueError(f"XILINX-PARTS-INDEX chipdb-sha256 differs for {name}")
     return {key: info[key] for key in ("part-count", "generated-count",
                                        "chipdb-count", "base-part-count")}
+
+
+def package_engine(info: dict | None) -> tuple:
+    """(engine, {base part: chipdb file}) of a package, from its index.
+
+    A package carries ONE engine, and schema 6 names it on every part: two
+    in one document are refused rather than guessed at. An older document
+    predates the field and is nextpnr-xilinx by definition; a package with
+    no document at all (a local pack without OPENXC7_PARTS_INDEX) is taken
+    to carry the engine this repository builds, PNR_ENGINE. The files are
+    the ones the document names for its built parts, read the way apio
+    reads them.
+    """
+    if info is None:
+        return PNR_ENGINE, {}
+    parts = info.get("parts", {})
+    if info.get("schema", 0) < 6:
+        engines = {PER_BASE_PART_ENGINE}
+    else:
+        engines = {entry.get("pnr") for entry in parts.values()}
+    if len(engines) != 1:
+        raise ValueError(f"XILINX-PARTS-INDEX names {len(engines)} engines "
+                         f"({sorted(map(str, engines))}); a package carries one")
+    files = {entry["base-part"]: entry["chipdb"]
+             for entry in parts.values() if entry.get("generated")}
+    return engines.pop(), files
+
+
+def read_package_engine(package: Path) -> tuple:
+    """package_engine() of the package tree at *package*."""
+    index = Path(package) / PACKAGE_FILE
+    if not index.is_file():
+        return package_engine(None)
+    return package_engine(json.loads(index.read_text(encoding="utf-8")))
 
 
 def main() -> None:

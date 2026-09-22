@@ -358,38 +358,18 @@ def run_phase3_nextpnr_xilinx():
 
     base_src_dir = Path(str(shutil.which("nextpnr-xilinx"))).parent.parent
 
-    # -- nextpnr-xilinx-0.8.2/share/nextpnr/external/prjxray-db/<family>/
+    # -- <nextpnr-xilinx>/share/nextpnr/external/prjxray-db/<family>/
     # -- ---> dist/share/nextpnr/external/prjxray-db/<family>/
-    # -- One copy per family present in the manifest (used to hardcode
-    # -- artix7; identical behavior with the current artix7-only manifest)
+    # -- One copy per family present in the manifest. It is what apio's
+    # -- PRJXRAY_DB_DIR points at (fasm2frames and xc7frames2bit read it)
+    # -- and what the chipdb files are generated from. The himbaechel
+    # -- engine needs nothing else at run time: its chipdb carries the
+    # -- constids and the site metadata, so there is no python/, no
+    # -- constids.inc and no nextpnr-xilinx-meta to ship any more.
     for family in families():
         db_dir = f"share/nextpnr/external/prjxray-db/{family}"
         src = base_src_dir / db_dir
         dst = Path.cwd() / DIST / db_dir
-        copy_tree(src, dst)
-
-    # -- nextpnr-xilinx-0.8.2/share/nextpnr/python --->
-    # -- dist/share/nextpnr/python
-    python_dir = "share/nextpnr/python"
-    src = base_src_dir / python_dir
-    dst = Path.cwd() / DIST / python_dir
-    copy_tree(src, dst)
-
-    # -- nextpnr-xilinx-0.8.2/share/nextpnr/constids.inc -->
-    # -- dist/share/nextpnr
-    src = base_src_dir / "share/nextpnr/constids.inc"
-    dst = Path.cwd() / "dist/share/nextpnr"
-    msg = copy_file(src, dst)
-    print(msg)
-
-    # -- nextpnr-xilinx-0.8.2/share/nextpnr/external/nextpnr-xilinx-meta/
-    # --  <family> -->
-    # -- dist/share/nextpnr/external/nextpnr-xilinx-meta/<family>
-    # -- (same per-family iteration as the prjxray-db copy above)
-    for family in families():
-        meta_dir = f"share/nextpnr/external/nextpnr-xilinx-meta/{family}"
-        src = base_src_dir / meta_dir
-        dst = Path.cwd() / DIST / meta_dir
         copy_tree(src, dst)
 
 

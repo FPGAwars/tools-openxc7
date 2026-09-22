@@ -13,14 +13,16 @@ from unittest import mock
 from pack.assemble import write_env
 from pack.chipdb import write_placeholder
 from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, PACKAGE_FILE,
-                              PNR_ENGINE, PNR_ENGINES,
-                              previous_index_asset_names, validate_document,
+                              PNR_ENGINE, PNR_ENGINES, chipdb_name,
+                              package_engine, previous_index_asset_names,
+                              read_package_engine, validate_document,
                               validate_package_info)
 
 BASE = "xc7a35tcpg236"
 OTHER = "xc7a50tcsg324"
 PART = f"{BASE}-1"
 SLOW = f"{BASE}-2L"          # same base part -> same chipdb file
+DIE_FILE = "chipdb-xc7a50t.bin"   # BASE and OTHER share the xc7a50t die
 DATA = b"packaged chipdb"
 # The document of the 2026-09-15 release, byte for byte as published (its
 # sha256 is in that release's SHA256SUMS): the last schema 5 index.
@@ -37,7 +39,12 @@ class PartsIndexTests(unittest.TestCase):
         self.temp.cleanup()
 
     def make_index(self, **overrides):
-        """A valid index plus the one chipdb file it describes."""
+        """A valid index plus the one chipdb file it describes.
+
+        Built for the nextpnr-xilinx engine, whose chipdb files are one per
+        base part: a schema 6 document of either engine must validate.
+        make_die_index() is the himbaechel one, one file per die.
+        """
         chipdb = self.root / "chipdb"
         chipdb.mkdir(exist_ok=True)
         (chipdb / f"{BASE}.bin").write_bytes(DATA)
@@ -76,6 +83,45 @@ class PartsIndexTests(unittest.TestCase):
 
     def rewrite(self, path, info):
         path.write_text(json.dumps(info), encoding="utf-8")
+
+    def make_die_index(self):
+        """A himbaechel index: two base parts of the xc7a50t die (xc7a35t
+        and xc7a50t), three built parts, ONE chipdb file; plus an xc7a100t
+        part the release did not build."""
+        chipdb = self.root / "chipdb"
+        chipdb.mkdir(exist_ok=True)
+        (chipdb / DIE_FILE).write_bytes(DATA)
+        built = {
+            "chipdb": DIE_FILE,
+            "chipdb-size": len(DATA),
+            "chipdb-sha256": hashlib.sha256(DATA).hexdigest(),
+            "asset": "apio-xilinx-chipdb-xc7a50t-20260827.bin.tgz",
+            "asset-size": 123,
+            "asset-sha256": "0" * 64,
+        }
+        engine = "nextpnr-himbaechel"
+        info = {
+            "schema": 6, "date": "20260827", "release-tag": "2026-08-27",
+            "chipdb-id": "fixture-id", "part-count": 4,
+            "generated-count": 3, "chipdb-count": 1, "base-part-count": 3,
+            "note": "fixture",
+            "parts": {
+                PART: {"family": "artix7", "base-part": BASE, "speed": "1",
+                       "generated": True, "pnr": engine, **built},
+                SLOW: {"family": "artix7", "base-part": BASE, "speed": "2L",
+                       "generated": True, "pnr": engine, **built},
+                f"{OTHER}-1": {"family": "artix7", "base-part": OTHER,
+                               "speed": "1", "generated": True,
+                               "pnr": engine, **built},
+                "xc7a100tcsg324-1": {"family": "artix7",
+                                     "base-part": "xc7a100tcsg324",
+                                     "speed": "1", "generated": False,
+                                     "pnr": engine},
+            },
+        }
+        path = self.root / "die-index.json"
+        path.write_text(json.dumps(info), encoding="utf-8")
+        return path, chipdb, info
 
     def test_write_env_copies_the_document_under_the_fixed_name(self):
         index_path, _, _ = self.make_index()
@@ -182,9 +228,9 @@ class PartsIndexTests(unittest.TestCase):
 
     def test_the_engines_are_the_ones_apio_runs(self):
         """PNR_ENGINES is apio's SUPPORTED_PNR_TOOLS (apio#1055), and this
-        package's chipdb files are built for today's engine."""
+        package's chipdb files are built for the himbaechel engine."""
         self.assertEqual(PNR_ENGINES, ("nextpnr-xilinx", "nextpnr-himbaechel"))
-        self.assertEqual(PNR_ENGINE, "nextpnr-xilinx")
+        self.assertEqual(PNR_ENGINE, "nextpnr-himbaechel")
         _, _, info = self.make_index()
         for engine in PNR_ENGINES:
             with self.subTest(pnr=engine):
@@ -200,16 +246,98 @@ class PartsIndexTests(unittest.TestCase):
 
     def test_schema_6_is_the_published_document_plus_pnr(self):
         """No other change of format: add pnr where ENTRY_KEYS puts it,
-        bump the schema, and the real document validates again."""
+        bump the schema, and the real document validates again -- with the
+        engine its bins were built for, nextpnr-xilinx, whose file names
+        (one per base part) the validator derives from that pnr."""
         info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
         info["schema"] = 6
         for part, entry in info["parts"].items():
-            entry["pnr"] = PNR_ENGINE
+            entry["pnr"] = "nextpnr-xilinx"
             info["parts"][part] = {key: entry[key] for key in ENTRY_KEYS
                                    if key in entry}
             self.assertEqual(set(info["parts"][part]), set(entry))
         generated = validate_document(info, "2026-09-15")
         self.assertEqual((len(info["parts"]), len(generated)), (202, 128))
+
+    def test_accepts_one_chipdb_file_per_die(self):
+        """The himbaechel document: two base parts of one die, three built
+        parts, one chipdb file -- and the bins on disk are that one file."""
+        index_path, chipdb, info = self.make_die_index()
+        self.assertEqual(sorted(validate_document(info, "2026-08-27")),
+                         [PART, SLOW, f"{OTHER}-1"])
+        self.assertEqual(validate_package_info(index_path, chipdb),
+                         {"part-count": 4, "generated-count": 3,
+                          "chipdb-count": 1, "base-part-count": 3})
+
+    def test_the_file_names_follow_the_engine(self):
+        """chipdb-<die>.bin for himbaechel, <base-part>.bin for the fork:
+        either name under the other engine is refused, naming the part."""
+        self.assertEqual(chipdb_name(BASE), DIE_FILE)
+        self.assertEqual(chipdb_name(BASE, "nextpnr-xilinx"), f"{BASE}.bin")
+
+        index_path, chipdb, info = self.make_die_index()
+        info["parts"][f"{OTHER}-1"]["chipdb"] = f"{OTHER}.bin"
+        self.rewrite(index_path, info)
+        with self.assertRaisesRegex(ValueError, f"{OTHER}-1 chipdb .*"
+                                    f"{DIE_FILE}"):
+            validate_package_info(index_path, chipdb)
+
+        _, _, info = self.make_index()
+        info["parts"][PART]["chipdb"] = DIE_FILE
+        info["parts"][SLOW]["chipdb"] = DIE_FILE
+        with self.assertRaisesRegex(ValueError, f"{PART} chipdb .*{BASE}.bin"):
+            validate_document(info)
+
+    def test_rejects_an_asset_that_is_not_the_die_one(self):
+        _, _, info = self.make_die_index()
+        info["parts"][PART]["asset"] = \
+            f"apio-xilinx-chipdb-{BASE}-20260827.bin.tgz"
+        with self.assertRaisesRegex(ValueError, "apio resolves .*xc7a50t"):
+            validate_document(info)
+
+    def test_rejects_parts_of_one_die_that_promise_different_files(self):
+        """Different base parts, one file: a loader dedups by sha256."""
+        _, _, info = self.make_die_index()
+        info["parts"][f"{OTHER}-1"]["chipdb-sha256"] = "1" * 64
+        with self.assertRaisesRegex(ValueError,
+                                    f"share chipdb file {DIE_FILE}"):
+            validate_document(info)
+
+    def test_rejects_speed_grades_that_name_different_engines(self):
+        """One base part, one engine, built or not. (Two built speed grades
+        of different engines already name different chipdb files, which
+        the naming rule refuses first.)"""
+        _, _, info = self.make_die_index()
+        info["parts"]["xc7a100tcsg324-2"] = dict(
+            info["parts"]["xc7a100tcsg324-1"], speed="2",
+            pnr="nextpnr-xilinx")
+        info["part-count"] = 5
+        with self.assertRaisesRegex(ValueError, "name different engines"):
+            validate_document(info)
+
+    def test_a_package_carries_one_engine(self):
+        """What the harness and the E2E run: the engine of the package, and
+        the file each built base part needs, as apio reads them."""
+        _, _, info = self.make_die_index()
+        self.assertEqual(package_engine(info),
+                         ("nextpnr-himbaechel", {BASE: DIE_FILE,
+                                                 OTHER: DIE_FILE}))
+        _, _, info = self.make_index()
+        self.assertEqual(package_engine(info),
+                         ("nextpnr-xilinx", {BASE: f"{BASE}.bin"}))
+        # schema 5 predates pnr: the fork by definition
+        published = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
+        engine, files = package_engine(published)
+        self.assertEqual(engine, "nextpnr-xilinx")
+        self.assertEqual(files["xc7a35tcsg324"], "xc7a35tcsg324.bin")
+        # no index at all: the engine this repository packages
+        self.assertEqual(package_engine(None), (PNR_ENGINE, {}))
+        self.assertEqual(read_package_engine(self.root), (PNR_ENGINE, {}))
+        # two engines in one document: refused, not guessed at
+        _, _, info = self.make_die_index()
+        info["parts"]["xc7a100tcsg324-1"]["pnr"] = "nextpnr-xilinx"
+        with self.assertRaisesRegex(ValueError, "names 2 engines"):
+            package_engine(info)
 
     def test_rejects_a_key_that_is_not_base_part_plus_speed(self):
         """The key IS the part: apio looks the board's part up by name."""

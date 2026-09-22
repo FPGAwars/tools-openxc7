@@ -3,9 +3,12 @@
 # -- Thin CLI shim over the `pack` package. Same invocation as always
 # -- (`python openxc7-pack.py` from the repo root, inside the packaging
 # -- devShell) and same environment variables: OPENXC7_PACK_DATE,
-# -- OPENXC7_CHIPDB_SEED, OPENXC7_PARTS_INDEX and OPENXC7_CHIPDB_JOBS
-# -- (PRJXRAY_NO_FILE_LOCK is honored by the util.py locking patch that
-# -- ships inside the package).
+# -- OPENXC7_CHIPDB_SEED, OPENXC7_PARTS_INDEX, OPENXC7_BUILD_INFO,
+# -- OPENXC7_CHIPDB_JOBS and OPENXC7_CHIPDB_MEM_GB (the memory budget of a
+# -- parallel chipdb generation, default 14) (PRJXRAY_NO_FILE_LOCK is
+# -- honored by the util.py locking patch that ships inside the package).
+# -- The devShell provides NEXTPNR_XILINX_CHIPDB_GEN, the chipdb generator
+# -- of the packaged nextpnr's source tree.
 # -- The implementation lives in pack/ (platform, families, relocate,
 # -- components, chipdb, assemble); macpack.py is the Darwin backend.
 
@@ -73,7 +76,7 @@ if IS_DARWIN:
     macpack.relocate_dist(Path.cwd() / DIST)
 
 # --- Generation of the database
-# --- One <part>.bin per part of chipdb-parts.json, or the placeholder
+# --- One chipdb-<die>.bin per die of chipdb-parts.json, or the placeholder
 # --- that says where apio downloads them from
 if NO_CHIPDB:
     skip_chipdb()

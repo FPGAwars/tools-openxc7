@@ -1,8 +1,8 @@
 """Per-FPGA chipdb assets and the parts index that maps parts to them.
 
-One deterministic ``.bin.tgz`` per chipdb file this release builds, plus
-the document that describes every part the packaged prjxray database
-knows about. That document travels twice under one name,
+One deterministic ``.bin.tgz`` per chipdb file this release builds -- one
+per die of the manifest -- plus the document that describes every part
+the packaged prjxray database knows about. That document travels twice under one name,
 ``XILINX-PARTS-INDEX.json``: as a release asset and at the root of every
 platform package -- it is what tells apio's on-demand loader which chipdb
 file a part needs, which asset carries it, what must end up on disk, and
@@ -24,7 +24,7 @@ import tarfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from .families import family_of
+from .families import die_of, family_of
 from .parts_index import (ENTRY_KEYS, INDEX_ASSET, NOTE, PNR_ENGINE, SCHEMA,
                           asset_name, chipdb_name, release_tag)
 
@@ -107,15 +107,15 @@ def _cache_is_usable(cache: Path | None, stamp: str) -> bool:
         stamp_file.read_text(encoding="utf-8").strip() == stamp
 
 
-def _one_asset(base_part: str, source: Path, destination: Path,
+def _one_asset(die: str, source: Path, destination: Path,
                cache: Path | None, reuse: bool) -> dict:
     """Produce one release asset and describe it. Runs in a worker thread."""
-    cached = cache / f"{base_part}.bin.tgz" if cache is not None else None
+    cached = cache / f"{source.name}.tgz" if cache is not None else None
     if reuse and cached is not None and cached.is_file():
         shutil.copyfile(cached, destination)
         origin = "cache"
     else:
-        deterministic_tgz(source, destination, chipdb_name(base_part))
+        deterministic_tgz(source, destination, source.name)
         origin = "built"
         if cache is not None:
             cache.mkdir(parents=True, exist_ok=True)
@@ -123,14 +123,14 @@ def _one_asset(base_part: str, source: Path, destination: Path,
     # Always hashed from the bytes that are about to be published: the
     # document never repeats numbers recorded by an earlier run.
     return {
-        "chipdb": chipdb_name(base_part),
+        "chipdb": source.name,
         "chipdb-size": source.stat().st_size,
         "chipdb-sha256": sha256(source),
         "asset": destination.name,
         "asset-size": destination.stat().st_size,
         "asset-sha256": sha256(destination),
         "_origin": origin,
-        "_base_part": base_part,
+        "_die": die,
     }
 
 
@@ -139,10 +139,10 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
                  jobs: int = 1) -> Path:
     """Build the release assets and the parts index that describes them.
 
-    ``cache`` is an optional directory of date-free ``<base-part>.bin.tgz``
-    guarded by the identity stamp: compressing 1.1 GB is the expensive
-    half of this step and its result only depends on the bins. ``jobs``
-    compresses and hashes several parts at once (zlib and hashlib both
+    ``cache`` is an optional directory of date-free ``chipdb-<die>.bin.tgz``
+    guarded by the identity stamp: compressing the bins is the expensive
+    half of this step and its result only depends on them. ``jobs``
+    compresses and hashes several dies at once (zlib and hashlib both
     release the GIL).
     """
     stamp_file = chipdb / STAMP
@@ -159,7 +159,9 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
     if cache is not None:
         print(f"asset cache: {cache} ({'reusable' if reuse else 'cold'})")
 
-    wanted = []
+    # One asset per die: the manifest parts of a die share its chipdb.
+    wanted = {}
+    manifest_base_parts = set()
     for declared_family, base_parts in manifest.items():
         for base_part in base_parts:
             family = family_of(base_part)
@@ -173,22 +175,24 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
                     "manifest part not present in packaged prjxray-db: "
                     f"{base_part}"
                 )
+            manifest_base_parts.add(base_part)
             source = chipdb / chipdb_name(base_part)
             if not source.is_file():
                 raise ValueError(f"manifest part without bin: {source}")
-            wanted.append((base_part, source,
-                           output / asset_name(base_part, date)))
+            wanted.setdefault(die_of(base_part), (
+                source, output / asset_name(base_part, date)))
 
     with ThreadPoolExecutor(max_workers=max(jobs, 1)) as pool:
         built = list(pool.map(
-            lambda item: _one_asset(item[0], item[1], item[2], cache, reuse),
-            wanted))
+            lambda item: _one_asset(item[0], item[1][0], item[1][1], cache,
+                                    reuse),
+            wanted.items()))
 
-    generated = {}
+    by_die = {}
     for entry in built:
-        base_part = entry.pop("_base_part")
+        die = entry.pop("_die")
         origin = entry.pop("_origin")
-        generated[base_part] = entry
+        by_die[die] = entry
         print(f"  {entry['asset']}  "
               f"({entry['chipdb-size'] / 1e6:.0f} MB -> "
               f"{entry['asset-size'] / 1e6:.0f} MB, {origin})")
@@ -198,12 +202,9 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
         cache.mkdir(parents=True, exist_ok=True)
         (cache / STAMP).write_text(stamp + "\n", encoding="utf-8")
 
-    missing = sorted(set(generated) - known_base_parts)
-    if missing:                       # cannot happen: checked against the db
-        raise ValueError(f"generated parts absent from the database: {missing}")
-
     # One entry per part of the database, part-sorted, with the keys of an
-    # entry always in the same order. The speed grades of a base part
+    # entry always in the same order. A part is built when its base part
+    # is in the manifest -- the parts L1 routes -- and the parts of a die
     # repeat its chipdb file, asset and hashes on purpose: which parts
     # share a file is ours to change, and the index is what hides it.
     # Every entry, built or not, names the engine this package's chipdb
@@ -211,10 +212,10 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
     parts_doc = {}
     for part, meta in inventory.items():
         entry = dict(meta)
-        entry["generated"] = meta["base-part"] in generated
+        entry["generated"] = meta["base-part"] in manifest_base_parts
         entry["pnr"] = PNR_ENGINE
         if entry["generated"]:
-            entry.update(generated[meta["base-part"]])
+            entry.update(by_die[die_of(meta["base-part"])])
         parts_doc[part] = {key: entry[key] for key in ENTRY_KEYS
                            if key in entry}
 
@@ -226,7 +227,7 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
         "part-count": len(parts_doc),
         "generated-count": sum(1 for entry in parts_doc.values()
                                if entry["generated"]),
-        "chipdb-count": len(generated),
+        "chipdb-count": len(by_die),
         "base-part-count": len(known_base_parts),
         "note": NOTE,
         "parts": parts_doc,
@@ -250,10 +251,10 @@ def main() -> None:
     parser.add_argument("date")
     parser.add_argument("database", type=Path)
     parser.add_argument("--cache", type=Path, default=None,
-                        help="directory of date-free <part>.bin.tgz to reuse")
+                        help="directory of date-free chipdb-<die>.bin.tgz to reuse")
     parser.add_argument("--jobs", type=int,
                         default=int(os.environ.get("OPENXC7_ASSET_JOBS") or 1),
-                        help="parts compressed and hashed at once")
+                        help="chipdb files compressed and hashed at once")
     args = parser.parse_args()
     try:
         build_assets(args.repo, args.chipdb, args.output, args.date,
