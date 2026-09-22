@@ -12,7 +12,8 @@ from unittest import mock
 
 from pack.assemble import write_env
 from pack.chipdb import write_placeholder
-from pack.parts_index import (INDEX_ASSET, PACKAGE_FILE,
+from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, PACKAGE_FILE,
+                              PNR_ENGINE, PNR_ENGINES,
                               previous_index_asset_names, validate_document,
                               validate_package_info)
 
@@ -21,6 +22,10 @@ OTHER = "xc7a50tcsg324"
 PART = f"{BASE}-1"
 SLOW = f"{BASE}-2L"          # same base part -> same chipdb file
 DATA = b"packaged chipdb"
+# The document of the 2026-09-15 release, byte for byte as published (its
+# sha256 is in that release's SHA256SUMS): the last schema 5 index.
+PUBLISHED_SCHEMA_5 = (Path(__file__).resolve().parent / "data" /
+                      "XILINX-PARTS-INDEX-2026-09-15.json")
 
 
 class PartsIndexTests(unittest.TestCase):
@@ -45,7 +50,7 @@ class PartsIndexTests(unittest.TestCase):
             "asset-sha256": "0" * 64,
         }
         info = {
-            "schema": 5,
+            "schema": 6,
             "date": "20260827",
             "release-tag": "2026-08-27",
             "chipdb-id": "fixture-id",
@@ -56,11 +61,12 @@ class PartsIndexTests(unittest.TestCase):
             "note": "fixture",
             "parts": {
                 PART: {"family": "artix7", "base-part": BASE, "speed": "1",
-                       "generated": True, **built},
+                       "generated": True, "pnr": "nextpnr-xilinx", **built},
                 SLOW: {"family": "artix7", "base-part": BASE, "speed": "2L",
-                       "generated": True, **built},
+                       "generated": True, "pnr": "nextpnr-xilinx", **built},
                 f"{OTHER}-1": {"family": "artix7", "base-part": OTHER,
-                               "speed": "1", "generated": False},
+                               "speed": "1", "generated": False,
+                               "pnr": "nextpnr-xilinx"},
             },
         }
         info.update(overrides)
@@ -136,6 +142,74 @@ class PartsIndexTests(unittest.TestCase):
         index_path, chipdb, _ = self.make_index(schema=4)
         with self.assertRaisesRegex(ValueError, "schema"):
             validate_package_info(index_path, chipdb)
+
+    def test_accepts_a_schema_6_document(self):
+        """Schema 6 = schema 5 plus the engine on every entry (apio#1070)."""
+        _, _, info = self.make_index()
+        self.assertEqual(info["schema"], 6)
+        self.assertTrue(all(entry["pnr"] == "nextpnr-xilinx"
+                            for entry in info["parts"].values()))
+        self.assertEqual(sorted(validate_document(info, "2026-08-27")),
+                         [PART, SLOW])
+
+    def test_rejects_an_entry_without_pnr_naming_the_part(self):
+        """Required on every entry, built or not: apio reads it per part."""
+        for part in (PART, f"{OTHER}-1"):
+            with self.subTest(part=part):
+                index_path, chipdb, info = self.make_index()
+                del info["parts"][part]["pnr"]
+                self.rewrite(index_path, info)
+                with self.assertRaisesRegex(
+                        ValueError, f"entry for {part} has no pnr"):
+                    validate_package_info(index_path, chipdb)
+
+    def test_rejects_a_pnr_that_is_not_a_known_engine(self):
+        """apio refuses an engine it does not know: never publish one.
+
+        An executable-looking name is as wrong as a typo -- pnr names the
+        engine, and both engines install as nextpnr-xilinx.
+        """
+        for wrong in ("nextpnr-himbaechel-xilinx", "NEXTPNR-XILINX",
+                      "nextpnr-xilinx.exe", "", None, ["nextpnr-xilinx"]):
+            with self.subTest(pnr=wrong):
+                index_path, chipdb, info = self.make_index()
+                info["parts"][SLOW]["pnr"] = wrong
+                self.rewrite(index_path, info)
+                with self.assertRaisesRegex(
+                        ValueError, f"{SLOW} pnr .* is not one of "
+                        "nextpnr-xilinx, nextpnr-himbaechel"):
+                    validate_package_info(index_path, chipdb)
+
+    def test_the_engines_are_the_ones_apio_runs(self):
+        """PNR_ENGINES is apio's SUPPORTED_PNR_TOOLS (apio#1055), and this
+        package's chipdb files are built for today's engine."""
+        self.assertEqual(PNR_ENGINES, ("nextpnr-xilinx", "nextpnr-himbaechel"))
+        self.assertEqual(PNR_ENGINE, "nextpnr-xilinx")
+        _, _, info = self.make_index()
+        for engine in PNR_ENGINES:
+            with self.subTest(pnr=engine):
+                info["parts"][f"{OTHER}-1"]["pnr"] = engine
+                validate_document(info)
+
+    def test_the_published_schema_5_document_is_rejected(self):
+        """The index of the 2026-09-15 release, as published: apio 1.6.0
+        reads schema 5 and nothing else, this validator schema 6 only."""
+        info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
+        with self.assertRaisesRegex(ValueError, "schema is 5, expected 6"):
+            validate_document(info, "2026-09-15")
+
+    def test_schema_6_is_the_published_document_plus_pnr(self):
+        """No other change of format: add pnr where ENTRY_KEYS puts it,
+        bump the schema, and the real document validates again."""
+        info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
+        info["schema"] = 6
+        for part, entry in info["parts"].items():
+            entry["pnr"] = PNR_ENGINE
+            info["parts"][part] = {key: entry[key] for key in ENTRY_KEYS
+                                   if key in entry}
+            self.assertEqual(set(info["parts"][part]), set(entry))
+        generated = validate_document(info, "2026-09-15")
+        self.assertEqual((len(info["parts"]), len(generated)), (202, 128))
 
     def test_rejects_a_key_that_is_not_base_part_plus_speed(self):
         """The key IS the part: apio looks the board's part up by name."""

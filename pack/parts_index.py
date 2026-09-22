@@ -28,16 +28,29 @@ from pathlib import Path
 
 from .families import family_of
 
-SCHEMA = 5
+SCHEMA = 6
+
+# The place-and-route engine the chipdb files of this package are built
+# for: what every entry's pnr says. It names the ENGINE, not the
+# executable -- both engines install as nextpnr-xilinx (apio#1070) -- and
+# it changes when the package moves to another engine. Schema 6 added it
+# (apio#1070); a schema 5 index is nextpnr-xilinx by definition.
+PNR_ENGINE = "nextpnr-xilinx"
+
+# Every engine a reader may find in pnr: today's, and the himbaechel-based
+# one the package is moving to. apio refuses a part whose engine it does
+# not know, so a value outside this list must never be published.
+PNR_ENGINES = ("nextpnr-xilinx", "nextpnr-himbaechel")
 
 # Keys an entry has only when this release built the part's chipdb. Each
 # name says WHAT it describes -- the chipdb file that must end up on disk,
-# or the asset downloaded to get it (apio#947, which is why schema is 5).
+# or the asset downloaded to get it (the apio#947 names, schema 5).
 GENERATED_KEYS = ("chipdb", "chipdb-size", "chipdb-sha256",
                   "asset", "asset-size", "asset-sha256")
 
 # Order of the keys inside one entry, as a reader of the JSON sees them.
-ENTRY_KEYS = ("family", "base-part", "speed", "generated") + GENERATED_KEYS
+ENTRY_KEYS = ("family", "base-part", "speed", "generated",
+              "pnr") + GENERATED_KEYS
 
 NOTE = (
     "Keyed by the full part number, <base-part>-<speed>, in Vivado's "
@@ -56,7 +69,10 @@ NOTE = (
     "prjxray database directory the part lives in "
     "($PRJXRAY_DB_DIR/<family>/<part>/part.yaml). An entry with "
     "generated=false is a part the packaged database supports that this "
-    "release did not build: supported, not available for download. A "
+    "release did not build: supported, not available for download. pnr "
+    "names the place-and-route engine the part's chipdb is built for "
+    "(nextpnr-xilinx or nextpnr-himbaechel): the engine, not the "
+    "executable, since both engines install as nextpnr-xilinx. A "
     "chipdb file is only valid with the openxc7 package of the SAME "
     "release tag; chipdb-id is the identity stamp of the set."
 )
@@ -133,6 +149,14 @@ def _check_entry(part: str, entry: dict, date: str) -> None:
         raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has the wrong family")
     if not isinstance(entry.get("generated"), bool):
         raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has no generated flag")
+    # Required on every entry, built or not: the engine is a property of
+    # the part in this package, and apio looks it up part by part.
+    if "pnr" not in entry:
+        raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has no pnr")
+    if entry["pnr"] not in PNR_ENGINES:
+        raise ValueError(
+            f"XILINX-PARTS-INDEX: {part} pnr {entry['pnr']!r} is not one of "
+            f"{', '.join(PNR_ENGINES)}")
     if not entry["generated"]:
         # A part nobody can download must not look downloadable.
         extra = [key for key in GENERATED_KEYS if key in entry]
