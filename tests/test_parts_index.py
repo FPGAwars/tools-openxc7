@@ -12,10 +12,9 @@ from unittest import mock
 
 from pack.assemble import write_env
 from pack.chipdb import write_placeholder
-from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, PACKAGE_FILE,
-                              PNR_ENGINE, PNR_ENGINES,
-                              previous_index_asset_names, validate_document,
-                              validate_package_info)
+from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, NOTE, PACKAGE_FILE,
+                              SCHEMA, previous_index_asset_names,
+                              validate_document, validate_package_info)
 
 BASE = "xc7a35tcpg236"
 OTHER = "xc7a50tcsg324"
@@ -61,12 +60,11 @@ class PartsIndexTests(unittest.TestCase):
             "note": "fixture",
             "parts": {
                 PART: {"family": "artix7", "base-part": BASE, "speed": "1",
-                       "generated": True, "pnr": "nextpnr-xilinx", **built},
+                       "generated": True, **built},
                 SLOW: {"family": "artix7", "base-part": BASE, "speed": "2L",
-                       "generated": True, "pnr": "nextpnr-xilinx", **built},
+                       "generated": True, **built},
                 f"{OTHER}-1": {"family": "artix7", "base-part": OTHER,
-                               "speed": "1", "generated": False,
-                               "pnr": "nextpnr-xilinx"},
+                               "speed": "1", "generated": False},
             },
         }
         info.update(overrides)
@@ -144,52 +142,38 @@ class PartsIndexTests(unittest.TestCase):
             validate_package_info(index_path, chipdb)
 
     def test_accepts_a_schema_6_document(self):
-        """Schema 6 = schema 5 plus the engine on every entry (apio#1070)."""
+        """Schema 6 is the current engine: schema 5's entry keys, no more."""
         _, _, info = self.make_index()
-        self.assertEqual(info["schema"], 6)
-        self.assertTrue(all(entry["pnr"] == "nextpnr-xilinx"
-                            for entry in info["parts"].values()))
+        self.assertEqual(info["schema"], SCHEMA)
+        self.assertEqual(SCHEMA, 6)
+        for entry in info["parts"].values():
+            self.assertEqual(list(entry),
+                             [key for key in ENTRY_KEYS if key in entry])
         self.assertEqual(sorted(validate_document(info, "2026-08-27")),
                          [PART, SLOW])
 
-    def test_rejects_an_entry_without_pnr_naming_the_part(self):
-        """Required on every entry, built or not: apio reads it per part."""
+    def test_rejects_an_unknown_entry_key(self):
+        """A key outside ENTRY_KEYS is refused. The index is a contract.
+
+        The schema 6 draft carried an engine field on every entry. That
+        document is not this schema: apio asserts the number, and a key
+        the number does not define must not be silently ignored.
+        """
         for part in (PART, f"{OTHER}-1"):
             with self.subTest(part=part):
                 index_path, chipdb, info = self.make_index()
-                del info["parts"][part]["pnr"]
+                info["parts"][part]["pnr"] = "nextpnr-xilinx"
                 self.rewrite(index_path, info)
                 with self.assertRaisesRegex(
-                        ValueError, f"entry for {part} has no pnr"):
+                        ValueError, f"{part} has unknown key pnr"):
                     validate_package_info(index_path, chipdb)
 
-    def test_rejects_a_pnr_that_is_not_a_known_engine(self):
-        """apio refuses an engine it does not know: never publish one.
-
-        An executable-looking name is as wrong as a typo -- pnr names the
-        engine, and both engines install as nextpnr-xilinx.
-        """
-        for wrong in ("nextpnr-himbaechel-xilinx", "NEXTPNR-XILINX",
-                      "nextpnr-xilinx.exe", "", None, ["nextpnr-xilinx"]):
-            with self.subTest(pnr=wrong):
-                index_path, chipdb, info = self.make_index()
-                info["parts"][SLOW]["pnr"] = wrong
-                self.rewrite(index_path, info)
-                with self.assertRaisesRegex(
-                        ValueError, f"{SLOW} pnr .* is not one of "
-                        "nextpnr-xilinx, nextpnr-himbaechel"):
-                    validate_package_info(index_path, chipdb)
-
-    def test_the_engines_are_the_ones_apio_runs(self):
-        """PNR_ENGINES is apio's SUPPORTED_PNR_TOOLS (apio#1055), and this
-        package's chipdb files are built for today's engine."""
-        self.assertEqual(PNR_ENGINES, ("nextpnr-xilinx", "nextpnr-himbaechel"))
-        self.assertEqual(PNR_ENGINE, "nextpnr-xilinx")
-        _, _, info = self.make_index()
-        for engine in PNR_ENGINES:
-            with self.subTest(pnr=engine):
-                info["parts"][f"{OTHER}-1"]["pnr"] = engine
-                validate_document(info)
+    def test_the_note_names_both_schemas(self):
+        """Schema 6 is the current engine; schema 7 is himbaechel."""
+        self.assertIn("schema 6", NOTE)
+        self.assertIn("schema 7", NOTE)
+        self.assertIn("one chipdb file per base part", NOTE)
+        self.assertIn("one chipdb file per die", NOTE)
 
     def test_the_published_schema_5_document_is_rejected(self):
         """The index of the 2026-09-15 release, as published: apio 1.6.0
@@ -198,18 +182,33 @@ class PartsIndexTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "schema is 5, expected 6"):
             validate_document(info, "2026-09-15")
 
-    def test_schema_6_is_the_published_document_plus_pnr(self):
-        """No other change of format: add pnr where ENTRY_KEYS puts it,
-        bump the schema, and the real document validates again."""
+    def test_schema_6_is_the_published_document_at_a_new_number(self):
+        """No other change of format: bump the schema, and the real
+        document validates again. Its entry keys are ENTRY_KEYS."""
         info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
         info["schema"] = 6
-        for part, entry in info["parts"].items():
-            entry["pnr"] = PNR_ENGINE
-            info["parts"][part] = {key: entry[key] for key in ENTRY_KEYS
-                                   if key in entry}
-            self.assertEqual(set(info["parts"][part]), set(entry))
+        generated_entry = next(entry for entry in info["parts"].values()
+                               if entry["generated"])
+        plain_entry = next(entry for entry in info["parts"].values()
+                           if not entry["generated"])
+        self.assertEqual(tuple(generated_entry), ENTRY_KEYS)
+        self.assertEqual(tuple(plain_entry),
+                         tuple(key for key in ENTRY_KEYS
+                               if key not in ("chipdb", "chipdb-size",
+                                              "chipdb-sha256", "asset",
+                                              "asset-size", "asset-sha256")))
         generated = validate_document(info, "2026-09-15")
         self.assertEqual((len(info["parts"]), len(generated)), (202, 128))
+
+    def test_the_schema_6_draft_with_an_engine_field_is_rejected(self):
+        """The document this branch used to emit (schema 6 plus an engine
+        field on every entry) is refused as an unknown key."""
+        info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
+        info["schema"] = 6
+        for entry in info["parts"].values():
+            entry["pnr"] = "nextpnr-xilinx"
+        with self.assertRaisesRegex(ValueError, "has unknown key pnr"):
+            validate_document(info, "2026-09-15")
 
     def test_rejects_a_key_that_is_not_base_part_plus_speed(self):
         """The key IS the part: apio looks the board's part up by name."""

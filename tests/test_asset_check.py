@@ -93,7 +93,6 @@ def release(**overrides) -> dict:
     }
     built = {
         "generated": True,
-        "pnr": "nextpnr-xilinx",
         "chipdb": CHIPDB,
         "chipdb-size": len(BIN),
         "chipdb-sha256": hashlib.sha256(BIN).hexdigest(),
@@ -292,9 +291,9 @@ class AssetCheckTests(unittest.TestCase):
     def test_the_last_schema_5_index_is_legacy_not_a_failure(self):
         """The index the 2026-09-15 release published, byte for byte.
 
-        Schema 6 added pnr (apio#1070); a release published under schema 5
-        is what apio 1.6.x installs from, and it is not this gate's
-        contract any more.
+        Schema 6 is the current engine's index; a release published under
+        schema 5 is what apio 1.6.x installs from, and it is not this
+        gate's contract any more.
         """
         files = release()
         files[f"{BASE}/{INDEX}"] = PUBLISHED_SCHEMA_5.read_bytes()

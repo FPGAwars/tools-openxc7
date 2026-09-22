@@ -212,12 +212,12 @@ names one per part: today the speed grades of a base part repeat the same
 file, and a loader that keeps what is already on disk with the right
 `chipdb-sha256` downloads it once. Parts the packaged prjxray database supports
 but the release did not build are listed with `"generated": false`, so apio can
-tell "not in this release" from "unknown part". Every entry, built or not, also
-names in `pnr` the place-and-route engine its chipdb is built for — today
-`nextpnr-xilinx` for all of them. It names the engine, not the executable: the
-himbaechel-based engine apio 1.7 moves to installs as `nextpnr-xilinx` too.
-`pnr` is schema 6; apio 1.6.x reads schema 5 only, so a package that carries a
-schema 6 index is for the apio 1.7 line. Since no package ships a
+tell "not in this release" from "unknown part". A package carries one engine,
+and the schema number is the contract: schema 6 (this package) is the current
+engine (`nextpnr-xilinx --chipdb <file> --xdc …`), one chipdb file per base
+part, the same entry keys as schema 5; schema 7 is the himbaechel engine,
+still installed as `nextpnr-xilinx`, one chipdb file per die. apio 1.6.x reads
+schema 5 only, so a schema 6 index is for the apio 1.7 line. Since no package ships a
 chipdb, that index and the per-FPGA assets are the whole contract: each
 platform's L1 and L2 gates run with those very bins injected into the extracted
 tarball. Old prereleases are

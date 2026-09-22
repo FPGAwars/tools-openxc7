@@ -17,6 +17,11 @@ This module owns the format (schema, note, asset names) and validates it:
 ``pack.chipdb_assets`` writes the document, L1 checks a package against
 the bins it describes, and scripts/asset-check.sh checks a published
 release against it -- one validator, three callers.
+
+The schema number is the contract (apio#1071). A package carries one
+engine, so a reader asserts the number and already knows the binary and
+the command line. Schema 6, which this module emits, is the current
+engine. Schema 7 is the himbaechel engine. An entry has no engine field.
 """
 
 from __future__ import annotations
@@ -30,17 +35,12 @@ from .families import family_of
 
 SCHEMA = 6
 
-# The place-and-route engine the chipdb files of this package are built
-# for: what every entry's pnr says. It names the ENGINE, not the
-# executable -- both engines install as nextpnr-xilinx (apio#1070) -- and
-# it changes when the package moves to another engine. Schema 6 added it
-# (apio#1070); a schema 5 index is nextpnr-xilinx by definition.
-PNR_ENGINE = "nextpnr-xilinx"
-
-# Every engine a reader may find in pnr: today's, and the himbaechel-based
-# one the package is moving to. apio refuses a part whose engine it does
-# not know, so a value outside this list must never be published.
-PNR_ENGINES = ("nextpnr-xilinx", "nextpnr-himbaechel")
+# Schema 6 is the index of the current engine: the entry keys of schema
+# 5, one chipdb file per base part, command line
+# ``nextpnr-xilinx --chipdb <file> --xdc``. Schema 7 is the index of the
+# himbaechel engine, installed as the same ``nextpnr-xilinx`` binary, one
+# chipdb file per die. This module emits schema 6 and refuses any other
+# (apio#1071).
 
 # Keys an entry has only when this release built the part's chipdb. Each
 # name says WHAT it describes -- the chipdb file that must end up on disk,
@@ -49,8 +49,9 @@ GENERATED_KEYS = ("chipdb", "chipdb-size", "chipdb-sha256",
                   "asset", "asset-size", "asset-sha256")
 
 # Order of the keys inside one entry, as a reader of the JSON sees them.
-ENTRY_KEYS = ("family", "base-part", "speed", "generated",
-              "pnr") + GENERATED_KEYS
+# The same keys schema 5 published: the schema number, not a field,
+# says which engine the file was built for.
+ENTRY_KEYS = ("family", "base-part", "speed", "generated") + GENERATED_KEYS
 
 NOTE = (
     "Keyed by the full part number, <base-part>-<speed>, in Vivado's "
@@ -69,10 +70,15 @@ NOTE = (
     "prjxray database directory the part lives in "
     "($PRJXRAY_DB_DIR/<family>/<part>/part.yaml). An entry with "
     "generated=false is a part the packaged database supports that this "
-    "release did not build: supported, not available for download. pnr "
-    "names the place-and-route engine the part's chipdb is built for "
-    "(nextpnr-xilinx or nextpnr-himbaechel): the engine, not the "
-    "executable, since both engines install as nextpnr-xilinx. A "
+    "release did not build: supported, not available for download. "
+    "schema 6 is the index of the current engine: one chipdb file per "
+    "base part, command line nextpnr-xilinx --chipdb <file> --xdc. "
+    "schema 7 is the index of the himbaechel engine, installed as the "
+    "same nextpnr-xilinx binary: one chipdb file per die "
+    "(chipdb-<die>.bin; the entry names the file its part uses), "
+    "command line nextpnr-xilinx --device <part> --chipdb <file> "
+    "-o xdc= -o fasm= --report. A package carries one engine, so the "
+    "schema number is the contract. A "
     "chipdb file is only valid with the openxc7 package of the SAME "
     "release tag; chipdb-id is the identity stamp of the set."
 )
@@ -137,6 +143,15 @@ def _check_entry(part: str, entry: dict, date: str) -> None:
     """Check one part entry on its own."""
     if not isinstance(entry, dict):
         raise ValueError(f"XILINX-PARTS-INDEX entry for {part} must be an object")
+    # The index is a contract: a key this schema does not define (the
+    # engine field the schema 6 draft carried, for one) is refused, not
+    # ignored. apio asserts the schema number and reads these keys only.
+    unknown = sorted(key for key in entry if key not in ENTRY_KEYS)
+    if unknown:
+        kind = "key" if len(unknown) == 1 else "keys"
+        raise ValueError(
+            f"XILINX-PARTS-INDEX: {part} has unknown {kind} "
+            f"{', '.join(unknown)}")
     base = entry.get("base-part")
     speed = entry.get("speed")
     if not isinstance(base, str) or not isinstance(speed, str):
@@ -149,14 +164,6 @@ def _check_entry(part: str, entry: dict, date: str) -> None:
         raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has the wrong family")
     if not isinstance(entry.get("generated"), bool):
         raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has no generated flag")
-    # Required on every entry, built or not: the engine is a property of
-    # the part in this package, and apio looks it up part by part.
-    if "pnr" not in entry:
-        raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has no pnr")
-    if entry["pnr"] not in PNR_ENGINES:
-        raise ValueError(
-            f"XILINX-PARTS-INDEX: {part} pnr {entry['pnr']!r} is not one of "
-            f"{', '.join(PNR_ENGINES)}")
     if not entry["generated"]:
         # A part nobody can download must not look downloadable.
         extra = [key for key in GENERATED_KEYS if key in entry]
