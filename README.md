@@ -18,7 +18,7 @@ using [Nix](https://nixos.org), and publish one Apio package tarball per Apio su
 | `xc7frames2bit`, `bitread`, `xc7patch`    | [Project X-Ray](https://github.com/f4pga/prjxray)    | Frames → bitstream, and bitstream inspection       |
 | `fasm2frames` + the `fasm` Python library | [openXC7 fasm](https://github.com/openxc7/fasm)      | FASM → configuration frames                        |
 | `chipdb/`                                 | built here, downloaded on demand                     | Where apio leaves the per-FPGA device database nextpnr needs |
-| `XILINX-PARTS-INDEX.json`                 | built here                                           | Which chipdb file each part needs, which of them this release built, and the asset, sizes and hashes of each one |
+| `XILINX-PARTS-INDEX.json`                 | built here                                           | Which chipdb file each part needs, which of them this release built, the asset, sizes and hashes of each one, and the place-and-route engine it is built for |
 | `share/nextpnr/external/prjxray-db`       | Project X-Ray database                               | Pin/part data (`part.yaml`, `package_pins.csv`, …) |
 
 Synthesis is **not** part of this package: it comes from `yosys`, shipped by
@@ -212,7 +212,12 @@ names one per part: today the speed grades of a base part repeat the same
 file, and a loader that keeps what is already on disk with the right
 `chipdb-sha256` downloads it once. Parts the packaged prjxray database supports
 but the release did not build are listed with `"generated": false`, so apio can
-tell "not in this release" from "unknown part". Since no package ships a
+tell "not in this release" from "unknown part". Every entry, built or not, also
+names in `pnr` the place-and-route engine its chipdb is built for — today
+`nextpnr-xilinx` for all of them. It names the engine, not the executable: the
+himbaechel-based engine apio 1.7 moves to installs as `nextpnr-xilinx` too.
+`pnr` is schema 6; apio 1.6.x reads schema 5 only, so a package that carries a
+schema 6 index is for the apio 1.7 line. Since no package ships a
 chipdb, that index and the per-FPGA assets are the whole contract: each
 platform's L1 and L2 gates run with those very bins injected into the extracted
 tarball. Old prereleases are
