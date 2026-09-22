@@ -45,10 +45,6 @@ SCHEMA = 7
 # --report``. The validator accepts only the schema this branch emits.
 PER_BASE_PART_SCHEMA = 6
 
-# Name the harness still compares against when it has not yet read the
-# schema number. Schema 7 is this engine.
-PNR_ENGINE = "nextpnr-himbaechel"
-
 # Keys an entry has only when this release built the part's chipdb. Each
 # name says WHAT it describes -- the chipdb file that must end up on disk,
 # or the asset downloaded to get it (the apio#947 names, schema 5).
@@ -120,19 +116,10 @@ def release_tag(date: str) -> str:
     return f"{date[:4]}-{date[4:6]}-{date[6:]}"
 
 
-def _as_schema(schema: int | str) -> int:
-    """Schema number. An engine name is the schema of that engine.
-
-    The harness still passes the name it stored; the schema number is
-    what decides the file.
-    """
-    if schema == "nextpnr-xilinx":
-        return PER_BASE_PART_SCHEMA
-    if schema == PNR_ENGINE:
-        return SCHEMA
+def _as_schema(schema: int) -> int:
     if isinstance(schema, int) and not isinstance(schema, bool):
         return schema
-    raise ValueError(f"unknown parts-index schema {schema!r}")
+    raise ValueError(f"parts-index schema must be an integer, not {schema!r}")
 
 
 def _chipdb_unit(base_part: str, schema: int) -> str:
@@ -146,7 +133,7 @@ def _chipdb_unit(base_part: str, schema: int) -> str:
     return die_of(base_part)
 
 
-def asset_name(base_part: str, date: str, schema: int | str = SCHEMA) -> str:
+def asset_name(base_part: str, date: str, schema: int = SCHEMA) -> str:
     """Release asset carrying a base part's chipdb, for a given date.
 
     One per die under schema 7 (every base part of a die names the same
@@ -157,7 +144,7 @@ def asset_name(base_part: str, date: str, schema: int | str = SCHEMA) -> str:
             f"{date}.bin.tgz")
 
 
-def chipdb_name(base_part: str, schema: int | str = SCHEMA) -> str:
+def chipdb_name(base_part: str, schema: int = SCHEMA) -> str:
     """Chipdb file a base part needs: what apio leaves in chipdb/.
 
     Schema 7: the file of its die, chipdb-xc7a50t.bin for an
@@ -370,26 +357,6 @@ def read_package_schema(package: Path) -> tuple:
     if not index.is_file():
         return package_schema(None)
     return package_schema(json.loads(index.read_text(encoding="utf-8")))
-
-
-def package_engine(info: dict | None) -> tuple:
-    """(engine name, files) for a caller that has not moved to the number.
-
-    Schema 6 and 5 are the current engine; schema 7 is the himbaechel
-    one. The name is not in the document.
-    """
-    schema, files = package_schema(info)
-    if schema <= PER_BASE_PART_SCHEMA:
-        return "nextpnr-xilinx", files
-    return PNR_ENGINE, files
-
-
-def read_package_engine(package: Path) -> tuple:
-    """package_engine() of the package tree at *package*."""
-    schema, files = read_package_schema(package)
-    if schema <= PER_BASE_PART_SCHEMA:
-        return "nextpnr-xilinx", files
-    return PNR_ENGINE, files
 
 
 def main() -> None:

@@ -3,9 +3,9 @@
 The flow is exactly the one apio runs — yosys → nextpnr-xilinx (with the
 `--report` JSON that backs `apio report`) → fasm2frames → xc7frames2bit —
 truncated at whatever stage the test asked for. The place-and-route step speaks
-the command line of the package's engine: the himbaechel xilinx uarch (the part
-in --device, the XDC and FASM as uarch options, one chipdb per die) or the
-nextpnr-xilinx fork.
+the command line of the package's schema: schema 7 is the himbaechel xilinx
+uarch (the part in --device, the XDC and FASM as uarch options, one chipdb
+per die); schema 6 and 5 are the current engine.
 
 Nothing here decides whether a test passed: the runner only reports what
 happened (log, artefacts, cells, utilisation, timing). Judgement lives in
@@ -134,13 +134,14 @@ def _count_cells(netlist: Path) -> dict:
 
 def _pnr_command(spec, pkg, part: str, xdc: Path, netlist: Path, fasm: Path,
                  report: Path) -> list:
-    """The place-and-route command line of the package's engine.
+    """The place-and-route command line of the package's schema.
 
     Both write the metrics with --report, which is what apio reads (since
-    apio#1048; the fork's --post-route hook called ctx.reportClockFmaxJson(),
-    a python binding the himbaechel uarch does not have).
+    apio#1048; the current engine's --post-route hook called
+    ctx.reportClockFmaxJson(), a python binding the himbaechel uarch does
+    not have).
     """
-    if pkg.engine == "nextpnr-xilinx":
+    if pkg.schema <= 6:
         return [
             *pkg.cmd("nextpnr-xilinx"),
             "--chipdb", str(pkg.chipdb(part)),

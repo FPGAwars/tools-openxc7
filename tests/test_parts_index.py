@@ -13,9 +13,8 @@ from unittest import mock
 from pack.assemble import write_env
 from pack.chipdb import write_placeholder
 from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, NOTE, PACKAGE_FILE,
-                              PNR_ENGINE, SCHEMA, chipdb_name, package_engine,
-                              package_schema, previous_index_asset_names,
-                              read_package_engine, read_package_schema,
+                              SCHEMA, chipdb_name, package_schema,
+                              previous_index_asset_names, read_package_schema,
                               validate_document, validate_package_info)
 
 BASE = "xc7a35tcpg236"
@@ -258,8 +257,6 @@ class PartsIndexTests(unittest.TestCase):
         self.assertEqual(chipdb_name(BASE, 7), DIE_FILE)
         self.assertEqual(chipdb_name(BASE, 6), f"{BASE}.bin")
         self.assertEqual(chipdb_name(BASE, 5), f"{BASE}.bin")
-        self.assertEqual(
-            chipdb_name(BASE, "nextpnr-xilinx"), f"{BASE}.bin")
 
         index_path, chipdb, info = self.make_die_index()
         info["parts"][f"{OTHER}-1"]["chipdb"] = f"{OTHER}.bin"
@@ -289,7 +286,6 @@ class PartsIndexTests(unittest.TestCase):
         _, _, info = self.make_die_index()
         self.assertEqual(package_schema(info),
                          (7, {BASE: DIE_FILE, OTHER: DIE_FILE}))
-        self.assertEqual(package_engine(info)[0], PNR_ENGINE)
         # schema 6 is the current engine, even though this validator
         # refuses to publish it: the reader still reports the number.
         per_base = {
@@ -299,16 +295,13 @@ class PartsIndexTests(unittest.TestCase):
         }
         self.assertEqual(package_schema(per_base),
                          (6, {BASE: f"{BASE}.bin"}))
-        self.assertEqual(package_engine(per_base)[0], "nextpnr-xilinx")
         published = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
         schema, files = package_schema(published)
         self.assertEqual(schema, 5)
         self.assertEqual(files["xc7a35tcsg324"], "xc7a35tcsg324.bin")
-        self.assertEqual(package_engine(published)[0], "nextpnr-xilinx")
         # no index at all: the schema this repository emits
         self.assertEqual(package_schema(None), (SCHEMA, {}))
         self.assertEqual(read_package_schema(self.root), (SCHEMA, {}))
-        self.assertEqual(read_package_engine(self.root), (PNR_ENGINE, {}))
         with self.assertRaisesRegex(ValueError, "schema 4"):
             package_schema({"schema": 4, "parts": {}})
 
