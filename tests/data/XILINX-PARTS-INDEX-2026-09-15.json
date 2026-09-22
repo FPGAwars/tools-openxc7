@@ -1,0 +1,1993 @@
+{
+  "schema": 5,
+  "date": "20260915",
+  "release-tag": "2026-09-15",
+  "chipdb-id": "8abe12ebcdc89d7b",
+  "part-count": 202,
+  "generated-count": 128,
+  "chipdb-count": 37,
+  "base-part-count": 58,
+  "note": "Keyed by the full part number, <base-part>-<speed>, in Vivado's naming: device xc7a200t + package fbg484 = base part xc7a200tfbg484, speed grade 3, part xc7a200tfbg484-3. An entry with generated=true is built for THIS release: download <asset> from the release named by release-tag and leave <chipdb> in the package's chipdb/ directory. chipdb-size/chipdb-sha256 describe that uncompressed chipdb file (what must end up on disk); asset-size/asset-sha256 describe the downloaded asset, a tar.gz carrying the file at its root. The speed grades of one base part deliberately repeat chipdb, asset and hashes: one file serves them all today, so 'already on disk with that sha256' is the only deduplication a loader needs, and a future release may split them without any change outside this document. family is the prjxray database directory the part lives in ($PRJXRAY_DB_DIR/<family>/<part>/part.yaml). An entry with generated=false is a part the packaged database supports that this release did not build: supported, not available for download. A chipdb file is only valid with the openxc7 package of the SAME release tag; chipdb-id is the identity stamp of the set.",
+  "parts": {
+    "xc7a100tcsg324-1": {
+      "family": "artix7",
+      "base-part": "xc7a100tcsg324",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a100tcsg324.bin",
+      "chipdb-size": 159553976,
+      "chipdb-sha256": "2dcf4be7e7ca140f7844984b4d16629bda813fdf432b83b7a123a0743163c7ad",
+      "asset": "apio-xilinx-chipdb-xc7a100tcsg324-20260915.bin.tgz",
+      "asset-size": 44028794,
+      "asset-sha256": "bc74f32f8ac5d18a80c8697487108f62397ab06f41eef479d6aa9ef45c8539b1"
+    },
+    "xc7a100tcsg324-2": {
+      "family": "artix7",
+      "base-part": "xc7a100tcsg324",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a100tcsg324.bin",
+      "chipdb-size": 159553976,
+      "chipdb-sha256": "2dcf4be7e7ca140f7844984b4d16629bda813fdf432b83b7a123a0743163c7ad",
+      "asset": "apio-xilinx-chipdb-xc7a100tcsg324-20260915.bin.tgz",
+      "asset-size": 44028794,
+      "asset-sha256": "bc74f32f8ac5d18a80c8697487108f62397ab06f41eef479d6aa9ef45c8539b1"
+    },
+    "xc7a100tcsg324-2L": {
+      "family": "artix7",
+      "base-part": "xc7a100tcsg324",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a100tcsg324.bin",
+      "chipdb-size": 159553976,
+      "chipdb-sha256": "2dcf4be7e7ca140f7844984b4d16629bda813fdf432b83b7a123a0743163c7ad",
+      "asset": "apio-xilinx-chipdb-xc7a100tcsg324-20260915.bin.tgz",
+      "asset-size": 44028794,
+      "asset-sha256": "bc74f32f8ac5d18a80c8697487108f62397ab06f41eef479d6aa9ef45c8539b1"
+    },
+    "xc7a100tcsg324-3": {
+      "family": "artix7",
+      "base-part": "xc7a100tcsg324",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a100tcsg324.bin",
+      "chipdb-size": 159553976,
+      "chipdb-sha256": "2dcf4be7e7ca140f7844984b4d16629bda813fdf432b83b7a123a0743163c7ad",
+      "asset": "apio-xilinx-chipdb-xc7a100tcsg324-20260915.bin.tgz",
+      "asset-size": 44028794,
+      "asset-sha256": "bc74f32f8ac5d18a80c8697487108f62397ab06f41eef479d6aa9ef45c8539b1"
+    },
+    "xc7a100tfgg484-1": {
+      "family": "artix7",
+      "base-part": "xc7a100tfgg484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a100tfgg484.bin",
+      "chipdb-size": 159554060,
+      "chipdb-sha256": "a31e2bf42c0f6890e0e42a5b765b5d27834aeb2c32eb35d06b0b757ec7ea007c",
+      "asset": "apio-xilinx-chipdb-xc7a100tfgg484-20260915.bin.tgz",
+      "asset-size": 44029142,
+      "asset-sha256": "c3ccad4ecbf269ed20f42d8afee4e4341c1651bd88cac1b384b06b277d8f799c"
+    },
+    "xc7a100tfgg484-2": {
+      "family": "artix7",
+      "base-part": "xc7a100tfgg484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a100tfgg484.bin",
+      "chipdb-size": 159554060,
+      "chipdb-sha256": "a31e2bf42c0f6890e0e42a5b765b5d27834aeb2c32eb35d06b0b757ec7ea007c",
+      "asset": "apio-xilinx-chipdb-xc7a100tfgg484-20260915.bin.tgz",
+      "asset-size": 44029142,
+      "asset-sha256": "c3ccad4ecbf269ed20f42d8afee4e4341c1651bd88cac1b384b06b277d8f799c"
+    },
+    "xc7a100tfgg484-2L": {
+      "family": "artix7",
+      "base-part": "xc7a100tfgg484",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a100tfgg484.bin",
+      "chipdb-size": 159554060,
+      "chipdb-sha256": "a31e2bf42c0f6890e0e42a5b765b5d27834aeb2c32eb35d06b0b757ec7ea007c",
+      "asset": "apio-xilinx-chipdb-xc7a100tfgg484-20260915.bin.tgz",
+      "asset-size": 44029142,
+      "asset-sha256": "c3ccad4ecbf269ed20f42d8afee4e4341c1651bd88cac1b384b06b277d8f799c"
+    },
+    "xc7a100tfgg484-3": {
+      "family": "artix7",
+      "base-part": "xc7a100tfgg484",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a100tfgg484.bin",
+      "chipdb-size": 159554060,
+      "chipdb-sha256": "a31e2bf42c0f6890e0e42a5b765b5d27834aeb2c32eb35d06b0b757ec7ea007c",
+      "asset": "apio-xilinx-chipdb-xc7a100tfgg484-20260915.bin.tgz",
+      "asset-size": 44029142,
+      "asset-sha256": "c3ccad4ecbf269ed20f42d8afee4e4341c1651bd88cac1b384b06b277d8f799c"
+    },
+    "xc7a100tfgg676-1": {
+      "family": "artix7",
+      "base-part": "xc7a100tfgg676",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a100tfgg676.bin",
+      "chipdb-size": 159554068,
+      "chipdb-sha256": "cfa8855769a052f609fe70f7a70cb691e49cda708870d1a81bf6bc2002eff208",
+      "asset": "apio-xilinx-chipdb-xc7a100tfgg676-20260915.bin.tgz",
+      "asset-size": 44029424,
+      "asset-sha256": "f729b295fbba39031a4b7fa6236c5e00643ce876006aa0399741140cc1b57558"
+    },
+    "xc7a100tfgg676-2": {
+      "family": "artix7",
+      "base-part": "xc7a100tfgg676",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a100tfgg676.bin",
+      "chipdb-size": 159554068,
+      "chipdb-sha256": "cfa8855769a052f609fe70f7a70cb691e49cda708870d1a81bf6bc2002eff208",
+      "asset": "apio-xilinx-chipdb-xc7a100tfgg676-20260915.bin.tgz",
+      "asset-size": 44029424,
+      "asset-sha256": "f729b295fbba39031a4b7fa6236c5e00643ce876006aa0399741140cc1b57558"
+    },
+    "xc7a100tfgg676-2L": {
+      "family": "artix7",
+      "base-part": "xc7a100tfgg676",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a100tfgg676.bin",
+      "chipdb-size": 159554068,
+      "chipdb-sha256": "cfa8855769a052f609fe70f7a70cb691e49cda708870d1a81bf6bc2002eff208",
+      "asset": "apio-xilinx-chipdb-xc7a100tfgg676-20260915.bin.tgz",
+      "asset-size": 44029424,
+      "asset-sha256": "f729b295fbba39031a4b7fa6236c5e00643ce876006aa0399741140cc1b57558"
+    },
+    "xc7a100tfgg676-3": {
+      "family": "artix7",
+      "base-part": "xc7a100tfgg676",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a100tfgg676.bin",
+      "chipdb-size": 159554068,
+      "chipdb-sha256": "cfa8855769a052f609fe70f7a70cb691e49cda708870d1a81bf6bc2002eff208",
+      "asset": "apio-xilinx-chipdb-xc7a100tfgg676-20260915.bin.tgz",
+      "asset-size": 44029424,
+      "asset-sha256": "f729b295fbba39031a4b7fa6236c5e00643ce876006aa0399741140cc1b57558"
+    },
+    "xc7a100tftg256-1": {
+      "family": "artix7",
+      "base-part": "xc7a100tftg256",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a100tftg256.bin",
+      "chipdb-size": 159553976,
+      "chipdb-sha256": "4d6e1b00b6fa3f140d282761e2cc1accd4a184af2b560009f45564d64a2cfeda",
+      "asset": "apio-xilinx-chipdb-xc7a100tftg256-20260915.bin.tgz",
+      "asset-size": 44028689,
+      "asset-sha256": "2f7781053bb83ff6d60a477e253efe90eaa437ee2023d62fd11fc81bfa676f57"
+    },
+    "xc7a100tftg256-2": {
+      "family": "artix7",
+      "base-part": "xc7a100tftg256",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a100tftg256.bin",
+      "chipdb-size": 159553976,
+      "chipdb-sha256": "4d6e1b00b6fa3f140d282761e2cc1accd4a184af2b560009f45564d64a2cfeda",
+      "asset": "apio-xilinx-chipdb-xc7a100tftg256-20260915.bin.tgz",
+      "asset-size": 44028689,
+      "asset-sha256": "2f7781053bb83ff6d60a477e253efe90eaa437ee2023d62fd11fc81bfa676f57"
+    },
+    "xc7a100tftg256-2L": {
+      "family": "artix7",
+      "base-part": "xc7a100tftg256",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a100tftg256.bin",
+      "chipdb-size": 159553976,
+      "chipdb-sha256": "4d6e1b00b6fa3f140d282761e2cc1accd4a184af2b560009f45564d64a2cfeda",
+      "asset": "apio-xilinx-chipdb-xc7a100tftg256-20260915.bin.tgz",
+      "asset-size": 44028689,
+      "asset-sha256": "2f7781053bb83ff6d60a477e253efe90eaa437ee2023d62fd11fc81bfa676f57"
+    },
+    "xc7a100tftg256-3": {
+      "family": "artix7",
+      "base-part": "xc7a100tftg256",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a100tftg256.bin",
+      "chipdb-size": 159553976,
+      "chipdb-sha256": "4d6e1b00b6fa3f140d282761e2cc1accd4a184af2b560009f45564d64a2cfeda",
+      "asset": "apio-xilinx-chipdb-xc7a100tftg256-20260915.bin.tgz",
+      "asset-size": 44028689,
+      "asset-sha256": "2f7781053bb83ff6d60a477e253efe90eaa437ee2023d62fd11fc81bfa676f57"
+    },
+    "xc7a200tfbg484-1": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbg484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a200tfbg484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "1141aca1b06755b7d57fcfb4418361e2f14a04d86252533ab9b699d2e4f0e46c",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbg484-20260915.bin.tgz",
+      "asset-size": 92922202,
+      "asset-sha256": "5423e13e1cf8e7ea3fb183ecc730207a60fab3eacc532293e0cdf2f2ad19f25c"
+    },
+    "xc7a200tfbg484-2": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbg484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a200tfbg484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "1141aca1b06755b7d57fcfb4418361e2f14a04d86252533ab9b699d2e4f0e46c",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbg484-20260915.bin.tgz",
+      "asset-size": 92922202,
+      "asset-sha256": "5423e13e1cf8e7ea3fb183ecc730207a60fab3eacc532293e0cdf2f2ad19f25c"
+    },
+    "xc7a200tfbg484-2L": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbg484",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a200tfbg484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "1141aca1b06755b7d57fcfb4418361e2f14a04d86252533ab9b699d2e4f0e46c",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbg484-20260915.bin.tgz",
+      "asset-size": 92922202,
+      "asset-sha256": "5423e13e1cf8e7ea3fb183ecc730207a60fab3eacc532293e0cdf2f2ad19f25c"
+    },
+    "xc7a200tfbg484-3": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbg484",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a200tfbg484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "1141aca1b06755b7d57fcfb4418361e2f14a04d86252533ab9b699d2e4f0e46c",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbg484-20260915.bin.tgz",
+      "asset-size": 92922202,
+      "asset-sha256": "5423e13e1cf8e7ea3fb183ecc730207a60fab3eacc532293e0cdf2f2ad19f25c"
+    },
+    "xc7a200tfbg676-1": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbg676",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a200tfbg676.bin",
+      "chipdb-size": 333207972,
+      "chipdb-sha256": "a3e0ef7ddf64bfc1cf1d921c82288b03709d0c86d2e59657583824f163e2dcca",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbg676-20260915.bin.tgz",
+      "asset-size": 92922564,
+      "asset-sha256": "1d4c11a7b1fbe58f89a9526adc58d957ef963562513b6a5b9f213bab834c0760"
+    },
+    "xc7a200tfbg676-2": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbg676",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a200tfbg676.bin",
+      "chipdb-size": 333207972,
+      "chipdb-sha256": "a3e0ef7ddf64bfc1cf1d921c82288b03709d0c86d2e59657583824f163e2dcca",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbg676-20260915.bin.tgz",
+      "asset-size": 92922564,
+      "asset-sha256": "1d4c11a7b1fbe58f89a9526adc58d957ef963562513b6a5b9f213bab834c0760"
+    },
+    "xc7a200tfbg676-2L": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbg676",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a200tfbg676.bin",
+      "chipdb-size": 333207972,
+      "chipdb-sha256": "a3e0ef7ddf64bfc1cf1d921c82288b03709d0c86d2e59657583824f163e2dcca",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbg676-20260915.bin.tgz",
+      "asset-size": 92922564,
+      "asset-sha256": "1d4c11a7b1fbe58f89a9526adc58d957ef963562513b6a5b9f213bab834c0760"
+    },
+    "xc7a200tfbg676-3": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbg676",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a200tfbg676.bin",
+      "chipdb-size": 333207972,
+      "chipdb-sha256": "a3e0ef7ddf64bfc1cf1d921c82288b03709d0c86d2e59657583824f163e2dcca",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbg676-20260915.bin.tgz",
+      "asset-size": 92922564,
+      "asset-sha256": "1d4c11a7b1fbe58f89a9526adc58d957ef963562513b6a5b9f213bab834c0760"
+    },
+    "xc7a200tfbv484-1": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbv484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a200tfbv484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "5541808149e9a52bd5c4faeb7ca39205fa7efca3a0cbbbfb2f3f859fd578e465",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbv484-20260915.bin.tgz",
+      "asset-size": 92922178,
+      "asset-sha256": "6d727125d44b15cc3e954a1ef46288708ac6e22ec0b37b8781ac0023718e6f10"
+    },
+    "xc7a200tfbv484-2": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbv484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a200tfbv484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "5541808149e9a52bd5c4faeb7ca39205fa7efca3a0cbbbfb2f3f859fd578e465",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbv484-20260915.bin.tgz",
+      "asset-size": 92922178,
+      "asset-sha256": "6d727125d44b15cc3e954a1ef46288708ac6e22ec0b37b8781ac0023718e6f10"
+    },
+    "xc7a200tfbv484-2L": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbv484",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a200tfbv484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "5541808149e9a52bd5c4faeb7ca39205fa7efca3a0cbbbfb2f3f859fd578e465",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbv484-20260915.bin.tgz",
+      "asset-size": 92922178,
+      "asset-sha256": "6d727125d44b15cc3e954a1ef46288708ac6e22ec0b37b8781ac0023718e6f10"
+    },
+    "xc7a200tfbv484-3": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbv484",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a200tfbv484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "5541808149e9a52bd5c4faeb7ca39205fa7efca3a0cbbbfb2f3f859fd578e465",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbv484-20260915.bin.tgz",
+      "asset-size": 92922178,
+      "asset-sha256": "6d727125d44b15cc3e954a1ef46288708ac6e22ec0b37b8781ac0023718e6f10"
+    },
+    "xc7a200tfbv676-1": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbv676",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a200tfbv676.bin",
+      "chipdb-size": 333207972,
+      "chipdb-sha256": "d59aded170305141a86efade54e8455c28681e1c585baf998a2cc5a1b7f387f4",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbv676-20260915.bin.tgz",
+      "asset-size": 92922560,
+      "asset-sha256": "fa4f6ffe396df4ba748aee366016d0d9f586c5a3ceb88fa176976a5c4885317c"
+    },
+    "xc7a200tfbv676-2": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbv676",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a200tfbv676.bin",
+      "chipdb-size": 333207972,
+      "chipdb-sha256": "d59aded170305141a86efade54e8455c28681e1c585baf998a2cc5a1b7f387f4",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbv676-20260915.bin.tgz",
+      "asset-size": 92922560,
+      "asset-sha256": "fa4f6ffe396df4ba748aee366016d0d9f586c5a3ceb88fa176976a5c4885317c"
+    },
+    "xc7a200tfbv676-2L": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbv676",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a200tfbv676.bin",
+      "chipdb-size": 333207972,
+      "chipdb-sha256": "d59aded170305141a86efade54e8455c28681e1c585baf998a2cc5a1b7f387f4",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbv676-20260915.bin.tgz",
+      "asset-size": 92922560,
+      "asset-sha256": "fa4f6ffe396df4ba748aee366016d0d9f586c5a3ceb88fa176976a5c4885317c"
+    },
+    "xc7a200tfbv676-3": {
+      "family": "artix7",
+      "base-part": "xc7a200tfbv676",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a200tfbv676.bin",
+      "chipdb-size": 333207972,
+      "chipdb-sha256": "d59aded170305141a86efade54e8455c28681e1c585baf998a2cc5a1b7f387f4",
+      "asset": "apio-xilinx-chipdb-xc7a200tfbv676-20260915.bin.tgz",
+      "asset-size": 92922560,
+      "asset-sha256": "fa4f6ffe396df4ba748aee366016d0d9f586c5a3ceb88fa176976a5c4885317c"
+    },
+    "xc7a200tffg1156-1": {
+      "family": "artix7",
+      "base-part": "xc7a200tffg1156",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a200tffg1156.bin",
+      "chipdb-size": 333208460,
+      "chipdb-sha256": "bdd41db7bb79d77331951cf382a88300ffafd02829453a1b6deb2f1b2dd7c8ab",
+      "asset": "apio-xilinx-chipdb-xc7a200tffg1156-20260915.bin.tgz",
+      "asset-size": 92923223,
+      "asset-sha256": "5f9a11d81a1f67227d4dc53b9c897db39937c0bcdc1ed5957133bbc03815c060"
+    },
+    "xc7a200tffg1156-2": {
+      "family": "artix7",
+      "base-part": "xc7a200tffg1156",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a200tffg1156.bin",
+      "chipdb-size": 333208460,
+      "chipdb-sha256": "bdd41db7bb79d77331951cf382a88300ffafd02829453a1b6deb2f1b2dd7c8ab",
+      "asset": "apio-xilinx-chipdb-xc7a200tffg1156-20260915.bin.tgz",
+      "asset-size": 92923223,
+      "asset-sha256": "5f9a11d81a1f67227d4dc53b9c897db39937c0bcdc1ed5957133bbc03815c060"
+    },
+    "xc7a200tffg1156-2L": {
+      "family": "artix7",
+      "base-part": "xc7a200tffg1156",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a200tffg1156.bin",
+      "chipdb-size": 333208460,
+      "chipdb-sha256": "bdd41db7bb79d77331951cf382a88300ffafd02829453a1b6deb2f1b2dd7c8ab",
+      "asset": "apio-xilinx-chipdb-xc7a200tffg1156-20260915.bin.tgz",
+      "asset-size": 92923223,
+      "asset-sha256": "5f9a11d81a1f67227d4dc53b9c897db39937c0bcdc1ed5957133bbc03815c060"
+    },
+    "xc7a200tffg1156-3": {
+      "family": "artix7",
+      "base-part": "xc7a200tffg1156",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a200tffg1156.bin",
+      "chipdb-size": 333208460,
+      "chipdb-sha256": "bdd41db7bb79d77331951cf382a88300ffafd02829453a1b6deb2f1b2dd7c8ab",
+      "asset": "apio-xilinx-chipdb-xc7a200tffg1156-20260915.bin.tgz",
+      "asset-size": 92923223,
+      "asset-sha256": "5f9a11d81a1f67227d4dc53b9c897db39937c0bcdc1ed5957133bbc03815c060"
+    },
+    "xc7a200tffv1156-1": {
+      "family": "artix7",
+      "base-part": "xc7a200tffv1156",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a200tffv1156.bin",
+      "chipdb-size": 333208460,
+      "chipdb-sha256": "edd0ce06f3cbcd318360d70c242884385b5c26b6040d50a821a4c5140688e824",
+      "asset": "apio-xilinx-chipdb-xc7a200tffv1156-20260915.bin.tgz",
+      "asset-size": 92923261,
+      "asset-sha256": "236cac227d39d43f18cec14a8b7f151727ffc76b8051c32824d534677954c24a"
+    },
+    "xc7a200tffv1156-2": {
+      "family": "artix7",
+      "base-part": "xc7a200tffv1156",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a200tffv1156.bin",
+      "chipdb-size": 333208460,
+      "chipdb-sha256": "edd0ce06f3cbcd318360d70c242884385b5c26b6040d50a821a4c5140688e824",
+      "asset": "apio-xilinx-chipdb-xc7a200tffv1156-20260915.bin.tgz",
+      "asset-size": 92923261,
+      "asset-sha256": "236cac227d39d43f18cec14a8b7f151727ffc76b8051c32824d534677954c24a"
+    },
+    "xc7a200tffv1156-2L": {
+      "family": "artix7",
+      "base-part": "xc7a200tffv1156",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a200tffv1156.bin",
+      "chipdb-size": 333208460,
+      "chipdb-sha256": "edd0ce06f3cbcd318360d70c242884385b5c26b6040d50a821a4c5140688e824",
+      "asset": "apio-xilinx-chipdb-xc7a200tffv1156-20260915.bin.tgz",
+      "asset-size": 92923261,
+      "asset-sha256": "236cac227d39d43f18cec14a8b7f151727ffc76b8051c32824d534677954c24a"
+    },
+    "xc7a200tffv1156-3": {
+      "family": "artix7",
+      "base-part": "xc7a200tffv1156",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a200tffv1156.bin",
+      "chipdb-size": 333208460,
+      "chipdb-sha256": "edd0ce06f3cbcd318360d70c242884385b5c26b6040d50a821a4c5140688e824",
+      "asset": "apio-xilinx-chipdb-xc7a200tffv1156-20260915.bin.tgz",
+      "asset-size": 92923261,
+      "asset-sha256": "236cac227d39d43f18cec14a8b7f151727ffc76b8051c32824d534677954c24a"
+    },
+    "xc7a200tsbg484-1": {
+      "family": "artix7",
+      "base-part": "xc7a200tsbg484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a200tsbg484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "108ee03a1cc9bd2093d9f3db512474072c79bd7ef18cdbfa849ab25b5a63622f",
+      "asset": "apio-xilinx-chipdb-xc7a200tsbg484-20260915.bin.tgz",
+      "asset-size": 92922178,
+      "asset-sha256": "c6fa6b75f62e9a8811072d3e95fec189dd167e5c9afadb874199bc0c0eb529d5"
+    },
+    "xc7a200tsbg484-2": {
+      "family": "artix7",
+      "base-part": "xc7a200tsbg484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a200tsbg484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "108ee03a1cc9bd2093d9f3db512474072c79bd7ef18cdbfa849ab25b5a63622f",
+      "asset": "apio-xilinx-chipdb-xc7a200tsbg484-20260915.bin.tgz",
+      "asset-size": 92922178,
+      "asset-sha256": "c6fa6b75f62e9a8811072d3e95fec189dd167e5c9afadb874199bc0c0eb529d5"
+    },
+    "xc7a200tsbg484-2L": {
+      "family": "artix7",
+      "base-part": "xc7a200tsbg484",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a200tsbg484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "108ee03a1cc9bd2093d9f3db512474072c79bd7ef18cdbfa849ab25b5a63622f",
+      "asset": "apio-xilinx-chipdb-xc7a200tsbg484-20260915.bin.tgz",
+      "asset-size": 92922178,
+      "asset-sha256": "c6fa6b75f62e9a8811072d3e95fec189dd167e5c9afadb874199bc0c0eb529d5"
+    },
+    "xc7a200tsbg484-3": {
+      "family": "artix7",
+      "base-part": "xc7a200tsbg484",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a200tsbg484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "108ee03a1cc9bd2093d9f3db512474072c79bd7ef18cdbfa849ab25b5a63622f",
+      "asset": "apio-xilinx-chipdb-xc7a200tsbg484-20260915.bin.tgz",
+      "asset-size": 92922178,
+      "asset-sha256": "c6fa6b75f62e9a8811072d3e95fec189dd167e5c9afadb874199bc0c0eb529d5"
+    },
+    "xc7a200tsbv484-1": {
+      "family": "artix7",
+      "base-part": "xc7a200tsbv484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a200tsbv484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "77b7c6069df9537df1fa8d68ee06fc85c6e3568df564bc740a426795f6b88d8e",
+      "asset": "apio-xilinx-chipdb-xc7a200tsbv484-20260915.bin.tgz",
+      "asset-size": 92922177,
+      "asset-sha256": "8f8d1e47803b7bc7eb10e5c0c16774fbe63a639f100168516f9650ab26626af3"
+    },
+    "xc7a200tsbv484-2": {
+      "family": "artix7",
+      "base-part": "xc7a200tsbv484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a200tsbv484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "77b7c6069df9537df1fa8d68ee06fc85c6e3568df564bc740a426795f6b88d8e",
+      "asset": "apio-xilinx-chipdb-xc7a200tsbv484-20260915.bin.tgz",
+      "asset-size": 92922177,
+      "asset-sha256": "8f8d1e47803b7bc7eb10e5c0c16774fbe63a639f100168516f9650ab26626af3"
+    },
+    "xc7a200tsbv484-2L": {
+      "family": "artix7",
+      "base-part": "xc7a200tsbv484",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a200tsbv484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "77b7c6069df9537df1fa8d68ee06fc85c6e3568df564bc740a426795f6b88d8e",
+      "asset": "apio-xilinx-chipdb-xc7a200tsbv484-20260915.bin.tgz",
+      "asset-size": 92922177,
+      "asset-sha256": "8f8d1e47803b7bc7eb10e5c0c16774fbe63a639f100168516f9650ab26626af3"
+    },
+    "xc7a200tsbv484-3": {
+      "family": "artix7",
+      "base-part": "xc7a200tsbv484",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a200tsbv484.bin",
+      "chipdb-size": 333207792,
+      "chipdb-sha256": "77b7c6069df9537df1fa8d68ee06fc85c6e3568df564bc740a426795f6b88d8e",
+      "asset": "apio-xilinx-chipdb-xc7a200tsbv484-20260915.bin.tgz",
+      "asset-size": 92922177,
+      "asset-sha256": "8f8d1e47803b7bc7eb10e5c0c16774fbe63a639f100168516f9650ab26626af3"
+    },
+    "xc7a35tcpg236-1": {
+      "family": "artix7",
+      "base-part": "xc7a35tcpg236",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a35tcpg236.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "ca3a95cd1061bc49c9c789417362191d6c9a4bbb660634e3672f7c82ab45e937",
+      "asset": "apio-xilinx-chipdb-xc7a35tcpg236-20260915.bin.tgz",
+      "asset-size": 25492633,
+      "asset-sha256": "d5c72c92ca147dc9a443d8af3c48446388ea7d9085f1d24af917d82738801bf9"
+    },
+    "xc7a35tcpg236-2": {
+      "family": "artix7",
+      "base-part": "xc7a35tcpg236",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a35tcpg236.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "ca3a95cd1061bc49c9c789417362191d6c9a4bbb660634e3672f7c82ab45e937",
+      "asset": "apio-xilinx-chipdb-xc7a35tcpg236-20260915.bin.tgz",
+      "asset-size": 25492633,
+      "asset-sha256": "d5c72c92ca147dc9a443d8af3c48446388ea7d9085f1d24af917d82738801bf9"
+    },
+    "xc7a35tcpg236-2L": {
+      "family": "artix7",
+      "base-part": "xc7a35tcpg236",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a35tcpg236.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "ca3a95cd1061bc49c9c789417362191d6c9a4bbb660634e3672f7c82ab45e937",
+      "asset": "apio-xilinx-chipdb-xc7a35tcpg236-20260915.bin.tgz",
+      "asset-size": 25492633,
+      "asset-sha256": "d5c72c92ca147dc9a443d8af3c48446388ea7d9085f1d24af917d82738801bf9"
+    },
+    "xc7a35tcpg236-3": {
+      "family": "artix7",
+      "base-part": "xc7a35tcpg236",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a35tcpg236.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "ca3a95cd1061bc49c9c789417362191d6c9a4bbb660634e3672f7c82ab45e937",
+      "asset": "apio-xilinx-chipdb-xc7a35tcpg236-20260915.bin.tgz",
+      "asset-size": 25492633,
+      "asset-sha256": "d5c72c92ca147dc9a443d8af3c48446388ea7d9085f1d24af917d82738801bf9"
+    },
+    "xc7a35tcsg324-1": {
+      "family": "artix7",
+      "base-part": "xc7a35tcsg324",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a35tcsg324.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "04803defd62c99ef1f30b539a85185cb5a7055553eaa50d7b13ab4b78647a6cf",
+      "asset": "apio-xilinx-chipdb-xc7a35tcsg324-20260915.bin.tgz",
+      "asset-size": 25492777,
+      "asset-sha256": "a66983c5b02f6be044d3042cf8e2ee5fe5cfa61b889fcd585cc7cf869e0dc46d"
+    },
+    "xc7a35tcsg324-2": {
+      "family": "artix7",
+      "base-part": "xc7a35tcsg324",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a35tcsg324.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "04803defd62c99ef1f30b539a85185cb5a7055553eaa50d7b13ab4b78647a6cf",
+      "asset": "apio-xilinx-chipdb-xc7a35tcsg324-20260915.bin.tgz",
+      "asset-size": 25492777,
+      "asset-sha256": "a66983c5b02f6be044d3042cf8e2ee5fe5cfa61b889fcd585cc7cf869e0dc46d"
+    },
+    "xc7a35tcsg324-2L": {
+      "family": "artix7",
+      "base-part": "xc7a35tcsg324",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a35tcsg324.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "04803defd62c99ef1f30b539a85185cb5a7055553eaa50d7b13ab4b78647a6cf",
+      "asset": "apio-xilinx-chipdb-xc7a35tcsg324-20260915.bin.tgz",
+      "asset-size": 25492777,
+      "asset-sha256": "a66983c5b02f6be044d3042cf8e2ee5fe5cfa61b889fcd585cc7cf869e0dc46d"
+    },
+    "xc7a35tcsg324-3": {
+      "family": "artix7",
+      "base-part": "xc7a35tcsg324",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a35tcsg324.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "04803defd62c99ef1f30b539a85185cb5a7055553eaa50d7b13ab4b78647a6cf",
+      "asset": "apio-xilinx-chipdb-xc7a35tcsg324-20260915.bin.tgz",
+      "asset-size": 25492777,
+      "asset-sha256": "a66983c5b02f6be044d3042cf8e2ee5fe5cfa61b889fcd585cc7cf869e0dc46d"
+    },
+    "xc7a35tcsg325-1": {
+      "family": "artix7",
+      "base-part": "xc7a35tcsg325",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a35tcsg325.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "c5f17c4226056afdc53f2f88acd116b71f5f956e4489ac617cf1dfb6bbfd6caa",
+      "asset": "apio-xilinx-chipdb-xc7a35tcsg325-20260915.bin.tgz",
+      "asset-size": 25492703,
+      "asset-sha256": "1a5b25574bb62c489980de0e38836ac26267afc50b96fb1ee82a29af89c193e7"
+    },
+    "xc7a35tcsg325-2": {
+      "family": "artix7",
+      "base-part": "xc7a35tcsg325",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a35tcsg325.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "c5f17c4226056afdc53f2f88acd116b71f5f956e4489ac617cf1dfb6bbfd6caa",
+      "asset": "apio-xilinx-chipdb-xc7a35tcsg325-20260915.bin.tgz",
+      "asset-size": 25492703,
+      "asset-sha256": "1a5b25574bb62c489980de0e38836ac26267afc50b96fb1ee82a29af89c193e7"
+    },
+    "xc7a35tcsg325-2L": {
+      "family": "artix7",
+      "base-part": "xc7a35tcsg325",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a35tcsg325.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "c5f17c4226056afdc53f2f88acd116b71f5f956e4489ac617cf1dfb6bbfd6caa",
+      "asset": "apio-xilinx-chipdb-xc7a35tcsg325-20260915.bin.tgz",
+      "asset-size": 25492703,
+      "asset-sha256": "1a5b25574bb62c489980de0e38836ac26267afc50b96fb1ee82a29af89c193e7"
+    },
+    "xc7a35tcsg325-3": {
+      "family": "artix7",
+      "base-part": "xc7a35tcsg325",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a35tcsg325.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "c5f17c4226056afdc53f2f88acd116b71f5f956e4489ac617cf1dfb6bbfd6caa",
+      "asset": "apio-xilinx-chipdb-xc7a35tcsg325-20260915.bin.tgz",
+      "asset-size": 25492703,
+      "asset-sha256": "1a5b25574bb62c489980de0e38836ac26267afc50b96fb1ee82a29af89c193e7"
+    },
+    "xc7a35tfgg484-1": {
+      "family": "artix7",
+      "base-part": "xc7a35tfgg484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a35tfgg484.bin",
+      "chipdb-size": 92996396,
+      "chipdb-sha256": "20bffb40d2e6722affdda5abae3f38c31036ee37d9484846a8eff175e0e13a36",
+      "asset": "apio-xilinx-chipdb-xc7a35tfgg484-20260915.bin.tgz",
+      "asset-size": 25493104,
+      "asset-sha256": "b4c1ef9857d562c88a9fb23229ab778d69bb82ef14d08b9901c1e1f9d9794660"
+    },
+    "xc7a35tfgg484-2": {
+      "family": "artix7",
+      "base-part": "xc7a35tfgg484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a35tfgg484.bin",
+      "chipdb-size": 92996396,
+      "chipdb-sha256": "20bffb40d2e6722affdda5abae3f38c31036ee37d9484846a8eff175e0e13a36",
+      "asset": "apio-xilinx-chipdb-xc7a35tfgg484-20260915.bin.tgz",
+      "asset-size": 25493104,
+      "asset-sha256": "b4c1ef9857d562c88a9fb23229ab778d69bb82ef14d08b9901c1e1f9d9794660"
+    },
+    "xc7a35tfgg484-2L": {
+      "family": "artix7",
+      "base-part": "xc7a35tfgg484",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a35tfgg484.bin",
+      "chipdb-size": 92996396,
+      "chipdb-sha256": "20bffb40d2e6722affdda5abae3f38c31036ee37d9484846a8eff175e0e13a36",
+      "asset": "apio-xilinx-chipdb-xc7a35tfgg484-20260915.bin.tgz",
+      "asset-size": 25493104,
+      "asset-sha256": "b4c1ef9857d562c88a9fb23229ab778d69bb82ef14d08b9901c1e1f9d9794660"
+    },
+    "xc7a35tfgg484-3": {
+      "family": "artix7",
+      "base-part": "xc7a35tfgg484",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a35tfgg484.bin",
+      "chipdb-size": 92996396,
+      "chipdb-sha256": "20bffb40d2e6722affdda5abae3f38c31036ee37d9484846a8eff175e0e13a36",
+      "asset": "apio-xilinx-chipdb-xc7a35tfgg484-20260915.bin.tgz",
+      "asset-size": 25493104,
+      "asset-sha256": "b4c1ef9857d562c88a9fb23229ab778d69bb82ef14d08b9901c1e1f9d9794660"
+    },
+    "xc7a35tftg256-1": {
+      "family": "artix7",
+      "base-part": "xc7a35tftg256",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a35tftg256.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "6a074c8aab03f45f93a90c33b0ee93c5ed97b440a96670f80973a6b715aa1310",
+      "asset": "apio-xilinx-chipdb-xc7a35tftg256-20260915.bin.tgz",
+      "asset-size": 25492721,
+      "asset-sha256": "82365449c22658db1d09e7373d1c2457c2e3bd3ef64459b7189e7a2dc9be446e"
+    },
+    "xc7a35tftg256-2": {
+      "family": "artix7",
+      "base-part": "xc7a35tftg256",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a35tftg256.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "6a074c8aab03f45f93a90c33b0ee93c5ed97b440a96670f80973a6b715aa1310",
+      "asset": "apio-xilinx-chipdb-xc7a35tftg256-20260915.bin.tgz",
+      "asset-size": 25492721,
+      "asset-sha256": "82365449c22658db1d09e7373d1c2457c2e3bd3ef64459b7189e7a2dc9be446e"
+    },
+    "xc7a35tftg256-2L": {
+      "family": "artix7",
+      "base-part": "xc7a35tftg256",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a35tftg256.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "6a074c8aab03f45f93a90c33b0ee93c5ed97b440a96670f80973a6b715aa1310",
+      "asset": "apio-xilinx-chipdb-xc7a35tftg256-20260915.bin.tgz",
+      "asset-size": 25492721,
+      "asset-sha256": "82365449c22658db1d09e7373d1c2457c2e3bd3ef64459b7189e7a2dc9be446e"
+    },
+    "xc7a35tftg256-3": {
+      "family": "artix7",
+      "base-part": "xc7a35tftg256",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a35tftg256.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "6a074c8aab03f45f93a90c33b0ee93c5ed97b440a96670f80973a6b715aa1310",
+      "asset": "apio-xilinx-chipdb-xc7a35tftg256-20260915.bin.tgz",
+      "asset-size": 25492721,
+      "asset-sha256": "82365449c22658db1d09e7373d1c2457c2e3bd3ef64459b7189e7a2dc9be446e"
+    },
+    "xc7a50tcpg236-1": {
+      "family": "artix7",
+      "base-part": "xc7a50tcpg236",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a50tcpg236.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "60ba1e336bd4bde7ec6b2b1f318bdc8416ed847d0983919fe820e6eb430660db",
+      "asset": "apio-xilinx-chipdb-xc7a50tcpg236-20260915.bin.tgz",
+      "asset-size": 25492619,
+      "asset-sha256": "eb10c1cf82f0f463ccd03c7bb7a2b243236d2adae200e73a8b1816e988ee49ad"
+    },
+    "xc7a50tcpg236-2": {
+      "family": "artix7",
+      "base-part": "xc7a50tcpg236",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a50tcpg236.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "60ba1e336bd4bde7ec6b2b1f318bdc8416ed847d0983919fe820e6eb430660db",
+      "asset": "apio-xilinx-chipdb-xc7a50tcpg236-20260915.bin.tgz",
+      "asset-size": 25492619,
+      "asset-sha256": "eb10c1cf82f0f463ccd03c7bb7a2b243236d2adae200e73a8b1816e988ee49ad"
+    },
+    "xc7a50tcpg236-2L": {
+      "family": "artix7",
+      "base-part": "xc7a50tcpg236",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a50tcpg236.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "60ba1e336bd4bde7ec6b2b1f318bdc8416ed847d0983919fe820e6eb430660db",
+      "asset": "apio-xilinx-chipdb-xc7a50tcpg236-20260915.bin.tgz",
+      "asset-size": 25492619,
+      "asset-sha256": "eb10c1cf82f0f463ccd03c7bb7a2b243236d2adae200e73a8b1816e988ee49ad"
+    },
+    "xc7a50tcpg236-3": {
+      "family": "artix7",
+      "base-part": "xc7a50tcpg236",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a50tcpg236.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "60ba1e336bd4bde7ec6b2b1f318bdc8416ed847d0983919fe820e6eb430660db",
+      "asset": "apio-xilinx-chipdb-xc7a50tcpg236-20260915.bin.tgz",
+      "asset-size": 25492619,
+      "asset-sha256": "eb10c1cf82f0f463ccd03c7bb7a2b243236d2adae200e73a8b1816e988ee49ad"
+    },
+    "xc7a50tcsg324-1": {
+      "family": "artix7",
+      "base-part": "xc7a50tcsg324",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a50tcsg324.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "88386ef685f2c47f4a70ad790785b55109702fd9431e651b46dfc398d041801b",
+      "asset": "apio-xilinx-chipdb-xc7a50tcsg324-20260915.bin.tgz",
+      "asset-size": 25492753,
+      "asset-sha256": "4f7c82f3fa9516ffab02cc1b415a1228b203c6f7c01dfe66b68b60f02dfea97a"
+    },
+    "xc7a50tcsg324-2": {
+      "family": "artix7",
+      "base-part": "xc7a50tcsg324",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a50tcsg324.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "88386ef685f2c47f4a70ad790785b55109702fd9431e651b46dfc398d041801b",
+      "asset": "apio-xilinx-chipdb-xc7a50tcsg324-20260915.bin.tgz",
+      "asset-size": 25492753,
+      "asset-sha256": "4f7c82f3fa9516ffab02cc1b415a1228b203c6f7c01dfe66b68b60f02dfea97a"
+    },
+    "xc7a50tcsg324-2L": {
+      "family": "artix7",
+      "base-part": "xc7a50tcsg324",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a50tcsg324.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "88386ef685f2c47f4a70ad790785b55109702fd9431e651b46dfc398d041801b",
+      "asset": "apio-xilinx-chipdb-xc7a50tcsg324-20260915.bin.tgz",
+      "asset-size": 25492753,
+      "asset-sha256": "4f7c82f3fa9516ffab02cc1b415a1228b203c6f7c01dfe66b68b60f02dfea97a"
+    },
+    "xc7a50tcsg324-3": {
+      "family": "artix7",
+      "base-part": "xc7a50tcsg324",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a50tcsg324.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "88386ef685f2c47f4a70ad790785b55109702fd9431e651b46dfc398d041801b",
+      "asset": "apio-xilinx-chipdb-xc7a50tcsg324-20260915.bin.tgz",
+      "asset-size": 25492753,
+      "asset-sha256": "4f7c82f3fa9516ffab02cc1b415a1228b203c6f7c01dfe66b68b60f02dfea97a"
+    },
+    "xc7a50tcsg325-1": {
+      "family": "artix7",
+      "base-part": "xc7a50tcsg325",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a50tcsg325.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "f7e69d9692b4cd84ee7f36128962026d192b6bd2283843f472602d23a736e52d",
+      "asset": "apio-xilinx-chipdb-xc7a50tcsg325-20260915.bin.tgz",
+      "asset-size": 25492704,
+      "asset-sha256": "8be0ed1c64e5f3fceebb0f2fc3611d64de6242a65ca4d5802431a306e5078919"
+    },
+    "xc7a50tcsg325-2": {
+      "family": "artix7",
+      "base-part": "xc7a50tcsg325",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a50tcsg325.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "f7e69d9692b4cd84ee7f36128962026d192b6bd2283843f472602d23a736e52d",
+      "asset": "apio-xilinx-chipdb-xc7a50tcsg325-20260915.bin.tgz",
+      "asset-size": 25492704,
+      "asset-sha256": "8be0ed1c64e5f3fceebb0f2fc3611d64de6242a65ca4d5802431a306e5078919"
+    },
+    "xc7a50tcsg325-2L": {
+      "family": "artix7",
+      "base-part": "xc7a50tcsg325",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a50tcsg325.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "f7e69d9692b4cd84ee7f36128962026d192b6bd2283843f472602d23a736e52d",
+      "asset": "apio-xilinx-chipdb-xc7a50tcsg325-20260915.bin.tgz",
+      "asset-size": 25492704,
+      "asset-sha256": "8be0ed1c64e5f3fceebb0f2fc3611d64de6242a65ca4d5802431a306e5078919"
+    },
+    "xc7a50tcsg325-3": {
+      "family": "artix7",
+      "base-part": "xc7a50tcsg325",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a50tcsg325.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "f7e69d9692b4cd84ee7f36128962026d192b6bd2283843f472602d23a736e52d",
+      "asset": "apio-xilinx-chipdb-xc7a50tcsg325-20260915.bin.tgz",
+      "asset-size": 25492704,
+      "asset-sha256": "8be0ed1c64e5f3fceebb0f2fc3611d64de6242a65ca4d5802431a306e5078919"
+    },
+    "xc7a50tfgg484-1": {
+      "family": "artix7",
+      "base-part": "xc7a50tfgg484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a50tfgg484.bin",
+      "chipdb-size": 92996396,
+      "chipdb-sha256": "5152de83bc5ed0ef51610bd621f32da90e94e27cdbf853842482ef5c30bb7ffa",
+      "asset": "apio-xilinx-chipdb-xc7a50tfgg484-20260915.bin.tgz",
+      "asset-size": 25493105,
+      "asset-sha256": "7003edef1de581b2f0f5b613721a254d271a6c60f97a3a8872e854d8142742e3"
+    },
+    "xc7a50tfgg484-2": {
+      "family": "artix7",
+      "base-part": "xc7a50tfgg484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a50tfgg484.bin",
+      "chipdb-size": 92996396,
+      "chipdb-sha256": "5152de83bc5ed0ef51610bd621f32da90e94e27cdbf853842482ef5c30bb7ffa",
+      "asset": "apio-xilinx-chipdb-xc7a50tfgg484-20260915.bin.tgz",
+      "asset-size": 25493105,
+      "asset-sha256": "7003edef1de581b2f0f5b613721a254d271a6c60f97a3a8872e854d8142742e3"
+    },
+    "xc7a50tfgg484-2L": {
+      "family": "artix7",
+      "base-part": "xc7a50tfgg484",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a50tfgg484.bin",
+      "chipdb-size": 92996396,
+      "chipdb-sha256": "5152de83bc5ed0ef51610bd621f32da90e94e27cdbf853842482ef5c30bb7ffa",
+      "asset": "apio-xilinx-chipdb-xc7a50tfgg484-20260915.bin.tgz",
+      "asset-size": 25493105,
+      "asset-sha256": "7003edef1de581b2f0f5b613721a254d271a6c60f97a3a8872e854d8142742e3"
+    },
+    "xc7a50tfgg484-3": {
+      "family": "artix7",
+      "base-part": "xc7a50tfgg484",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a50tfgg484.bin",
+      "chipdb-size": 92996396,
+      "chipdb-sha256": "5152de83bc5ed0ef51610bd621f32da90e94e27cdbf853842482ef5c30bb7ffa",
+      "asset": "apio-xilinx-chipdb-xc7a50tfgg484-20260915.bin.tgz",
+      "asset-size": 25493105,
+      "asset-sha256": "7003edef1de581b2f0f5b613721a254d271a6c60f97a3a8872e854d8142742e3"
+    },
+    "xc7a50tftg256-1": {
+      "family": "artix7",
+      "base-part": "xc7a50tftg256",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7a50tftg256.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "29f060036fc63bd6467e0b591e45e3eb74292cfe6308dc27c32d6b45a5dbefcb",
+      "asset": "apio-xilinx-chipdb-xc7a50tftg256-20260915.bin.tgz",
+      "asset-size": 25492679,
+      "asset-sha256": "ad525b0320461ecf66c54861a9d6ad6f1b213d16ea2e3c9914dba55e579a5402"
+    },
+    "xc7a50tftg256-2": {
+      "family": "artix7",
+      "base-part": "xc7a50tftg256",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7a50tftg256.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "29f060036fc63bd6467e0b591e45e3eb74292cfe6308dc27c32d6b45a5dbefcb",
+      "asset": "apio-xilinx-chipdb-xc7a50tftg256-20260915.bin.tgz",
+      "asset-size": 25492679,
+      "asset-sha256": "ad525b0320461ecf66c54861a9d6ad6f1b213d16ea2e3c9914dba55e579a5402"
+    },
+    "xc7a50tftg256-2L": {
+      "family": "artix7",
+      "base-part": "xc7a50tftg256",
+      "speed": "2L",
+      "generated": true,
+      "chipdb": "xc7a50tftg256.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "29f060036fc63bd6467e0b591e45e3eb74292cfe6308dc27c32d6b45a5dbefcb",
+      "asset": "apio-xilinx-chipdb-xc7a50tftg256-20260915.bin.tgz",
+      "asset-size": 25492679,
+      "asset-sha256": "ad525b0320461ecf66c54861a9d6ad6f1b213d16ea2e3c9914dba55e579a5402"
+    },
+    "xc7a50tftg256-3": {
+      "family": "artix7",
+      "base-part": "xc7a50tftg256",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7a50tftg256.bin",
+      "chipdb-size": 92996364,
+      "chipdb-sha256": "29f060036fc63bd6467e0b591e45e3eb74292cfe6308dc27c32d6b45a5dbefcb",
+      "asset": "apio-xilinx-chipdb-xc7a50tftg256-20260915.bin.tgz",
+      "asset-size": 25492679,
+      "asset-sha256": "ad525b0320461ecf66c54861a9d6ad6f1b213d16ea2e3c9914dba55e579a5402"
+    },
+    "xc7s100fgga484-1": {
+      "family": "spartan7",
+      "base-part": "xc7s100fgga484",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s100fgga484-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s100fgga484",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s100fgga484-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s100fgga484",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s100fgga484-2": {
+      "family": "spartan7",
+      "base-part": "xc7s100fgga484",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s100fgga676-1": {
+      "family": "spartan7",
+      "base-part": "xc7s100fgga676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s100fgga676-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s100fgga676",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s100fgga676-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s100fgga676",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s100fgga676-2": {
+      "family": "spartan7",
+      "base-part": "xc7s100fgga676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s15cpga196-1": {
+      "family": "spartan7",
+      "base-part": "xc7s15cpga196",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s15cpga196-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s15cpga196",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s15cpga196-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s15cpga196",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s15cpga196-2": {
+      "family": "spartan7",
+      "base-part": "xc7s15cpga196",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s15csga225-1": {
+      "family": "spartan7",
+      "base-part": "xc7s15csga225",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s15csga225-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s15csga225",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s15csga225-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s15csga225",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s15csga225-2": {
+      "family": "spartan7",
+      "base-part": "xc7s15csga225",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s15ftgb196-1": {
+      "family": "spartan7",
+      "base-part": "xc7s15ftgb196",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s15ftgb196-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s15ftgb196",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s15ftgb196-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s15ftgb196",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s15ftgb196-2": {
+      "family": "spartan7",
+      "base-part": "xc7s15ftgb196",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s25csga225-1": {
+      "family": "spartan7",
+      "base-part": "xc7s25csga225",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s25csga225-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s25csga225",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s25csga225-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s25csga225",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s25csga225-2": {
+      "family": "spartan7",
+      "base-part": "xc7s25csga225",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s25csga324-1": {
+      "family": "spartan7",
+      "base-part": "xc7s25csga324",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7s25csga324.bin",
+      "chipdb-size": 52560592,
+      "chipdb-sha256": "e772726ec46d8f14a91ed6d6cf3153e9f3daf689fbefeb4b178291f27f6f00cc",
+      "asset": "apio-xilinx-chipdb-xc7s25csga324-20260915.bin.tgz",
+      "asset-size": 14193466,
+      "asset-sha256": "fe1c77ddf5e2d771a92a3182390d61c83eeed49e7c85cfcc2c5d4f2d237105ca"
+    },
+    "xc7s50csga324-1": {
+      "family": "spartan7",
+      "base-part": "xc7s50csga324",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7s50csga324.bin",
+      "chipdb-size": 92437008,
+      "chipdb-sha256": "a745fea307e8dda3fb6689a84dccb908804b81ef204def776c3900e5a0a60b28",
+      "asset": "apio-xilinx-chipdb-xc7s50csga324-20260915.bin.tgz",
+      "asset-size": 25336304,
+      "asset-sha256": "db07619785fd91fbc9243c73a5a33fa1786113df1c2a1bfe193fc4005c302684"
+    },
+    "xc7s50csga324-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s50csga324",
+      "speed": "1IL",
+      "generated": true,
+      "chipdb": "xc7s50csga324.bin",
+      "chipdb-size": 92437008,
+      "chipdb-sha256": "a745fea307e8dda3fb6689a84dccb908804b81ef204def776c3900e5a0a60b28",
+      "asset": "apio-xilinx-chipdb-xc7s50csga324-20260915.bin.tgz",
+      "asset-size": 25336304,
+      "asset-sha256": "db07619785fd91fbc9243c73a5a33fa1786113df1c2a1bfe193fc4005c302684"
+    },
+    "xc7s50csga324-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s50csga324",
+      "speed": "1Q",
+      "generated": true,
+      "chipdb": "xc7s50csga324.bin",
+      "chipdb-size": 92437008,
+      "chipdb-sha256": "a745fea307e8dda3fb6689a84dccb908804b81ef204def776c3900e5a0a60b28",
+      "asset": "apio-xilinx-chipdb-xc7s50csga324-20260915.bin.tgz",
+      "asset-size": 25336304,
+      "asset-sha256": "db07619785fd91fbc9243c73a5a33fa1786113df1c2a1bfe193fc4005c302684"
+    },
+    "xc7s50csga324-2": {
+      "family": "spartan7",
+      "base-part": "xc7s50csga324",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7s50csga324.bin",
+      "chipdb-size": 92437008,
+      "chipdb-sha256": "a745fea307e8dda3fb6689a84dccb908804b81ef204def776c3900e5a0a60b28",
+      "asset": "apio-xilinx-chipdb-xc7s50csga324-20260915.bin.tgz",
+      "asset-size": 25336304,
+      "asset-sha256": "db07619785fd91fbc9243c73a5a33fa1786113df1c2a1bfe193fc4005c302684"
+    },
+    "xc7s50fgga484-1": {
+      "family": "spartan7",
+      "base-part": "xc7s50fgga484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7s50fgga484.bin",
+      "chipdb-size": 92437040,
+      "chipdb-sha256": "9f3cfdd8399407e7b49dfdc80896830c72ce2b7254628f6c19d7a1a1d3a0b22d",
+      "asset": "apio-xilinx-chipdb-xc7s50fgga484-20260915.bin.tgz",
+      "asset-size": 25336431,
+      "asset-sha256": "7db55c1796bffc248ba58a7388cfacde1b83c05c077e2b9336ebe4c32042d122"
+    },
+    "xc7s50fgga484-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s50fgga484",
+      "speed": "1IL",
+      "generated": true,
+      "chipdb": "xc7s50fgga484.bin",
+      "chipdb-size": 92437040,
+      "chipdb-sha256": "9f3cfdd8399407e7b49dfdc80896830c72ce2b7254628f6c19d7a1a1d3a0b22d",
+      "asset": "apio-xilinx-chipdb-xc7s50fgga484-20260915.bin.tgz",
+      "asset-size": 25336431,
+      "asset-sha256": "7db55c1796bffc248ba58a7388cfacde1b83c05c077e2b9336ebe4c32042d122"
+    },
+    "xc7s50fgga484-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s50fgga484",
+      "speed": "1Q",
+      "generated": true,
+      "chipdb": "xc7s50fgga484.bin",
+      "chipdb-size": 92437040,
+      "chipdb-sha256": "9f3cfdd8399407e7b49dfdc80896830c72ce2b7254628f6c19d7a1a1d3a0b22d",
+      "asset": "apio-xilinx-chipdb-xc7s50fgga484-20260915.bin.tgz",
+      "asset-size": 25336431,
+      "asset-sha256": "7db55c1796bffc248ba58a7388cfacde1b83c05c077e2b9336ebe4c32042d122"
+    },
+    "xc7s50fgga484-2": {
+      "family": "spartan7",
+      "base-part": "xc7s50fgga484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7s50fgga484.bin",
+      "chipdb-size": 92437040,
+      "chipdb-sha256": "9f3cfdd8399407e7b49dfdc80896830c72ce2b7254628f6c19d7a1a1d3a0b22d",
+      "asset": "apio-xilinx-chipdb-xc7s50fgga484-20260915.bin.tgz",
+      "asset-size": 25336431,
+      "asset-sha256": "7db55c1796bffc248ba58a7388cfacde1b83c05c077e2b9336ebe4c32042d122"
+    },
+    "xc7s50ftgb196-1": {
+      "family": "spartan7",
+      "base-part": "xc7s50ftgb196",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7s50ftgb196.bin",
+      "chipdb-size": 92437008,
+      "chipdb-sha256": "046da7c0cbdd582203800442c15042ac046cd8cdbe4b9c180fe9d2046b0992ca",
+      "asset": "apio-xilinx-chipdb-xc7s50ftgb196-20260915.bin.tgz",
+      "asset-size": 25335784,
+      "asset-sha256": "e65b969e64e16cf15d342da4d3beea0bb784f73093c958d1afb8a872ec606894"
+    },
+    "xc7s50ftgb196-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s50ftgb196",
+      "speed": "1IL",
+      "generated": true,
+      "chipdb": "xc7s50ftgb196.bin",
+      "chipdb-size": 92437008,
+      "chipdb-sha256": "046da7c0cbdd582203800442c15042ac046cd8cdbe4b9c180fe9d2046b0992ca",
+      "asset": "apio-xilinx-chipdb-xc7s50ftgb196-20260915.bin.tgz",
+      "asset-size": 25335784,
+      "asset-sha256": "e65b969e64e16cf15d342da4d3beea0bb784f73093c958d1afb8a872ec606894"
+    },
+    "xc7s50ftgb196-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s50ftgb196",
+      "speed": "1Q",
+      "generated": true,
+      "chipdb": "xc7s50ftgb196.bin",
+      "chipdb-size": 92437008,
+      "chipdb-sha256": "046da7c0cbdd582203800442c15042ac046cd8cdbe4b9c180fe9d2046b0992ca",
+      "asset": "apio-xilinx-chipdb-xc7s50ftgb196-20260915.bin.tgz",
+      "asset-size": 25335784,
+      "asset-sha256": "e65b969e64e16cf15d342da4d3beea0bb784f73093c958d1afb8a872ec606894"
+    },
+    "xc7s50ftgb196-2": {
+      "family": "spartan7",
+      "base-part": "xc7s50ftgb196",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7s50ftgb196.bin",
+      "chipdb-size": 92437008,
+      "chipdb-sha256": "046da7c0cbdd582203800442c15042ac046cd8cdbe4b9c180fe9d2046b0992ca",
+      "asset": "apio-xilinx-chipdb-xc7s50ftgb196-20260915.bin.tgz",
+      "asset-size": 25335784,
+      "asset-sha256": "e65b969e64e16cf15d342da4d3beea0bb784f73093c958d1afb8a872ec606894"
+    },
+    "xc7s6cpga196-1": {
+      "family": "spartan7",
+      "base-part": "xc7s6cpga196",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s6cpga196-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s6cpga196",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s6cpga196-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s6cpga196",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s6cpga196-2": {
+      "family": "spartan7",
+      "base-part": "xc7s6cpga196",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s6csga225-1": {
+      "family": "spartan7",
+      "base-part": "xc7s6csga225",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s6csga225-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s6csga225",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s6csga225-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s6csga225",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s6csga225-2": {
+      "family": "spartan7",
+      "base-part": "xc7s6csga225",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s6ftgb196-1": {
+      "family": "spartan7",
+      "base-part": "xc7s6ftgb196",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s6ftgb196-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s6ftgb196",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s6ftgb196-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s6ftgb196",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s6ftgb196-2": {
+      "family": "spartan7",
+      "base-part": "xc7s6ftgb196",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s75fgga484-1": {
+      "family": "spartan7",
+      "base-part": "xc7s75fgga484",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s75fgga484-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s75fgga484",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s75fgga484-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s75fgga484",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s75fgga484-2": {
+      "family": "spartan7",
+      "base-part": "xc7s75fgga484",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7s75fgga676-1": {
+      "family": "spartan7",
+      "base-part": "xc7s75fgga676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7s75fgga676-1IL": {
+      "family": "spartan7",
+      "base-part": "xc7s75fgga676",
+      "speed": "1IL",
+      "generated": false
+    },
+    "xc7s75fgga676-1Q": {
+      "family": "spartan7",
+      "base-part": "xc7s75fgga676",
+      "speed": "1Q",
+      "generated": false
+    },
+    "xc7s75fgga676-2": {
+      "family": "spartan7",
+      "base-part": "xc7s75fgga676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z010clg225-1": {
+      "family": "zynq7",
+      "base-part": "xc7z010clg225",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z010clg225.bin",
+      "chipdb-size": 57359228,
+      "chipdb-sha256": "eea40a33cc005339b63221c9d588d119bc1e03316747706eacb21d2b3cde1157",
+      "asset": "apio-xilinx-chipdb-xc7z010clg225-20260915.bin.tgz",
+      "asset-size": 15467627,
+      "asset-sha256": "05bf1e67c0386a5bff3dfe5dc3401211a42e463646d664c7a442f56d6219f0e8"
+    },
+    "xc7z010clg225-2": {
+      "family": "zynq7",
+      "base-part": "xc7z010clg225",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z010clg225.bin",
+      "chipdb-size": 57359228,
+      "chipdb-sha256": "eea40a33cc005339b63221c9d588d119bc1e03316747706eacb21d2b3cde1157",
+      "asset": "apio-xilinx-chipdb-xc7z010clg225-20260915.bin.tgz",
+      "asset-size": 15467627,
+      "asset-sha256": "05bf1e67c0386a5bff3dfe5dc3401211a42e463646d664c7a442f56d6219f0e8"
+    },
+    "xc7z010clg225-3": {
+      "family": "zynq7",
+      "base-part": "xc7z010clg225",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7z010clg225.bin",
+      "chipdb-size": 57359228,
+      "chipdb-sha256": "eea40a33cc005339b63221c9d588d119bc1e03316747706eacb21d2b3cde1157",
+      "asset": "apio-xilinx-chipdb-xc7z010clg225-20260915.bin.tgz",
+      "asset-size": 15467627,
+      "asset-sha256": "05bf1e67c0386a5bff3dfe5dc3401211a42e463646d664c7a442f56d6219f0e8"
+    },
+    "xc7z010clg400-1": {
+      "family": "zynq7",
+      "base-part": "xc7z010clg400",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z010clg400.bin",
+      "chipdb-size": 57359228,
+      "chipdb-sha256": "8303cf0807da383c3469f9db293f3aa4a81399695d4ee08035269fa4f93203fc",
+      "asset": "apio-xilinx-chipdb-xc7z010clg400-20260915.bin.tgz",
+      "asset-size": 15467852,
+      "asset-sha256": "faf692fe727c0dad408dc033c359b21a619c64564fdd5628c011ffc128c19661"
+    },
+    "xc7z010clg400-2": {
+      "family": "zynq7",
+      "base-part": "xc7z010clg400",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z010clg400.bin",
+      "chipdb-size": 57359228,
+      "chipdb-sha256": "8303cf0807da383c3469f9db293f3aa4a81399695d4ee08035269fa4f93203fc",
+      "asset": "apio-xilinx-chipdb-xc7z010clg400-20260915.bin.tgz",
+      "asset-size": 15467852,
+      "asset-sha256": "faf692fe727c0dad408dc033c359b21a619c64564fdd5628c011ffc128c19661"
+    },
+    "xc7z010clg400-3": {
+      "family": "zynq7",
+      "base-part": "xc7z010clg400",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7z010clg400.bin",
+      "chipdb-size": 57359228,
+      "chipdb-sha256": "8303cf0807da383c3469f9db293f3aa4a81399695d4ee08035269fa4f93203fc",
+      "asset": "apio-xilinx-chipdb-xc7z010clg400-20260915.bin.tgz",
+      "asset-size": 15467852,
+      "asset-sha256": "faf692fe727c0dad408dc033c359b21a619c64564fdd5628c011ffc128c19661"
+    },
+    "xc7z020clg400-1": {
+      "family": "zynq7",
+      "base-part": "xc7z020clg400",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z020clg400.bin",
+      "chipdb-size": 136617100,
+      "chipdb-sha256": "36fdf6659c87fa0e5958e1f417181fc3658440d51fd60f4b43b094a86c0b9492",
+      "asset": "apio-xilinx-chipdb-xc7z020clg400-20260915.bin.tgz",
+      "asset-size": 37629740,
+      "asset-sha256": "cbe3cf3a4e26a6d4911c6b88468eccb1bb75d4e0e8a7059edcc578b9be95357b"
+    },
+    "xc7z020clg400-2": {
+      "family": "zynq7",
+      "base-part": "xc7z020clg400",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z020clg400.bin",
+      "chipdb-size": 136617100,
+      "chipdb-sha256": "36fdf6659c87fa0e5958e1f417181fc3658440d51fd60f4b43b094a86c0b9492",
+      "asset": "apio-xilinx-chipdb-xc7z020clg400-20260915.bin.tgz",
+      "asset-size": 37629740,
+      "asset-sha256": "cbe3cf3a4e26a6d4911c6b88468eccb1bb75d4e0e8a7059edcc578b9be95357b"
+    },
+    "xc7z020clg400-3": {
+      "family": "zynq7",
+      "base-part": "xc7z020clg400",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7z020clg400.bin",
+      "chipdb-size": 136617100,
+      "chipdb-sha256": "36fdf6659c87fa0e5958e1f417181fc3658440d51fd60f4b43b094a86c0b9492",
+      "asset": "apio-xilinx-chipdb-xc7z020clg400-20260915.bin.tgz",
+      "asset-size": 37629740,
+      "asset-sha256": "cbe3cf3a4e26a6d4911c6b88468eccb1bb75d4e0e8a7059edcc578b9be95357b"
+    },
+    "xc7z020clg484-1": {
+      "family": "zynq7",
+      "base-part": "xc7z020clg484",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z020clg484.bin",
+      "chipdb-size": 136617184,
+      "chipdb-sha256": "829065e99f3cefff9c3864886143f0784024dc3cf4367346f0999be177c8bee1",
+      "asset": "apio-xilinx-chipdb-xc7z020clg484-20260915.bin.tgz",
+      "asset-size": 37630069,
+      "asset-sha256": "ad4fb396c374489430bd345a108ad7e455bcb316fc72eccf88339eb2ef5be0a1"
+    },
+    "xc7z020clg484-2": {
+      "family": "zynq7",
+      "base-part": "xc7z020clg484",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z020clg484.bin",
+      "chipdb-size": 136617184,
+      "chipdb-sha256": "829065e99f3cefff9c3864886143f0784024dc3cf4367346f0999be177c8bee1",
+      "asset": "apio-xilinx-chipdb-xc7z020clg484-20260915.bin.tgz",
+      "asset-size": 37630069,
+      "asset-sha256": "ad4fb396c374489430bd345a108ad7e455bcb316fc72eccf88339eb2ef5be0a1"
+    },
+    "xc7z020clg484-3": {
+      "family": "zynq7",
+      "base-part": "xc7z020clg484",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7z020clg484.bin",
+      "chipdb-size": 136617184,
+      "chipdb-sha256": "829065e99f3cefff9c3864886143f0784024dc3cf4367346f0999be177c8bee1",
+      "asset": "apio-xilinx-chipdb-xc7z020clg484-20260915.bin.tgz",
+      "asset-size": 37630069,
+      "asset-sha256": "ad4fb396c374489430bd345a108ad7e455bcb316fc72eccf88339eb2ef5be0a1"
+    },
+    "xc7z030fbg676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z030fbg676",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z030fbg676.bin",
+      "chipdb-size": 205236036,
+      "chipdb-sha256": "b37f596fa1cfc74173e82846c56f36326cfd941d75fe45cdc2330732b800b252",
+      "asset": "apio-xilinx-chipdb-xc7z030fbg676-20260915.bin.tgz",
+      "asset-size": 56625416,
+      "asset-sha256": "f458a190a5e3dd3aa993b31cf0838165f79bc038a8d52573596479881b16de3b"
+    },
+    "xc7z035fbg676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z035fbg676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z035fbg676-2": {
+      "family": "zynq7",
+      "base-part": "xc7z035fbg676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z035fbg676-3": {
+      "family": "zynq7",
+      "base-part": "xc7z035fbg676",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z035fbv676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z035fbv676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z035fbv676-2": {
+      "family": "zynq7",
+      "base-part": "xc7z035fbv676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z035fbv676-3": {
+      "family": "zynq7",
+      "base-part": "xc7z035fbv676",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z035ffg676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffg676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z035ffg676-2": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffg676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z035ffg676-3": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffg676",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z035ffg900-1": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffg900",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z035ffg900-2": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffg900",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z035ffg900-3": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffg900",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z035ffv676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffv676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z035ffv676-2": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffv676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z035ffv676-3": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffv676",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z035ffv900-1": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffv900",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z035ffv900-2": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffv900",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z035ffv900-3": {
+      "family": "zynq7",
+      "base-part": "xc7z035ffv900",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z045fbg676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z045fbg676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z045fbg676-2": {
+      "family": "zynq7",
+      "base-part": "xc7z045fbg676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z045fbg676-3": {
+      "family": "zynq7",
+      "base-part": "xc7z045fbg676",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z045fbv676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z045fbv676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z045fbv676-2": {
+      "family": "zynq7",
+      "base-part": "xc7z045fbv676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z045fbv676-3": {
+      "family": "zynq7",
+      "base-part": "xc7z045fbv676",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z045ffg676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffg676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z045ffg676-2": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffg676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z045ffg676-3": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffg676",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z045ffg900-1": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffg900",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z045ffg900.bin",
+      "chipdb-size": 499014168,
+      "chipdb-sha256": "c18d2e95946ed04cfb584a50796fe122f3cf0f950db36542fea2b277a8523466",
+      "asset": "apio-xilinx-chipdb-xc7z045ffg900-20260915.bin.tgz",
+      "asset-size": 138490909,
+      "asset-sha256": "aca17a4f6ed74b4f32144470c3b6644dbe8971c29a75fdf3832dfc50c81587ae"
+    },
+    "xc7z045ffg900-2": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffg900",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z045ffg900.bin",
+      "chipdb-size": 499014168,
+      "chipdb-sha256": "c18d2e95946ed04cfb584a50796fe122f3cf0f950db36542fea2b277a8523466",
+      "asset": "apio-xilinx-chipdb-xc7z045ffg900-20260915.bin.tgz",
+      "asset-size": 138490909,
+      "asset-sha256": "aca17a4f6ed74b4f32144470c3b6644dbe8971c29a75fdf3832dfc50c81587ae"
+    },
+    "xc7z045ffg900-3": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffg900",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7z045ffg900.bin",
+      "chipdb-size": 499014168,
+      "chipdb-sha256": "c18d2e95946ed04cfb584a50796fe122f3cf0f950db36542fea2b277a8523466",
+      "asset": "apio-xilinx-chipdb-xc7z045ffg900-20260915.bin.tgz",
+      "asset-size": 138490909,
+      "asset-sha256": "aca17a4f6ed74b4f32144470c3b6644dbe8971c29a75fdf3832dfc50c81587ae"
+    },
+    "xc7z045ffv676-1": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffv676",
+      "speed": "1",
+      "generated": false
+    },
+    "xc7z045ffv676-2": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffv676",
+      "speed": "2",
+      "generated": false
+    },
+    "xc7z045ffv676-3": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffv676",
+      "speed": "3",
+      "generated": false
+    },
+    "xc7z045ffv900-1": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffv900",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z045ffv900.bin",
+      "chipdb-size": 499014168,
+      "chipdb-sha256": "d3d3b1f7d3693df7e5dce5124d2e6dcd6658ee3825ca3ec6a6152a8349993446",
+      "asset": "apio-xilinx-chipdb-xc7z045ffv900-20260915.bin.tgz",
+      "asset-size": 138490909,
+      "asset-sha256": "893941778c35bf77529145e314d0be232e19994bf6c5eebc4fa85b8e76d90297"
+    },
+    "xc7z045ffv900-2": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffv900",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z045ffv900.bin",
+      "chipdb-size": 499014168,
+      "chipdb-sha256": "d3d3b1f7d3693df7e5dce5124d2e6dcd6658ee3825ca3ec6a6152a8349993446",
+      "asset": "apio-xilinx-chipdb-xc7z045ffv900-20260915.bin.tgz",
+      "asset-size": 138490909,
+      "asset-sha256": "893941778c35bf77529145e314d0be232e19994bf6c5eebc4fa85b8e76d90297"
+    },
+    "xc7z045ffv900-3": {
+      "family": "zynq7",
+      "base-part": "xc7z045ffv900",
+      "speed": "3",
+      "generated": true,
+      "chipdb": "xc7z045ffv900.bin",
+      "chipdb-size": 499014168,
+      "chipdb-sha256": "d3d3b1f7d3693df7e5dce5124d2e6dcd6658ee3825ca3ec6a6152a8349993446",
+      "asset": "apio-xilinx-chipdb-xc7z045ffv900-20260915.bin.tgz",
+      "asset-size": 138490909,
+      "asset-sha256": "893941778c35bf77529145e314d0be232e19994bf6c5eebc4fa85b8e76d90297"
+    },
+    "xc7z100ffg1156-1": {
+      "family": "zynq7",
+      "base-part": "xc7z100ffg1156",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z100ffg1156.bin",
+      "chipdb-size": 667877064,
+      "chipdb-sha256": "b5864e54075696a6376fc16a9bd19975b66a73fafbd547782d0d37a0ec883dca",
+      "asset": "apio-xilinx-chipdb-xc7z100ffg1156-20260915.bin.tgz",
+      "asset-size": 185649914,
+      "asset-sha256": "e59cdffca02a6f31fc701bfefc98296fa131130cf0463c73eaa5c530755b11b6"
+    },
+    "xc7z100ffg1156-2": {
+      "family": "zynq7",
+      "base-part": "xc7z100ffg1156",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z100ffg1156.bin",
+      "chipdb-size": 667877064,
+      "chipdb-sha256": "b5864e54075696a6376fc16a9bd19975b66a73fafbd547782d0d37a0ec883dca",
+      "asset": "apio-xilinx-chipdb-xc7z100ffg1156-20260915.bin.tgz",
+      "asset-size": 185649914,
+      "asset-sha256": "e59cdffca02a6f31fc701bfefc98296fa131130cf0463c73eaa5c530755b11b6"
+    },
+    "xc7z100ffg900-1": {
+      "family": "zynq7",
+      "base-part": "xc7z100ffg900",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z100ffg900.bin",
+      "chipdb-size": 667876928,
+      "chipdb-sha256": "341f87a4aa48f75e1847daa2826ead9139f0aefb5aa00dfaf30b34a2cd447a1f",
+      "asset": "apio-xilinx-chipdb-xc7z100ffg900-20260915.bin.tgz",
+      "asset-size": 185649626,
+      "asset-sha256": "9de3025bf447f320b65efb984fbd40568636d4bbf0e1d3073e973219b09d3e0d"
+    },
+    "xc7z100ffg900-2": {
+      "family": "zynq7",
+      "base-part": "xc7z100ffg900",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z100ffg900.bin",
+      "chipdb-size": 667876928,
+      "chipdb-sha256": "341f87a4aa48f75e1847daa2826ead9139f0aefb5aa00dfaf30b34a2cd447a1f",
+      "asset": "apio-xilinx-chipdb-xc7z100ffg900-20260915.bin.tgz",
+      "asset-size": 185649626,
+      "asset-sha256": "9de3025bf447f320b65efb984fbd40568636d4bbf0e1d3073e973219b09d3e0d"
+    },
+    "xc7z100ffv1156-1": {
+      "family": "zynq7",
+      "base-part": "xc7z100ffv1156",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z100ffv1156.bin",
+      "chipdb-size": 667877064,
+      "chipdb-sha256": "c72932fb2966b27673b8b4674a155eb18d1998f5bc3c54be514d8ce3d1a09c38",
+      "asset": "apio-xilinx-chipdb-xc7z100ffv1156-20260915.bin.tgz",
+      "asset-size": 185649915,
+      "asset-sha256": "3b81ee60a09d84a18dbfb0adf9f60758fa97f0b3e88a93b08e9412e9d9f2d7f4"
+    },
+    "xc7z100ffv1156-2": {
+      "family": "zynq7",
+      "base-part": "xc7z100ffv1156",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z100ffv1156.bin",
+      "chipdb-size": 667877064,
+      "chipdb-sha256": "c72932fb2966b27673b8b4674a155eb18d1998f5bc3c54be514d8ce3d1a09c38",
+      "asset": "apio-xilinx-chipdb-xc7z100ffv1156-20260915.bin.tgz",
+      "asset-size": 185649915,
+      "asset-sha256": "3b81ee60a09d84a18dbfb0adf9f60758fa97f0b3e88a93b08e9412e9d9f2d7f4"
+    },
+    "xc7z100ffv900-1": {
+      "family": "zynq7",
+      "base-part": "xc7z100ffv900",
+      "speed": "1",
+      "generated": true,
+      "chipdb": "xc7z100ffv900.bin",
+      "chipdb-size": 667876928,
+      "chipdb-sha256": "219d649e78162238a9c80da8f8bafd88fea570634572ec782547f13de121cec1",
+      "asset": "apio-xilinx-chipdb-xc7z100ffv900-20260915.bin.tgz",
+      "asset-size": 185649612,
+      "asset-sha256": "bfd9d0b3cbaa05f9cb78c7162fc59096ebb56fac18066d36a86491a415bdde5c"
+    },
+    "xc7z100ffv900-2": {
+      "family": "zynq7",
+      "base-part": "xc7z100ffv900",
+      "speed": "2",
+      "generated": true,
+      "chipdb": "xc7z100ffv900.bin",
+      "chipdb-size": 667876928,
+      "chipdb-sha256": "219d649e78162238a9c80da8f8bafd88fea570634572ec782547f13de121cec1",
+      "asset": "apio-xilinx-chipdb-xc7z100ffv900-20260915.bin.tgz",
+      "asset-size": 185649612,
+      "asset-sha256": "bfd9d0b3cbaa05f9cb78c7162fc59096ebb56fac18066d36a86491a415bdde5c"
+    }
+  }
+}

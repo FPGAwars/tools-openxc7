@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 
 from pack.chipdb_assets import build_assets, database_parts
-from pack.parts_index import INDEX_ASSET, PACKAGE_FILE, release_tag
+from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, PACKAGE_FILE,
+                              PNR_ENGINE, release_tag, validate_document)
 
 
 class ChipdbAssetsTests(unittest.TestCase):
@@ -108,7 +109,7 @@ class ChipdbAssetsTests(unittest.TestCase):
         )
         info = json.loads(info_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(info["schema"], 5)
+        self.assertEqual(info["schema"], 6)
         self.assertEqual(info["date"], "20260827")
         self.assertEqual(info["release-tag"], "2026-08-27")
         self.assertEqual(info["chipdb-id"], "fixture-id")
@@ -122,8 +123,9 @@ class ChipdbAssetsTests(unittest.TestCase):
 
         entry = info["parts"][f"{part}-1"]
         self.assertEqual(list(entry), ["family", "base-part", "speed",
-                                       "generated", "chipdb", "chipdb-size",
-                                       "chipdb-sha256", "asset", "asset-size",
+                                       "generated", "pnr", "chipdb",
+                                       "chipdb-size", "chipdb-sha256",
+                                       "asset", "asset-size",
                                        "asset-sha256"])
         self.assertTrue(entry["generated"])
         self.assertEqual(entry["family"], "artix7")
@@ -139,7 +141,8 @@ class ChipdbAssetsTests(unittest.TestCase):
         # carries nothing that would make it look downloadable.
         self.assertEqual(info["parts"][f"{other}-1"],
                          {"family": "artix7", "base-part": other,
-                          "speed": "1", "generated": False})
+                          "speed": "1", "generated": False,
+                          "pnr": "nextpnr-xilinx"})
 
         asset = self.output / entry["asset"]
         self.assertEqual(asset.stat().st_size, entry["asset-size"])
@@ -147,6 +150,28 @@ class ChipdbAssetsTests(unittest.TestCase):
             self.assertEqual(archive.getnames(), [f"{part}.bin"])
             self.assertEqual(archive.extractfile(f"{part}.bin").read(),
                              b"chipdb fixture")
+
+    def test_every_entry_names_the_engine_in_entry_keys_order(self):
+        """pnr on ALL entries, generated or not, where ENTRY_KEYS puts it
+        (after generated, before the keys of a built part), and the
+        document the writer produces is one the validator accepts."""
+        self.fixture()
+        info_path = build_assets(
+            self.repo, self.chipdb, self.output, "20260827", self.database
+        )
+        info = json.loads(info_path.read_text(encoding="utf-8"))
+
+        entries = info["parts"].values()
+        self.assertEqual({entry["generated"] for entry in entries},
+                         {True, False})
+        for part, entry in info["parts"].items():
+            with self.subTest(part=part):
+                self.assertEqual(entry["pnr"], PNR_ENGINE)
+                self.assertEqual(list(entry),
+                                 [key for key in ENTRY_KEYS if key in entry])
+        self.assertEqual(PNR_ENGINE, "nextpnr-xilinx")
+        self.assertEqual(sorted(validate_document(info, "2026-08-27")),
+                         ["xc7a35tcpg236-1", "xc7a35tcpg236-2"])
 
     def test_cache_is_reused_when_the_identity_matches(self):
         part, _ = self.fixture()

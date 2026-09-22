@@ -33,6 +33,8 @@ PREVIOUS_INDEX = "PARTS-INDEX.json"      # apio#990, up to the rename
 LEGACY_INDEX = f"apio-xilinx-parts-index-{DATE}.json"   # up to 2026-08-31
 BASE = f"https://github.com/{REPO_SLUG}/releases/download/{TAG}"
 BIN = b"chipdb bytes"
+# The document of the 2026-09-15 release as published: the last schema 5.
+PUBLISHED_SCHEMA_5 = REPO / "tests" / "data" / "XILINX-PARTS-INDEX-2026-09-15.json"
 
 
 def _tgz(payload: bytes, arcname: str) -> bytes:
@@ -91,6 +93,7 @@ def release(**overrides) -> dict:
     }
     built = {
         "generated": True,
+        "pnr": "nextpnr-xilinx",
         "chipdb": CHIPDB,
         "chipdb-size": len(BIN),
         "chipdb-sha256": hashlib.sha256(BIN).hexdigest(),
@@ -99,7 +102,7 @@ def release(**overrides) -> dict:
         "asset-sha256": hashlib.sha256(tgz).hexdigest(),
     }
     info = {
-        "schema": 5,
+        "schema": 6,
         "date": DATE,
         "release-tag": TAG,
         "chipdb-id": "fixture-id",
@@ -283,8 +286,23 @@ class AssetCheckTests(unittest.TestCase):
              "parts": {}}).encode()
         code, output = run(files)
         self.assertEqual(code, 0, output)
-        self.assertIn("schema 4, not 5", output)
+        self.assertIn("schema 4, not 6", output)
         self.assertIn("legacy release", output)
+
+    def test_the_last_schema_5_index_is_legacy_not_a_failure(self):
+        """The index the 2026-09-15 release published, byte for byte.
+
+        Schema 6 added pnr (apio#1070); a release published under schema 5
+        is what apio 1.6.x installs from, and it is not this gate's
+        contract any more.
+        """
+        files = release()
+        files[f"{BASE}/{INDEX}"] = PUBLISHED_SCHEMA_5.read_bytes()
+        code, output = run(resum(files))
+        self.assertEqual(code, 0, output)
+        self.assertIn(f"— {INDEX}: schema 5, not 6", output)
+        self.assertIn("legacy release", output)
+        self.assertIn("asset-check: OK", output)
 
     def test_full_checks_the_hashes_and_the_chipdb_inside(self):
         files = release()
