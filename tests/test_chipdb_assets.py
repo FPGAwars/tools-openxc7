@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pack.chipdb_assets import build_assets, database_parts
 from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, PACKAGE_FILE,
-                              PNR_ENGINE, release_tag, validate_document)
+                              release_tag, validate_document)
 
 DIE_FILE = "chipdb-xc7a50t.bin"     # the die of xc7a35t and xc7a50t parts
 
@@ -116,7 +116,7 @@ class ChipdbAssetsTests(unittest.TestCase):
         )
         info = json.loads(info_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(info["schema"], 6)
+        self.assertEqual(info["schema"], 7)
         self.assertEqual(info["date"], "20260827")
         self.assertEqual(info["release-tag"], "2026-08-27")
         self.assertEqual(info["chipdb-id"], "fixture-id")
@@ -130,7 +130,7 @@ class ChipdbAssetsTests(unittest.TestCase):
 
         entry = info["parts"][f"{part}-1"]
         self.assertEqual(list(entry), ["family", "base-part", "speed",
-                                       "generated", "pnr", "chipdb",
+                                       "generated", "chipdb",
                                        "chipdb-size", "chipdb-sha256",
                                        "asset", "asset-size",
                                        "asset-sha256"])
@@ -138,7 +138,6 @@ class ChipdbAssetsTests(unittest.TestCase):
         self.assertEqual(entry["family"], "artix7")
         self.assertEqual(entry["base-part"], part)
         self.assertEqual(entry["speed"], "1")
-        self.assertEqual(entry["pnr"], "nextpnr-himbaechel")
         self.assertEqual(entry["chipdb"], DIE_FILE)
         self.assertEqual(entry["asset"],
                          "apio-xilinx-chipdb-xc7a50t-20260827.bin.tgz")
@@ -149,8 +148,7 @@ class ChipdbAssetsTests(unittest.TestCase):
         # carries nothing that would make it look downloadable.
         self.assertEqual(info["parts"][f"{other}-1"],
                          {"family": "artix7", "base-part": other,
-                          "speed": "1", "generated": False,
-                          "pnr": "nextpnr-himbaechel"})
+                          "speed": "1", "generated": False})
 
         asset = self.output / entry["asset"]
         self.assertEqual(asset.stat().st_size, entry["asset-size"])
@@ -159,10 +157,9 @@ class ChipdbAssetsTests(unittest.TestCase):
             self.assertEqual(archive.extractfile(DIE_FILE).read(),
                              b"chipdb fixture")
 
-    def test_every_entry_names_the_engine_in_entry_keys_order(self):
-        """pnr on ALL entries, generated or not, where ENTRY_KEYS puts it
-        (after generated, before the keys of a built part), and the
-        document the writer produces is one the validator accepts."""
+    def test_every_entry_follows_entry_keys_and_validates(self):
+        """Keys in ENTRY_KEYS order, generated or not, and the document
+        the writer produces is one the validator accepts."""
         self.fixture()
         info_path = build_assets(
             self.repo, self.chipdb, self.output, "20260827", self.database
@@ -174,10 +171,8 @@ class ChipdbAssetsTests(unittest.TestCase):
                          {True, False})
         for part, entry in info["parts"].items():
             with self.subTest(part=part):
-                self.assertEqual(entry["pnr"], PNR_ENGINE)
                 self.assertEqual(list(entry),
                                  [key for key in ENTRY_KEYS if key in entry])
-        self.assertEqual(PNR_ENGINE, "nextpnr-himbaechel")
         self.assertEqual(sorted(validate_document(info, "2026-08-27")),
                          ["xc7a35tcpg236-1", "xc7a35tcpg236-2"])
 
@@ -245,7 +240,7 @@ class ChipdbAssetsTests(unittest.TestCase):
                           info["chipdb-count"], info["base-part-count"]),
                          (6, 6, 2, 3))
         promise = {part: {key: entry[key] for key in
-                          ("pnr", "chipdb", "chipdb-sha256", "asset",
+                          ("chipdb", "chipdb-sha256", "asset",
                            "asset-sha256")}
                    for part, entry in info["parts"].items()}
         self.assertEqual(promise["xc7a35tcpg236-1"], promise["xc7a50tcsg324-2"])
