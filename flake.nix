@@ -25,6 +25,22 @@
       # Nixpkgs instantiated for supported system types.
       nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; });
 
+      # The dies the manifest needs, each once, with the prjxray-db family
+      # it lives in: one chipdb per die (xc7a35t parts route on the
+      # xc7a50t one). The rule is pack/families.py's die_of -- the device
+      # prefix of the part name, through the aliases of prjxray-db's
+      # mapping/devices.yaml -- and this is its only other copy.
+      dieAliases = { xc7a35t = "xc7a50t"; xc7s75 = "xc7s100"; xc7z035 = "xc7z045"; };
+      dieOf = part:
+        let device = builtins.head
+          (builtins.match "(xc7(a|k|v|vx)[0-9]+t|xc7[sz][0-9]+).*" part);
+        in dieAliases.${device} or device;
+      manifest = builtins.fromJSON (builtins.readFile ./chipdb-parts.json);
+      manifestDies = nixpkgs.lib.unique (builtins.concatMap
+        (family: map (part: { inherit family; die = dieOf part; })
+          manifest.${family})
+        (builtins.attrNames manifest));
+
       # Toolchain shell, parameterized: `withFpgaAssembler = false` is the
       # packaging profile (devShells.<system>.pack) — openxc7-pack.py never
       # uses fpga-assembler, and skipping it avoids evaluating its flake
@@ -41,7 +57,6 @@
           ]) ++ (with nixpkgsFor.${system}; [
             yosys
             openfpgaloader
-            pypy310
             python312Packages.pyyaml
             python312Packages.textx
             python312Packages.simplejson
@@ -61,7 +76,9 @@
                 pyPkgPath = "/lib/python3.12/site-packages/:";
             in nixpkgs.lib.concatStrings [
               "export NEXTPNR_XILINX_DIR=" mypkgs.nextpnr-xilinx.outPath "\n"
-              "export NEXTPNR_XILINX_PYTHON_DIR=" mypkgs.nextpnr-xilinx.outPath "/share/nextpnr/python/\n"
+              # the generator of the chipdb files, in the nextpnr source tree
+              # (pack/chipdb.py runs it once per die of the manifest)
+              "export NEXTPNR_XILINX_CHIPDB_GEN=" mypkgs.nextpnr-xilinx.chipdbGenerator "\n"
               "export PRJXRAY_DB_DIR=" mypkgs.nextpnr-xilinx.outPath "/share/nextpnr/external/prjxray-db\n"
               "export PRJXRAY_PYTHON_DIR=" mypkgs.prjxray.outPath "/usr/share/python3/\n"
               ''export PYTHONPATH=''$PYTHONPATH:''$PRJXRAY_PYTHON_DIR:''
@@ -73,7 +90,6 @@
                 nixpkgs.python312Packages.intervaltree.outPath pyPkgPath
                 nixpkgs.python312Packages.sortedcontainers.outPath pyPkgPath
                 "\n"
-              "export PYPY3=" nixpkgs.pypy310.outPath "/bin/pypy3.10"
             ];
         };
     in {
@@ -83,7 +99,11 @@
           pkgs = nixpkgsFor.${system};
           inherit (pkgs) lib callPackage stdenv fetchgit fetchFromGitHub;
         in rec {
-          nextpnr-xilinx = callPackage ./nix/nextpnr-xilinx.nix { };
+          prjxray-db = callPackage ./nix/prjxray-db.nix { };
+
+          nextpnr-xilinx = callPackage ./nix/nextpnr-xilinx.nix {
+            inherit prjxray-db;
+          };
 
           prjxray = callPackage ./nix/prjxray.nix { };
 
@@ -96,32 +116,16 @@
               inherit buildPythonPackage pythonOlder textx cython fetchpatch jre_headless antlr4_9;
             };
 
-          nextpnr-xilinx-chipdb = {
-            artix7 = callPackage ./nix/nextpnr-xilinx-chipdb.nix  {
-              backend = "artix7";
-              nixpkgs = pkgs;
-              inherit nextpnr-xilinx;
-              inherit prjxray;
+          # nextpnr-xilinx-chipdb.<die>: the chipdb file of every die of the
+          # manifest, as a store path (the packer and CI generate their own
+          # with pack/chipdb.py, from the same generator and bbasm).
+          nextpnr-xilinx-chipdb = builtins.listToAttrs (map (entry: {
+            name = entry.die;
+            value = callPackage ./nix/nextpnr-xilinx-chipdb.nix {
+              inherit (entry) die family;
+              inherit nextpnr-xilinx prjxray-db;
             };
-            kintex7 = callPackage ./nix/nextpnr-xilinx-chipdb.nix {
-              backend = "kintex7";
-              nixpkgs = pkgs;
-              inherit nextpnr-xilinx;
-              inherit prjxray;
-            };
-            spartan7 = callPackage ./nix/nextpnr-xilinx-chipdb.nix  {
-              backend = "spartan7";
-              nixpkgs = pkgs;
-              inherit nextpnr-xilinx;
-              inherit prjxray;
-            } ;
-            zynq7 = callPackage ./nix/nextpnr-xilinx-chipdb.nix {
-              backend = "zynq7";
-              nixpkgs = pkgs;
-              inherit nextpnr-xilinx;
-              inherit prjxray;
-            };
-          };
+          }) manifestDies);
 
           # disable yosys-synlig for now: synlig is not very good and it does not compile with recent yosys
           # yosys-synlig = callPackage ./nix/yosys-synlig.nix { };
@@ -158,7 +162,11 @@
         let
           pkgs = nixpkgsFor.${system};
           mypkgs = self.packages.${system};
-          chipdb = mypkgs.nextpnr-xilinx-chipdb;
+          # one chipdb-<die>.bin per die of the manifest, in one directory
+          chipdb = pkgs.symlinkJoin {
+            name = "nextpnr-xilinx-chipdb";
+            paths = builtins.attrValues mypkgs.nextpnr-xilinx-chipdb;
+          };
           pyPkgPath = "/lib/python3.10/site-packages/:";
         in
         pkgs.dockerTools.buildImage {
@@ -173,12 +181,7 @@
               coreutils
               gnumake
               python312
-            ]) ++ (with chipdb; [
-              spartan7
-              artix7
-              kintex7
-              zynq7
-            ]);
+            ]) ++ [ chipdb ];
             pathsToLink = [ "/bin" ] ++ (with pkgs.dockerTools; [
               usrBinEnv
               binSh
@@ -191,7 +194,6 @@
             cat > /bin/devshell <<EOF
             #!${pkgs.runtimeShell}
             '' self.devShell.${system}.shellHook "\n"
-            "export NEXTPNR_XILINX_PYTHON_DIR=" mypkgs.nextpnr-xilinx.outPath "/share/nextpnr/python/\n"
             "export PRJXRAY_DB_DIR=" mypkgs.nextpnr-xilinx.outPath "/share/nextpnr/external/prjxray-db\n"
             "export PRJXRAY_PYTHON_DIR=" mypkgs.prjxray.outPath "/usr/share/python3/\n"
             ''export PYTHONPATH=\''$PYTHONPATH:\''$PRJXRAY_PYTHON_DIR:''
@@ -206,10 +208,8 @@
               mypkgs.fasm.outPath "/lib/python3.12/site-packages/"
               "\n"
             "export NEXTPNR_XILINX_DIR=" mypkgs.nextpnr-xilinx.outPath "\n"
-            "export SPARTAN7_CHIPDB="    chipdb.spartan7.outPath "\n"
-            "export ARTIX7_CHIPDB="      chipdb.artix7.outPath "\n"
-            "export KINTEX7_CHIPDB="     chipdb.kintex7.outPath "\n"
-            "export ZYNQ7_CHIPDB="       chipdb.zynq7.outPath "\n"
+            # chipdb-<die>.bin of every die of the manifest
+            "export CHIPDB_DIR="         chipdb.outPath "\n"
             "\nexec ${pkgs.bashInteractive}/bin/bash\n"
             ''EOF
             chmod 755 /bin/devshell
