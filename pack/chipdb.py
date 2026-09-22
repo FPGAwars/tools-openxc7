@@ -1,16 +1,17 @@
 """Chipdb generation, and the placeholder that replaces it in a package.
 
-One dist/chipdb/<part>.bin is generated per part of the manifest
+One dist/chipdb/chipdb-<die>.bin is generated per die of the manifest
 chipdb-parts.json (single source of parts, shared with
-nix/windows/default.nix), guarded by the identity stamp so that bins from
-another toolchain are never reused.
+nix/windows/default.nix): every part of a die routes on that die's chipdb,
+so xc7a35t and xc7a50t parts share one file. The set is guarded by the
+identity stamp so that bins from another toolchain are never reused.
 
 Released packages do not carry those bins any more: apio downloads the
-one the board needs (XILINX-PARTS-INDEX.json says which asset carries
-it) and leaves it in chipdb/, next to the README.txt this module writes.
-Run as a script to write that placeholder into a directory -- the Windows
-package is assembled by CI, not by this packer, and must not grow its
-own copy of the text:
+one the board needs (XILINX-PARTS-INDEX.json says which file a part needs
+and which asset carries it) and leaves it in chipdb/, next to the
+README.txt this module writes. Run as a script to write that placeholder
+into a directory -- the Windows package is assembled by CI, not by this
+packer, and must not grow its own copy of the text:
 
     python3 -m pack.chipdb <package>/chipdb
 """
@@ -20,12 +21,14 @@ import os
 import shutil
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
+import tempfile
+import threading
+import time
 from pathlib import Path
 
 import ansi
 
-from .families import CHIPDB_PARTS_FILE, chipdb_parts
+from .families import CHIPDB_PARTS_FILE, chipdb_dies, chipdb_parts, die_of
 
 # -- Identity stamp of the .bin files (see chipdb_identity). No leading dot
 # -- on purpose: a hidden file gets lost in transit (actions/upload-artifact
@@ -40,23 +43,50 @@ PLACEHOLDER = "README.txt"
 PLACEHOLDER_TEXT = """\
 This directory is the placeholder for the on-demand chipdb files.
 
-This package does not ship the per-FPGA device databases. Apio downloads
-the one your board needs and leaves it here.
+This package does not ship the device databases. Apio downloads the one
+your board needs and leaves it here.
 
 XILINX-PARTS-INDEX.json, at the root of this package, lists every part the
 packaged database supports, which of them this release built, the chipdb
 file each one needs and what it must be on disk (chipdb, chipdb-size,
 chipdb-sha256), and the asset that carries it (asset, asset-size,
-asset-sha256). The assets are published in the GitHub release named
-by that file's release-tag, as
-apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz (a tar.gz with the
-chipdb file at its root).
+asset-sha256). There is one chipdb file per die, chipdb-<die>.bin, shared
+by every part of that die. The assets are published in the GitHub release
+named by that file's release-tag, as
+apio-xilinx-chipdb-<die>-<YYYYMMDD>.bin.tgz (a tar.gz with the chipdb
+file at its root).
 
 A chipdb file is only valid with the package of the SAME release tag: it
-carries the internal ids of the nextpnr it was generated with, and a
-foreign one is rejected at run time ("internal IDs inconsistent with the
-supplied chip database").
+is generated for the exact nextpnr this package carries, and nextpnr
+cannot always tell a foreign one apart.
 """
+
+# -- Peak resident memory of the chipdb generator, per die, in MiB: the
+# -- build server, one die at a time (bbasm stays far below). Parallel
+# -- generation adds these up, and the two biggest dies alone would take
+# -- 22 GB, more than a hosted CI runner has. A die missing from the table
+# -- counts as the biggest one.
+DIE_PEAK_MIB = {
+    "xc7s25": 1007,
+    "xc7z010": 1097,
+    "xc7s50": 1745,
+    "xc7a50t": 1759,
+    "xc7z020": 2608,
+    "xc7a100t": 3002,
+    "xc7z030": 3833,
+    "xc7a200t": 6234,
+    "xc7z045": 9429,
+    "xc7z100": 12443,
+}
+
+# -- Default memory budget of a parallel generation: what a 16 GB runner
+# -- can give it. Under it, xc7z045 and xc7z100 never run at the same time.
+DEFAULT_MEM_GB = 14
+
+
+def chipdb_file(die: str) -> str:
+    """Name of the chipdb file of a die."""
+    return f"chipdb-{die}.bin"
 
 
 def write_placeholder(directory: Path) -> Path:
@@ -75,7 +105,7 @@ def skip_chipdb():
     dist/chipdb deliberately survives across runs (see
     pack.assemble.distribution_init), so leftovers from a full pack are
     reported and the run stops rather than shipping half a package or
-    throwing away hours of generation.
+    throwing away the generation.
     """
     chipdb_dir = Path.cwd() / "dist/chipdb"
     chipdb_dir.mkdir(parents=True, exist_ok=True)
@@ -95,7 +125,7 @@ def skip_chipdb():
     # The stamp belongs to a set of bins, and an interrupted generation may
     # have left a .bba behind: neither has any business in the package.
     (chipdb_dir / CHIPDB_STAMP).unlink(missing_ok=True)
-    for stale in chipdb_dir.glob("*.bba"):
+    for stale in chipdb_dir.glob("*.bba*"):
         stale.unlink()
     target = write_placeholder(chipdb_dir)
     print()
@@ -110,20 +140,23 @@ def skip_chipdb():
 def chipdb_identity() -> str:
     """Identity of the .bin files: which toolchain they are valid for.
 
-    The constids are baked into the .bin when it is generated, so a .bin
-    from another nextpnr blows up AT RUNTIME with "internal IDs
-    inconsistent with the supplied chip database". Reusing foreign bins
-    has already let incompatible binaries slip in three times (2026-07-16,
-    07-31 and 08-03), always by trusting that someone would remember to
-    delete dist/.
+    A chipdb carries the ids of the nextpnr source it was generated from
+    (its constids.inc) and the content of one revision of prjxray-db, and
+    nextpnr cannot tell a foreign one apart in every case. Reusing foreign
+    bins has already let incompatible binaries slip in three times
+    (2026-07-16, 07-31 and 08-03), always by trusting that someone would
+    remember to delete dist/.
 
     The identity is the hash of what determines the content: the nextpnr
-    revision, the chipdb derivation, the patches that touch bbaexport and the
-    parts manifest. The CI cache key covers the same set
-    (.github/workflows/chipdb.yml), so that both match.
+    revision (generator, constids, metadata and bbasm all come from its
+    source tree), the prjxray-db revision, the chipdb derivation, the
+    patches and the parts manifest (which dies are generated). The CI
+    cache key covers the same set (.github/workflows/chipdb.yml), so that
+    both match.
     """
     sources = [
         Path.cwd() / "nix/nextpnr-xilinx.nix",
+        Path.cwd() / "nix/prjxray-db.nix",
         Path.cwd() / "nix/nextpnr-xilinx-chipdb.nix",
         Path.cwd() / CHIPDB_PARTS_FILE,
     ]
@@ -147,18 +180,44 @@ def write_stamp(directory: Path, identity: str):
     (directory / CHIPDB_STAMP).write_text(identity + "\n", encoding="utf-8")
 
 
-def first_speedgrade(family: str, part: str) -> str:
-    """First <part>-<sg> device available in the packaged prjxray-db.
+def database_dies(db_root: Path) -> dict:
+    """{base part: die} as the packaged prjxray-db maps them.
 
-    The chipdb .bin does not depend on the speedgrade (same criterion as
-    nix/nextpnr-xilinx-chipdb.nix: first sorted directory).
+    <family>/mapping/parts.yaml names the device of every part and
+    <family>/mapping/devices.yaml the fabric of every device: that fabric
+    is the die whose chipdb the part needs.
     """
-    db_dir = Path.cwd() / f"dist/share/nextpnr/external/prjxray-db/{family}"
-    devices = sorted(d.name for d in db_dir.glob(f"{part}-*") if d.is_dir())
-    if not devices:
-        raise SystemExit(
-            f"❌ No existe ningun {part}-<speedgrade> en {db_dir}")
-    return devices[0]
+    import yaml  # the packaging shell has it; the rest of pack/ does not need it
+
+    result = {}
+    for family_dir in sorted(path for path in Path(db_root).iterdir()
+                             if (path / "mapping").is_dir()):
+        mapping = family_dir / "mapping"
+        parts = yaml.safe_load((mapping / "parts.yaml").read_text()) or {}
+        devices = yaml.safe_load((mapping / "devices.yaml").read_text()) or {}
+        for part, info in parts.items():
+            base_part = part.rsplit("-", 1)[0]
+            fabric = (devices.get(info["device"]) or {}).get("fabric")
+            result[base_part] = fabric or info["device"]
+    return result
+
+
+def check_dies(db_root: Path) -> None:
+    """Refuse a manifest part whose die_of() disagrees with the database.
+
+    The generator is asked for a die by name; a wrong die_of() would build
+    a chipdb that lacks the part's package, and the index would promise it
+    to apio anyway.
+    """
+    mapped = database_dies(db_root)
+    wrong = []
+    for _, part in chipdb_parts():
+        if mapped.get(part) != die_of(part):
+            wrong.append(f"{part}: die_of says {die_of(part)}, "
+                         f"the database {mapped.get(part) or 'nothing'}")
+    if wrong:
+        raise SystemExit("❌ die_of() y la base de datos no coinciden:\n   "
+                         + "\n   ".join(wrong))
 
 
 def seed_chipdb(identity: str):
@@ -170,7 +229,7 @@ def seed_chipdb(identity: str):
 
     The seed MUST carry the right identity stamp: pointing at a seed is
     an explicit decision, so a foreign seed is rejected instead of being
-    silently ignored (which would lose an hour of regeneration) or used
+    silently ignored (which would lose the regeneration time) or used
     (which would package incompatible bins).
     """
     seed = os.environ.get("OPENXC7_CHIPDB_SEED")
@@ -183,69 +242,163 @@ def seed_chipdb(identity: str):
             f"❌ El seed {seed_dir} no corresponde a esta toolchain:\n"
             f"   esperado: {identity}\n"
             f"   encontrado: {stamp or '(sin sello ' + CHIPDB_STAMP + ')'}\n"
-            "   Sus .bin llevan otros constids y el nextpnr empaquetado los\n"
-            "   rechazaria en ejecucion. Usa un seed generado con estos pines\n"
-            "   o quita OPENXC7_CHIPDB_SEED para regenerarlos."
+            "   Sus .bin salen de otra revision de nextpnr o de prjxray-db, y\n"
+            "   el nextpnr empaquetado no siempre sabria rechazarlos. Usa un\n"
+            "   seed generado con estas revisiones o quita OPENXC7_CHIPDB_SEED\n"
+            "   para regenerarlos."
         )
-    for _, part in chipdb_parts():
-        src = seed_dir / f"{part}.bin"
-        dst = Path.cwd() / f"dist/chipdb/{part}.bin"
+    for _, die in chipdb_dies():
+        src = seed_dir / chipdb_file(die)
+        dst = Path.cwd() / "dist/chipdb" / chipdb_file(die)
         if src.exists() and not dst.exists():
-            print(f"🌱 Sembrando {part}.bin desde {seed_dir}")
+            print(f"🌱 Sembrando {chipdb_file(die)} desde {seed_dir}")
             shutil.copy2(src, dst)
 
 
-def build_chipdb_part(family: str, part: str) -> str:
-    """Generate (or reuse) dist/chipdb/<part>.bin. Returns the log.
+def _run_measured(cmd: list) -> tuple:
+    """Run *cmd*; return (exit code, output, seconds, peak RSS in MiB).
 
-    Both steps write to a .tmp and rename on completion: an interrupted
-    process (OOM, Ctrl-C, full disk) never leaves a truncated .bba/.bin
-    that a rerun could take as good and package.
+    The peak is the child's own, from wait4() -- the same rusage GNU time
+    reports -- so it stays per die when several dies run at once. The
+    output goes through a temporary file, not a pipe, so waiting for the
+    child cannot deadlock on a full pipe.
     """
-    log = []
-    bin_file = Path.cwd() / f"dist/chipdb/{part}.bin"
-    bba_file = Path.cwd() / f"dist/chipdb/{part}.bba"
+    started = time.monotonic()
+    with tempfile.TemporaryFile() as output:
+        proc = subprocess.Popen(cmd, stdout=output, stderr=subprocess.STDOUT,
+                                stdin=subprocess.DEVNULL)
+        _, status, usage = os.wait4(proc.pid, 0)
+        proc.returncode = os.waitstatus_to_exitcode(status)
+        output.seek(0)
+        text = output.read().decode(errors="replace")
+    # ru_maxrss is KiB on Linux and bytes on macOS
+    peak = usage.ru_maxrss / (1024 * 1024 if sys.platform == "darwin" else 1024)
+    return proc.returncode, text, time.monotonic() - started, peak
 
-    # ------ Command 1: bbaexport (part -> .bba)
-    if not bin_file.exists() and not bba_file.exists():
-        device = first_speedgrade(family, part)
-        bbaexport_cmd = Path.cwd() / "dist/share/nextpnr/python/bbaexport.py"
-        tmp_bba = bba_file.with_suffix(".bba.tmp")
+
+def build_chipdb_die(family: str, die: str) -> str:
+    """Generate (or reuse) dist/chipdb/chipdb-<die>.bin. Returns the log.
+
+    The generator of the packaged nextpnr's own source tree writes the
+    .bba from the packaged prjxray-db, and bbasm assembles it. Both steps
+    write to a .tmp and rename on completion: an interrupted process (OOM,
+    Ctrl-C, full disk) never leaves a truncated .bba/.bin that a rerun
+    could take as good and package.
+    """
+    chipdb_dir = Path.cwd() / "dist/chipdb"
+    bin_file = chipdb_dir / chipdb_file(die)
+    if bin_file.exists():
+        return f"🔵 📌{bin_file.name}"
+
+    generator = os.environ.get("NEXTPNR_XILINX_CHIPDB_GEN")
+    if not generator or not Path(generator).is_file():
+        raise SystemExit(
+            "❌ NEXTPNR_XILINX_CHIPDB_GEN no apunta al generador del chipdb "
+            f"({generator or 'sin definir'}): ejecuta el packer dentro de "
+            "`nix develop .#pack`")
+    database = Path.cwd() / f"dist/share/nextpnr/external/prjxray-db/{family}"
+    bba_file = chipdb_dir / f"chipdb-{die}.bba"
+    tmp_bba = bba_file.with_suffix(".bba.tmp")
+    tmp_bin = bin_file.with_suffix(".bin.tmp")
+    log = []
+
+    # ------ Command 1: the generator (prjxray-db die -> .bba)
+    tmp_bba.unlink(missing_ok=True)
+    cmd = [sys.executable, generator, "--xray", str(database),
+           "--device", die, "--bba", str(tmp_bba)]
+    log.append(f"➡️  Generando {bba_file.name}")
+    log.append(f"  ⚙️  {' '.join(cmd)}")
+    code, output, seconds, peak = _run_measured(cmd)
+    if code != 0:
         tmp_bba.unlink(missing_ok=True)
-        cmd = ["pypy3", str(bbaexport_cmd),
-               "--device", device, "--bba", str(tmp_bba)]
-        log.append(f"➡️  Generando {bba_file.name} (device {device})")
-        log.append(f"  ⚙️  {' '.join(cmd)}")
-        try:
-            subprocess.run(cmd, capture_output=True, text=True, check=True)
-        except subprocess.CalledProcessError as exc:
-            tmp_bba.unlink(missing_ok=True)
-            print(f"❌ bbaexport {part}:\n{exc.stderr}")
-            raise
-        os.replace(tmp_bba, bba_file)
-        log.append(f"🔵 ✅{bba_file.name}")
+        raise SystemExit(f"❌ generador del chipdb {die} (exit {code}):\n{output}")
+    os.replace(tmp_bba, bba_file)
+    log.append(f"🔵 ✅{bba_file.name} ({seconds:.1f} s, pico {peak:.0f} MiB)")
 
     # ------ Command 2: bbasm (.bba -> .bin)
-    if not bin_file.exists():
-        tmp_bin = bin_file.with_suffix(".bin.tmp")
+    tmp_bin.unlink(missing_ok=True)
+    cmd = ["bbasm", "--le", str(bba_file), str(tmp_bin)]
+    log.append(f"  ⚙️  {' '.join(cmd)}")
+    code, output, seconds, peak = _run_measured(cmd)
+    if code != 0:
         tmp_bin.unlink(missing_ok=True)
-        cmd = ["bbasm", "-l", str(bba_file), str(tmp_bin)]
-        log.append(f"➡️  Generando {bin_file.name}")
-        log.append(f"  ⚙️  {' '.join(cmd)}")
-        try:
-            subprocess.run(cmd, capture_output=True, text=True, check=True)
-        except subprocess.CalledProcessError as exc:
-            tmp_bin.unlink(missing_ok=True)
-            print(f"❌ bbasm {part}:\n{exc.stderr}")
-            raise
-        os.replace(tmp_bin, bin_file)
-        log.append(f"🔵 ✅{bin_file.name}")
-    else:
-        log.append(f"🔵 📌{bin_file.name}")
+        raise SystemExit(f"❌ bbasm {die} (exit {code}):\n{output}")
+    os.replace(tmp_bin, bin_file)
+    log.append(f"🔵 ✅{bin_file.name} ({seconds:.1f} s, pico {peak:.0f} MiB)")
 
-    # --- Delete the temporary .bba file
+    # --- Delete the intermediate .bba file
     bba_file.unlink(missing_ok=True)
     return "\n".join(log)
+
+
+def generate_dies(dies: list, jobs: int, budget_mib: float, build=None) -> None:
+    """Build every (family, die), at most *jobs* at once, within the budget.
+
+    A die starts only when its peak (DIE_PEAK_MIB) fits in what the running
+    ones leave of *budget_mib*; the biggest pending die that fits goes
+    first, and a die bigger than the whole budget runs alone. With the
+    default budget the two biggest dies never overlap.
+    """
+    build = build or build_chipdb_die
+    pending = sorted(dies, key=lambda entry: -peak_of(entry[1]))
+    running = {}
+    finished = []
+    errors = []
+    done = threading.Condition()
+
+    def worker(entry):
+        try:
+            result = build(*entry)
+        except BaseException as error:  # SystemExit included: report it
+            result = error
+        with done:
+            finished.append((entry, result))
+            done.notify()
+
+    while pending or running:
+        while len(running) < max(jobs, 1) and pending and not errors:
+            free = budget_mib - sum(peak_of(die) for _, die in running)
+            fitting = [entry for entry in pending if peak_of(entry[1]) <= free]
+            if not fitting and not running:
+                fitting = pending[:1]     # bigger than the budget: alone
+            if not fitting:
+                break
+            entry = fitting[0]
+            pending.remove(entry)
+            thread = threading.Thread(target=worker, args=(entry,))
+            running[entry] = thread
+            print(f"⏳ {chipdb_file(entry[1])}: arranca "
+                  f"({time.strftime('%H:%M:%S')})", flush=True)
+            thread.start()
+        if errors and not running:
+            break
+        with done:
+            while not finished:
+                done.wait()
+            entry, result = finished.pop(0)
+        running.pop(entry).join()
+        if isinstance(result, BaseException):
+            errors.append(result)
+            print(f"❌ {chipdb_file(entry[1])} ({time.strftime('%H:%M:%S')})",
+                  flush=True)
+        else:
+            print(result, flush=True)
+            print(f"⌛ {chipdb_file(entry[1])}: termina "
+                  f"({time.strftime('%H:%M:%S')})", flush=True)
+    if errors:
+        raise errors[0]
+
+
+def peak_of(die: str) -> int:
+    return DIE_PEAK_MIB.get(die, max(DIE_PEAK_MIB.values()))
+
+
+def _env_number(name: str, default, kind=int):
+    try:
+        return kind(os.environ.get(name) or default)
+    except ValueError:
+        print(f"⚠️  {name} no numerico; usando {default}")
+        return default
 
 
 def build_chipdb():
@@ -280,24 +433,33 @@ def build_chipdb():
                   f"(sello {stamp or 'ausente'} ≠ {identity}); se regeneran")
             for old_bin in existing:
                 old_bin.unlink()
-            for leftover in chipdb_dir.glob("*.bba"):
-                leftover.unlink()
+    for leftover in chipdb_dir.glob("*.bba*"):
+        leftover.unlink()
+
+    # -- Each part of the manifest must route on the die the chipdb is
+    # -- generated for: the database decides, die_of() must agree.
+    check_dies(Path.cwd() / "dist/share/nextpnr/external/prjxray-db")
 
     # -- Reuse precompiled bins if a seed was given
     seed_chipdb(identity)
 
-    # -- Generate every part of the manifest. bbaexport is independent per
-    # -- part -> parallelizable with $OPENXC7_CHIPDB_JOBS (default 1; each
-    # -- job consumes several GB of RAM with the big parts).
-    try:
-        jobs = int(os.environ.get("OPENXC7_CHIPDB_JOBS") or "1")
-    except ValueError:
-        print("⚠️  OPENXC7_CHIPDB_JOBS no numerico; usando 1")
-        jobs = 1
-    parts = chipdb_parts()
-    with ThreadPoolExecutor(max_workers=max(jobs, 1)) as pool:
-        for result in pool.map(lambda fp: build_chipdb_part(*fp), parts):
-            print(result)
+    # -- One chipdb per die. The dies are independent -> parallelizable
+    # -- with $OPENXC7_CHIPDB_JOBS (default 1), within a memory budget of
+    # -- $OPENXC7_CHIPDB_MEM_GB (default 14): each generation takes
+    # -- between 1 and 12.4 GB.
+    jobs = _env_number("OPENXC7_CHIPDB_JOBS", 1)
+    budget = _env_number("OPENXC7_CHIPDB_MEM_GB", DEFAULT_MEM_GB, float)
+    dies = chipdb_dies()
+    print(f"🧮 {len(dies)} dies de {len(chipdb_parts())} parts; "
+          f"{jobs} a la vez, presupuesto {budget:g} GB")
+    started = time.monotonic()
+    generate_dies(dies, jobs, budget * 1024)
+    print(f"⏱️  chipdb: {time.monotonic() - started:.0f} s")
+
+    missing = [chipdb_file(die) for _, die in dies
+               if not (chipdb_dir / chipdb_file(die)).is_file()]
+    if missing:
+        raise SystemExit(f"❌ faltan chipdb: {', '.join(missing)}")
 
     # -- Stamp: from here on these .bin can be reused or serve as a seed,
     # -- and any revision/patch change will invalidate the stamp on its own.
@@ -306,10 +468,10 @@ def build_chipdb():
 
     # -- Size summary
     print()
-    for _, part in parts:
-        bin_file = Path.cwd() / f"dist/chipdb/{part}.bin"
+    for _, die in dies:
+        bin_file = chipdb_dir / chipdb_file(die)
         mb = bin_file.stat().st_size / (1024 * 1024)
-        print(f"📦 {part}.bin: {mb:.0f} MB")
+        print(f"📦 {bin_file.name}: {mb:.0f} MB")
     print()
 
 

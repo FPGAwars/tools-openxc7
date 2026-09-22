@@ -9,8 +9,12 @@
 # the one the board needs (apio#947). What tells apio which asset to fetch
 # and what it must end up with on disk is the index built here:
 #
-#   apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz  one per chipdb file
-#   XILINX-PARTS-INDEX.json                            the index itself
+#   apio-xilinx-chipdb-<die>-<YYYYMMDD>.bin.tgz  one per chipdb file
+#   XILINX-PARTS-INDEX.json                      the index itself
+#
+# There is one chipdb file per die of the manifest, chipdb-<die>.bin, and
+# every part of that die needs it (an xc7a35t is an xc7a50t die): the
+# index repeats the file and its asset on every such part.
 #
 # The index keeps that one name everywhere -- as a release asset and at
 # the root of every package -- because the release it belongs to is
@@ -21,7 +25,7 @@
 # Naming and format agreed with the apio maintainer (apio#897/#900): the
 # apio-xilinx-chipdb- prefix groups after the three platform packages in
 # the release listing; .bin.tgz = a deterministic tar.gz containing
-# <part>.bin at its root (apio reuses its package-archive handling).
+# chipdb-<die>.bin at its root (apio reuses its package-archive handling).
 #
 # Every asset carries the tag's date (house rule: a mistagged asset must
 # be impossible to fetch by accident). The index records, per part, the
@@ -40,9 +44,9 @@
 # package tree: ../share/nextpnr/external/prjxray-db.
 #
 # Env:
-#   OPENXC7_ASSET_JOBS   parts compressed and hashed at once (default 1)
-#   OPENXC7_ASSET_CACHE  directory of date-free <part>.bin.tgz to reuse.
-#                        Compressing 1.1 GB is the slow half of this step
+#   OPENXC7_ASSET_JOBS   chipdb files compressed and hashed at once (default 1)
+#   OPENXC7_ASSET_CACHE  directory of date-free chipdb-<die>.bin.tgz to reuse.
+#                        Compressing the bins is the slow half of this step
 #                        and the result depends only on the bins, so a
 #                        cache stamped with the same chipdb identity is
 #                        copied instead of rebuilt (and refreshed when

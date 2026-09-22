@@ -14,6 +14,7 @@ from pack.families import CHIPDB_PARTS_FILE
 
 IDENTITY = "0123456789abcdef"
 PART = "xc7a35tcsg324"
+BIN = "chipdb-xc7a50t.bin"          # an xc7a35t routes on the xc7a50t die
 
 
 class TestSeedChipdb(unittest.TestCase):
@@ -24,16 +25,17 @@ class TestSeedChipdb(unittest.TestCase):
         self.root = Path(self._tmp.name)
         os.chdir(self.root)
 
-        # -- Manifest fixture (seed_chipdb iterates chipdb_parts())
+        # -- Manifest fixture (seed_chipdb iterates the dies of the
+        # -- manifest): two parts, one die, one file
         Path(CHIPDB_PARTS_FILE).write_text(
-            json.dumps({"artix7": [PART]}), encoding="utf-8")
+            json.dumps({"artix7": [PART, "xc7a50tcsg324"]}), encoding="utf-8")
 
         # -- Target tree and seed directory with one prebuilt .bin
         self.dst_dir = self.root / "dist" / "chipdb"
         self.dst_dir.mkdir(parents=True)
         self.seed_dir = self.root / "seed"
         self.seed_dir.mkdir()
-        (self.seed_dir / f"{PART}.bin").write_bytes(b"SEED-BIN")
+        (self.seed_dir / BIN).write_bytes(b"SEED-BIN")
 
     def tearDown(self):
         os.chdir(self._old_cwd)
@@ -48,22 +50,22 @@ class TestSeedChipdb(unittest.TestCase):
                if k != "OPENXC7_CHIPDB_SEED"}
         with mock.patch.dict(os.environ, env, clear=True):
             seed_chipdb(IDENTITY)
-        self.assertFalse((self.dst_dir / f"{PART}.bin").exists())
+        self.assertFalse((self.dst_dir / BIN).exists())
 
     def test_matching_stamp_copies_bins(self):
         write_stamp(self.seed_dir, IDENTITY)
         with self._with_seed_env(), redirect_stdout(io.StringIO()):
             seed_chipdb(IDENTITY)
         self.assertEqual(
-            (self.dst_dir / f"{PART}.bin").read_bytes(), b"SEED-BIN")
+            (self.dst_dir / BIN).read_bytes(), b"SEED-BIN")
 
     def test_existing_bin_is_not_overwritten(self):
         write_stamp(self.seed_dir, IDENTITY)
-        (self.dst_dir / f"{PART}.bin").write_bytes(b"ALREADY-THERE")
+        (self.dst_dir / BIN).write_bytes(b"ALREADY-THERE")
         with self._with_seed_env(), redirect_stdout(io.StringIO()):
             seed_chipdb(IDENTITY)
         self.assertEqual(
-            (self.dst_dir / f"{PART}.bin").read_bytes(), b"ALREADY-THERE")
+            (self.dst_dir / BIN).read_bytes(), b"ALREADY-THERE")
 
     def test_mismatched_stamp_is_rejected(self):
         write_stamp(self.seed_dir, "feedfacecafebeef")
@@ -71,14 +73,24 @@ class TestSeedChipdb(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 seed_chipdb(IDENTITY)
         # -- Nothing must have been copied from the foreign seed
-        self.assertFalse((self.dst_dir / f"{PART}.bin").exists())
+        self.assertFalse((self.dst_dir / BIN).exists())
+
+    def test_one_file_per_die_is_seeded(self):
+        """Two parts of the manifest, one die: one chipdb file, and a
+        per-part file of the fork's naming is not what is looked for."""
+        write_stamp(self.seed_dir, IDENTITY)
+        (self.seed_dir / f"{PART}.bin").write_bytes(b"FORK-NAMING")
+        with self._with_seed_env(), redirect_stdout(io.StringIO()):
+            seed_chipdb(IDENTITY)
+        self.assertEqual(sorted(p.name for p in self.dst_dir.iterdir()),
+                         [BIN])
 
     def test_missing_stamp_is_rejected(self):
         # -- Seed directory without chipdb-id.txt: refuse it too
         with self._with_seed_env():
             with self.assertRaises(SystemExit):
                 seed_chipdb(IDENTITY)
-        self.assertFalse((self.dst_dir / f"{PART}.bin").exists())
+        self.assertFalse((self.dst_dir / BIN).exists())
 
 
 if __name__ == "__main__":

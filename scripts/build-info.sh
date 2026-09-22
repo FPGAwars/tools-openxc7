@@ -61,7 +61,14 @@ case "$CHIPDB_SOURCE" in
     *)                   CHIPDB_CACHE_USED=false ;;
 esac
 
+# The revisions the package is built from, each read from the one nix file
+# that records it. nextpnr-xilinx-revision keeps its name: it is the
+# revision of the executable the package installs as nextpnr-xilinx (today
+# the himbaechel xilinx uarch of openXC7/nextpnr). The prjxray-db the
+# package ships -- and every chipdb is generated from -- has its own
+# derivation since that engine does not vendor it.
 NEXTPNR_REV=$(sed -n 's/.*rev = "\([0-9a-f]\{7,40\}\)".*/\1/p' "$REPO_ROOT/nix/nextpnr-xilinx.nix" | head -1)
+PRJXRAY_DB_REV=$(sed -n 's/.*rev = "\([0-9a-f]\{7,40\}\)".*/\1/p' "$REPO_ROOT/nix/prjxray-db.nix" | head -1)
 
 # The Eigen release nextpnr was compiled against. placer_heap solves its
 # analytic placement with Eigen, so its results move with the library even
@@ -102,6 +109,7 @@ cat > "$OUT" <<EOF
   "release-tag"                    : "$DATE",
   "yosys-release-tag"              : "$YOSYS_TAG",
   "nextpnr-xilinx-revision"        : "${NEXTPNR_REV:-unknown}",
+  "prjxray-db-revision"            : "${PRJXRAY_DB_REV:-unknown}",
   "eigen-version"                  : "$EIGEN_VERSION",
   "chipdb-source"                  : "$CHIPDB_SOURCE",
   "use-cached-chipdb"              : "$CHIPDB_CACHE_USED",

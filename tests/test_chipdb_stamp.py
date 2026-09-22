@@ -14,6 +14,8 @@ def make_fixture(root: Path):
     (root / "nix" / "patches").mkdir(parents=True)
     (root / "nix" / "nextpnr-xilinx.nix").write_text(
         "nextpnr revision\n", encoding="utf-8")
+    (root / "nix" / "prjxray-db.nix").write_text(
+        "prjxray-db revision\n", encoding="utf-8")
     (root / "nix" / "nextpnr-xilinx-chipdb.nix").write_text(
         "chipdb derivation\n", encoding="utf-8")
     (root / CHIPDB_PARTS_FILE).write_text(
@@ -89,6 +91,20 @@ class TestChipdbIdentity(unittest.TestCase):
 
     def test_missing_source_exits(self):
         (self.root / "nix" / "nextpnr-xilinx.nix").unlink()
+        with self.assertRaises(SystemExit):
+            chipdb_identity()
+
+    def test_the_database_revision_is_part_of_the_identity(self):
+        """Every chipdb is generated from the packaged prjxray-db, which has
+        its own derivation since the himbaechel engine does not vendor it:
+        a database bump must invalidate the bins (and every seed)."""
+        before = chipdb_identity()
+        (self.root / "nix" / "prjxray-db.nix").write_text(
+            "another prjxray-db revision\n", encoding="utf-8")
+        self.assertNotEqual(chipdb_identity(), before)
+
+    def test_missing_database_derivation_exits(self):
+        (self.root / "nix" / "prjxray-db.nix").unlink()
         with self.assertRaises(SystemExit):
             chipdb_identity()
 

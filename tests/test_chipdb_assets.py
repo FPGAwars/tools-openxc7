@@ -10,6 +10,8 @@ from pack.chipdb_assets import build_assets, database_parts
 from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, PACKAGE_FILE,
                               PNR_ENGINE, release_tag, validate_document)
 
+DIE_FILE = "chipdb-xc7a50t.bin"     # the die of xc7a35t and xc7a50t parts
+
 
 class ChipdbAssetsTests(unittest.TestCase):
     def setUp(self):
@@ -34,7 +36,12 @@ class ChipdbAssetsTests(unittest.TestCase):
         path.write_text("device: fixture\n", encoding="utf-8")
 
     def fixture(self, part="xc7a35tcpg236", other="xc7a50tcsg324"):
-        """A one-part manifest plus one footprint the database has only."""
+        """A one-part manifest plus one footprint the database has only.
+
+        Both are xc7a50t dies: the chipdb file is that die's, and the other
+        footprint -- on the same die but not in the manifest -- is not
+        built all the same (the manifest is what L1 routes).
+        """
         self.add_database_part("artix7", f"{part}-1")
         self.add_database_part("artix7", f"{part}-2")
         self.add_database_part("artix7", f"{other}-1")
@@ -44,7 +51,7 @@ class ChipdbAssetsTests(unittest.TestCase):
         (self.chipdb / "chipdb-id.txt").write_text(
             "fixture-id\n", encoding="utf-8"
         )
-        (self.chipdb / f"{part}.bin").write_bytes(b"chipdb fixture")
+        (self.chipdb / DIE_FILE).write_bytes(b"chipdb fixture")
         return part, other
 
     def test_database_parts_keep_every_speed_grade(self):
@@ -131,9 +138,10 @@ class ChipdbAssetsTests(unittest.TestCase):
         self.assertEqual(entry["family"], "artix7")
         self.assertEqual(entry["base-part"], part)
         self.assertEqual(entry["speed"], "1")
-        self.assertEqual(entry["chipdb"], f"{part}.bin")
+        self.assertEqual(entry["pnr"], "nextpnr-himbaechel")
+        self.assertEqual(entry["chipdb"], DIE_FILE)
         self.assertEqual(entry["asset"],
-                         f"apio-xilinx-chipdb-{part}-20260827.bin.tgz")
+                         "apio-xilinx-chipdb-xc7a50t-20260827.bin.tgz")
         self.assertEqual(entry["chipdb-size"], len(b"chipdb fixture"))
         # The other speed grade points at the very same file and asset.
         self.assertEqual(info["parts"][f"{part}-2"] | {"speed": "1"}, entry)
@@ -142,13 +150,13 @@ class ChipdbAssetsTests(unittest.TestCase):
         self.assertEqual(info["parts"][f"{other}-1"],
                          {"family": "artix7", "base-part": other,
                           "speed": "1", "generated": False,
-                          "pnr": "nextpnr-xilinx"})
+                          "pnr": "nextpnr-himbaechel"})
 
         asset = self.output / entry["asset"]
         self.assertEqual(asset.stat().st_size, entry["asset-size"])
         with tarfile.open(asset, "r:gz") as archive:
-            self.assertEqual(archive.getnames(), [f"{part}.bin"])
-            self.assertEqual(archive.extractfile(f"{part}.bin").read(),
+            self.assertEqual(archive.getnames(), [DIE_FILE])
+            self.assertEqual(archive.extractfile(DIE_FILE).read(),
                              b"chipdb fixture")
 
     def test_every_entry_names_the_engine_in_entry_keys_order(self):
@@ -169,7 +177,7 @@ class ChipdbAssetsTests(unittest.TestCase):
                 self.assertEqual(entry["pnr"], PNR_ENGINE)
                 self.assertEqual(list(entry),
                                  [key for key in ENTRY_KEYS if key in entry])
-        self.assertEqual(PNR_ENGINE, "nextpnr-xilinx")
+        self.assertEqual(PNR_ENGINE, "nextpnr-himbaechel")
         self.assertEqual(sorted(validate_document(info, "2026-08-27")),
                          ["xc7a35tcpg236-1", "xc7a35tcpg236-2"])
 
@@ -179,7 +187,7 @@ class ChipdbAssetsTests(unittest.TestCase):
 
         first = build_assets(self.repo, self.chipdb, self.output, "20260827",
                              self.database, cache=cache, jobs=2)
-        self.assertTrue((cache / f"{part}.bin.tgz").is_file())
+        self.assertTrue((cache / f"{DIE_FILE}.tgz").is_file())
         self.assertEqual((cache / "chipdb-id.txt").read_text().strip(),
                          "fixture-id")
 
@@ -192,7 +200,7 @@ class ChipdbAssetsTests(unittest.TestCase):
         new = json.loads(second.read_text())["parts"][f"{part}-1"]
         self.assertEqual(new["asset-sha256"], old["asset-sha256"])
         self.assertEqual(new["asset"],
-                         f"apio-xilinx-chipdb-{part}-20260828.bin.tgz")
+                         "apio-xilinx-chipdb-xc7a50t-20260828.bin.tgz")
         self.assertTrue((second_output / new["asset"]).is_file())
 
     def test_cache_of_another_toolchain_is_not_reused(self):
@@ -200,16 +208,52 @@ class ChipdbAssetsTests(unittest.TestCase):
         cache = self.root / "cache"
         cache.mkdir()
         (cache / "chipdb-id.txt").write_text("other-id\n", encoding="utf-8")
-        (cache / f"{part}.bin.tgz").write_bytes(b"not a tar.gz at all")
+        (cache / f"{DIE_FILE}.tgz").write_bytes(b"not a tar.gz at all")
 
         info_path = build_assets(self.repo, self.chipdb, self.output,
                                  "20260827", self.database, cache=cache)
         entry = json.loads(info_path.read_text())["parts"][f"{part}-1"]
         asset = self.output / entry["asset"]
         with tarfile.open(asset, "r:gz") as archive:   # rebuilt, not copied
-            self.assertEqual(archive.getnames(), [f"{part}.bin"])
+            self.assertEqual(archive.getnames(), [DIE_FILE])
         self.assertEqual((cache / "chipdb-id.txt").read_text().strip(),
                          "fixture-id")
+
+    def test_one_asset_per_die_shared_by_its_parts(self):
+        """Two manifest base parts on the xc7a50t die and one on xc7a100t:
+        two chipdb files, two assets, and the parts of a die repeat the
+        same file, asset and hashes -- which the validator requires."""
+        for base in ("xc7a35tcpg236", "xc7a50tcsg324", "xc7a100tcsg324"):
+            self.add_database_part("artix7", f"{base}-1")
+            self.add_database_part("artix7", f"{base}-2")
+        (self.repo / "chipdb-parts.json").write_text(json.dumps(
+            {"artix7": ["xc7a100tcsg324", "xc7a35tcpg236", "xc7a50tcsg324"]}),
+            encoding="utf-8")
+        (self.chipdb / "chipdb-id.txt").write_text("fixture-id\n",
+                                                   encoding="utf-8")
+        (self.chipdb / DIE_FILE).write_bytes(b"xc7a50t die")
+        (self.chipdb / "chipdb-xc7a100t.bin").write_bytes(b"xc7a100t die")
+
+        info = json.loads(build_assets(
+            self.repo, self.chipdb, self.output, "20260827", self.database,
+            jobs=2).read_text())
+
+        self.assertEqual(sorted(p.name for p in self.output.glob("*.tgz")),
+                         ["apio-xilinx-chipdb-xc7a100t-20260827.bin.tgz",
+                          "apio-xilinx-chipdb-xc7a50t-20260827.bin.tgz"])
+        self.assertEqual((info["part-count"], info["generated-count"],
+                          info["chipdb-count"], info["base-part-count"]),
+                         (6, 6, 2, 3))
+        promise = {part: {key: entry[key] for key in
+                          ("pnr", "chipdb", "chipdb-sha256", "asset",
+                           "asset-sha256")}
+                   for part, entry in info["parts"].items()}
+        self.assertEqual(promise["xc7a35tcpg236-1"], promise["xc7a50tcsg324-2"])
+        self.assertNotEqual(promise["xc7a35tcpg236-1"],
+                            promise["xc7a100tcsg324-1"])
+        self.assertEqual(promise["xc7a100tcsg324-2"]["chipdb"],
+                         "chipdb-xc7a100t.bin")
+        self.assertEqual(len(validate_document(info, "2026-08-27")), 6)
 
     def test_generated_part_must_exist_in_database(self):
         part = "xc7a35tcpg236"
@@ -219,7 +263,7 @@ class ChipdbAssetsTests(unittest.TestCase):
         (self.chipdb / "chipdb-id.txt").write_text(
             "fixture-id\n", encoding="utf-8"
         )
-        (self.chipdb / f"{part}.bin").write_bytes(b"chipdb fixture")
+        (self.chipdb / DIE_FILE).write_bytes(b"chipdb fixture")
         self.database.mkdir(parents=True)
 
         with self.assertRaisesRegex(ValueError, "not present"):
