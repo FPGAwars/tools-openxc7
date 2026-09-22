@@ -182,17 +182,17 @@ fi
 
 # --- chipdb completeness vs the manifest ------------------------------------
 # The chipdb file of a part is the one the package's index names for it
-# (several parts share one: one per die for the himbaechel engine).
+# (several parts share one: one per die under schema 7).
 PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
     python3 - "$REPO_ROOT/chipdb-parts.json" "$PKG" > "$SCRATCH/parts.txt" <<'PYEOF'
 import json, sys
-from pack.parts_index import chipdb_name, read_package_engine
-engine, files = read_package_engine(sys.argv[2])
+from pack.parts_index import chipdb_name, read_package_schema
+schema, files = read_package_schema(sys.argv[2])
 with open(sys.argv[1]) as f:
     manifest = json.load(f)
 for family, parts in manifest.items():
     for part in parts:
-        print(f"{family} {part} {files.get(part) or chipdb_name(part, engine)}")
+        print(f"{family} {part} {files.get(part) or chipdb_name(part, schema)}")
 PYEOF
 [ -s "$SCRATCH/parts.txt" ] || fail "empty part list from chipdb-parts.json"
 NPARTS=0

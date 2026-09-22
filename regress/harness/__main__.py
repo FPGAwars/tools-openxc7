@@ -25,7 +25,7 @@ import reporting       # noqa: E402
 import spec as spec_module        # noqa: E402
 from flow import run as run_flow  # noqa: E402
 from pkg import Package           # noqa: E402
-from pack.parts_index import PNR_ENGINE  # noqa: E402
+from pack.parts_index import SCHEMA  # noqa: E402
 
 HARNESS_DIR = Path(__file__).resolve().parent
 REGRESS_DIR = HARNESS_DIR.parent
@@ -90,11 +90,11 @@ def main() -> int:
 
     package = Package.open(args.package, args.chipdb_dir)
     versions = package.versions()
-    # Two engines are two delay models: the same circuit reports a different
-    # fmax on each, so one engine's numbers are never the other's baseline.
-    # <platform>.json belongs to the engine this branch packages; a package
-    # of the other one (an older release) is compared with its own file.
-    suffix = "" if package.engine == PNR_ENGINE else f"-{package.engine}"
+    # Two schemas are two delay models: the same circuit reports a different
+    # fmax on each, so one schema's numbers are never the other's baseline.
+    # <platform>.json belongs to the schema this branch emits; a package of
+    # another schema (an older release) is compared with its own file.
+    suffix = "" if package.schema == SCHEMA else f"-schema{package.schema}"
     baseline_path = BASELINES_DIR / f"{package.platform}{suffix}.json"
     baseline = {}
     if baseline_path.exists():
@@ -102,7 +102,7 @@ def main() -> int:
         baseline = json.loads(baseline_path.read_text())
 
     print(f"platform : {package.platform}")
-    print(f"engine   : {package.engine}")
+    print(f"schema   : {package.schema}")
     print(f"yosys    : {versions['yosys']}")
     print(f"nextpnr  : {versions['nextpnr']}")
     print(f"tests    : {len(specs)}\n")

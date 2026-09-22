@@ -4,9 +4,10 @@ Tools are taken from the package itself (its `bin/` wrappers), the same ones a
 user gets after `source start`, so the suite measures the artefact we ship and
 not whatever happens to be on PATH.
 
-A package carries ONE place-and-route engine, and it says which in its
-XILINX-PARTS-INDEX.json: the `pnr` of its parts (schema 6). The engine decides
-the command line, the chipdb file of each part and the baseline.
+A package carries ONE place-and-route engine, and its XILINX-PARTS-INDEX.json
+schema number says which. Schema 7 is the himbaechel engine; schema 6 and 5
+are the current one. The number decides the command line, the chipdb file of
+each part and the baseline.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from pack.families import family_of
-from pack.parts_index import PNR_ENGINE, chipdb_name, read_package_engine
+from pack.parts_index import SCHEMA, chipdb_name, read_package_schema
 
 
 def _windows_python() -> str:
@@ -42,7 +43,7 @@ class Package:
     wine: bool = False
     winpy: str = ""
     chipdb_dir: Path | None = None
-    engine: str = PNR_ENGINE
+    schema: int = SCHEMA
     chipdb_files: dict = field(default_factory=dict)
     _tmp: object = field(default=None, repr=False)
 
@@ -70,13 +71,13 @@ class Package:
                     shutil.copy2(source, root / "chipdb" / source.name)
 
         try:
-            engine, chipdb_files = read_package_engine(root)
+            schema, chipdb_files = read_package_schema(root)
         except ValueError as error:
             raise SystemExit(str(error))
         if (root / "bin" / "nextpnr-xilinx.exe").exists():
             return cls(root=root, platform="windows-amd64", wine=True,
                        winpy=_windows_python(), chipdb_dir=chipdb_dir,
-                       engine=engine, chipdb_files=chipdb_files, _tmp=tmp)
+                       schema=schema, chipdb_files=chipdb_files, _tmp=tmp)
         if not (root / "libexec" / "nextpnr-xilinx").exists():
             raise SystemExit(f"unrecognised package layout at {root}")
 
@@ -85,7 +86,7 @@ class Package:
         if platform is None:
             raise SystemExit(f"unsupported host: {host}")
         return cls(root=root, platform=platform, chipdb_dir=chipdb_dir,
-                   engine=engine, chipdb_files=chipdb_files, _tmp=tmp)
+                   schema=schema, chipdb_files=chipdb_files, _tmp=tmp)
 
     def tool(self, name: str) -> str:
         candidate = self.root / "bin" / name
@@ -138,11 +139,11 @@ class Package:
     def chipdb_file(self, part: str) -> str:
         """The chipdb file a base part routes with: what the index says,
         as apio reads it; for a part the index does not build, the file the
-        engine's naming rule gives (it will not exist, and nextpnr says so)."""
+        schema's naming rule gives (it will not exist, and nextpnr says so)."""
         if part in self.chipdb_files:
             return self.chipdb_files[part]
         try:
-            return chipdb_name(part, self.engine)
+            return chipdb_name(part, self.schema)
         except ValueError:
             return f"{part}.bin"
 

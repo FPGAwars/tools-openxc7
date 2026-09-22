@@ -7,11 +7,11 @@
 #   yosys (host) -> nextpnr-xilinx (the chipdb file the package's
 #   XILINX-PARTS-INDEX.json names for the part, generated XDC, --report)
 #   -> fasm2frames -> xc7frames2bit -> .bit
-# The place-and-route line is the one apio runs for the package's engine
-# (the pnr of its index): the himbaechel xilinx uarch takes the part in
-# --device, the XDC and the FASM as uarch options and one chipdb per die,
-# and routes with router2 by default; the nextpnr-xilinx fork takes
-# --xdc/--fasm and one chipdb per base part, and is asked for router2.
+# The place-and-route line is the one apio runs for the package's schema
+# number: schema 7 (himbaechel) takes the part in --device, the XDC and
+# the FASM as uarch options and one chipdb per die, and routes with
+# router2 by default; schema 6 and 5 take --xdc/--fasm and one chipdb per
+# base part, and are asked for router2.
 # With `wine`, nextpnr-xilinx.exe / xc7frames2bit.exe run under wine64
 # (fasm2frames runs with the host python, as apio does on Windows via
 # oss-cad-suite).
@@ -37,20 +37,20 @@ DB="$PKG/share/nextpnr/external/prjxray-db"
 # E2E_PARTS overrides the manifest (space-separated) — handy for quick runs
 PARTS=${E2E_PARTS:-$(python3 -c "import json;print(' '.join(p for ps in json.load(open('$REPO/chipdb-parts.json')).values() for p in ps))")}
 
-# The engine and the chipdb file of every part, from the package's own
-# XILINX-PARTS-INDEX.json, the way apio reads them: an "engine <name>"
+# The schema and the chipdb file of every part, from the package's own
+# XILINX-PARTS-INDEX.json, the way apio reads them: a "schema <number>"
 # line, then one "<part> <chipdb file>" line per part.
 # shellcheck disable=SC2086
 PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" python3 -c '
 import sys
-from pack.parts_index import chipdb_name, read_package_engine
-engine, files = read_package_engine(sys.argv[1])
-print("engine", engine)
+from pack.parts_index import chipdb_name, read_package_schema
+schema, files = read_package_schema(sys.argv[1])
+print("schema", schema)
 for part in sys.argv[2:]:
-    print(part, files.get(part) or chipdb_name(part, engine))
+    print(part, files.get(part) or chipdb_name(part, schema))
 ' "$PKG" $PARTS > parts-chipdb.txt
-ENGINE=$(awk '$1 == "engine" {print $2}' parts-chipdb.txt)
-echo "== engine: $ENGINE =="
+SCHEMA_NUM=$(awk '$1 == "schema" {print $2}' parts-chipdb.txt)
+echo "== schema: $SCHEMA_NUM =="
 
 # part -> family, same prefix rule as pack/families.py
 family_of() {
@@ -99,7 +99,7 @@ for part in $PARTS; do
   device=$(basename "$(ls -d "$DB/$family/$part"-* | sort | head -1)")
 
   rm -f "blinky-$part.pnr"
-  if [ "$ENGINE" = nextpnr-xilinx ]; then
+  if [ "$SCHEMA_NUM" -le 6 ]; then
     pnr=(--chipdb "$PKG/chipdb/$chipdb"
          --xdc "blinky-$part.xdc"
          --json blinky.json
