@@ -83,6 +83,12 @@ minutes); later ones take seconds. `nix develop` (without `.#pack`) gives the
 full development shell; `.#pack` is the lighter profile the packer actually
 needs.
 
+Apple clang rejects one call in the xilinx FASM writer that GCC accepts: a
+`std::string` passed to variadic `log_error` (the diagnostic for a LUT-RAM
+whose clock inversion disagrees with its half-slice). The derivation adds
+`-Wno-non-pod-varargs` on Darwin only, so the sources stay as upstream wrote
+them. That call is not on the path that writes a bitstream.
+
 Generating the chipdb is the slow part: one run of the uarch's generator
 (`himbaechel/uarch/xilinx/gen/xilinx_gen.py`, from the nextpnr source tree the
 package is built from; the packaging shell exports it as
@@ -129,8 +135,12 @@ CHIPDB_SOURCE=restored-from-cache CHIPDB_ID="$(cat /path/to/chipdb-bins/chipdb-i
 tar czhf apio-openxc7-windows-amd64-YYYYMMDD.tgz --mode=u+w -C package-win .
 ```
 
-`apio report` reads the JSON that nextpnr writes with `--report`, the same on
-every platform.
+`nextpnr-xilinx.exe` is the same himbaechel uarch as the Linux and macOS
+binaries (`--device`, `-o xdc=`, `-o fasm=`, `--report`). It is built without
+an embedded Python interpreter: the tree has no `libpython3.11.dll` and no
+`lib/python3.11`. `apio report` reads the JSON that nextpnr writes with
+`--report`, the same on every platform. `fasm2frames` still runs under the
+Windows Python apio already provides.
 
 ## Validating a package
 
