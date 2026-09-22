@@ -14,9 +14,9 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-# The repo root, so the harness shares pack.families with the packer — the
-# part->family rule must have ONE python source (nix has its own copy of the
-# prefix table in nextpnr-xilinx-chipdb.nix; that is the whole duplication).
+# The repo root, so the harness shares pack.families and pack.parts_index with
+# the packer — the part->family and part->chipdb rules must have ONE python
+# source (flake.nix keeps the only other copy of the die rule).
 sys.path.insert(1, str(Path(__file__).resolve().parent.parent.parent))
 
 import checks          # noqa: E402
@@ -25,6 +25,7 @@ import reporting       # noqa: E402
 import spec as spec_module        # noqa: E402
 from flow import run as run_flow  # noqa: E402
 from pkg import Package           # noqa: E402
+from pack.parts_index import PNR_ENGINE  # noqa: E402
 
 HARNESS_DIR = Path(__file__).resolve().parent
 REGRESS_DIR = HARNESS_DIR.parent
@@ -66,12 +67,6 @@ def main() -> int:
     parser.add_argument("--chipdb-dir", type=Path,
                         help="directory of chipdb .bin for a package that "
                              "ships none (apio downloads them on demand)")
-    parser.add_argument("--engine", choices=("nextpnr-xilinx", "himbaechel"),
-                        default="nextpnr-xilinx",
-                        help="the place-and-route engine behind the package's "
-                             "nextpnr-xilinx: the fork (default) or the "
-                             "himbaechel xilinx uarch, which takes another "
-                             "command line and has its own baseline")
     args = parser.parse_args()
 
     try:
@@ -93,11 +88,13 @@ def main() -> int:
     if not specs:
         raise SystemExit("no tests selected")
 
-    package = Package.open(args.package, args.chipdb_dir, engine=args.engine)
+    package = Package.open(args.package, args.chipdb_dir)
     versions = package.versions()
     # Two engines are two delay models: the same circuit reports a different
     # fmax on each, so one engine's numbers are never the other's baseline.
-    suffix = "" if args.engine == "nextpnr-xilinx" else f"-{args.engine}"
+    # <platform>.json belongs to the engine this branch packages; a package
+    # of the other one (an older release) is compared with its own file.
+    suffix = "" if package.engine == PNR_ENGINE else f"-{package.engine}"
     baseline_path = BASELINES_DIR / f"{package.platform}{suffix}.json"
     baseline = {}
     if baseline_path.exists():

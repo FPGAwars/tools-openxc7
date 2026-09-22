@@ -12,7 +12,7 @@
 #   --chipdb-dir DIR       directory of chipdb .bin the package does not ship
 #   --parts "<p1 p2 ...>"  restrict the E2E to these parts (E2E_PARTS)
 #   --expect-date YYYYMMDD assert the package is dated with this id
-#   --skip-e2e             layout/marker/version checks only (fast)
+#   --skip-e2e             layout/index/version checks only (fast)
 #   --keep                 keep the scratch directory for inspection
 #
 # A released package ships NO chipdb: chipdb/ holds only the placeholder
@@ -25,12 +25,14 @@
 # package that does ship its chipdb (the local full pack) is validated as
 # it stands, with no --chipdb-dir.
 #
-# Checks: package layout, chipdb completeness vs chipdb-parts.json,
-# XILINX-PARTS-INDEX.json and its agreement with the bins it describes,
-# feature markers inside the packaged nextpnr binary, --version == the rev recorded
-# in nix/, platform extras on darwin (ad-hoc codesign + zero residual
-# /nix/store references), and the multi-part E2E (e2e/run-parts.sh) against
-# the extracted package.
+# Checks: package layout, chipdb completeness vs chipdb-parts.json (the
+# chipdb file of each part is the one XILINX-PARTS-INDEX.json names: one
+# per die for the himbaechel engine), XILINX-PARTS-INDEX.json and its
+# agreement with the bins it describes, --version == the rev recorded in
+# nix/, platform extras on darwin (ad-hoc codesign + zero residual
+# /nix/store references), and the multi-part E2E (e2e/run-parts.sh)
+# against the extracted package, whose --report JSON must carry fmax and
+# utilization (what `apio report` reads).
 #
 # Requirements: yosys + python3 on PATH for the E2E (per the reproducibility
 # norm, from the required oss-cad-suite version); wine64 on PATH for --wine.
@@ -54,7 +56,7 @@ while [ $# -gt 0 ]; do
         --expect-date) EXPECT_DATE="$2"; shift ;;
         --skip-e2e) SKIP_E2E=1 ;;
         --keep) KEEP=1 ;;
-        -h|--help) sed -n '2,34p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         -*) fail "unknown option: $1" ;;
         *) [ -z "$PKG_IN" ] && PKG_IN="$1" || fail "unexpected argument: $1" ;;
     esac
@@ -179,24 +181,30 @@ else
 fi
 
 # --- chipdb completeness vs the manifest ------------------------------------
-python3 - "$REPO_ROOT/chipdb-parts.json" > "$SCRATCH/parts.txt" <<'PYEOF'
+# The chipdb file of a part is the one the package's index names for it
+# (several parts share one: one per die for the himbaechel engine).
+PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+    python3 - "$REPO_ROOT/chipdb-parts.json" "$PKG" > "$SCRATCH/parts.txt" <<'PYEOF'
 import json, sys
+from pack.parts_index import chipdb_name, read_package_engine
+engine, files = read_package_engine(sys.argv[2])
 with open(sys.argv[1]) as f:
     manifest = json.load(f)
 for family, parts in manifest.items():
     for part in parts:
-        print(f"{family} {part}")
+        print(f"{family} {part} {files.get(part) or chipdb_name(part, engine)}")
 PYEOF
 [ -s "$SCRATCH/parts.txt" ] || fail "empty part list from chipdb-parts.json"
 NPARTS=0
-while read -r family part; do
-    [ -f "$CHIPDB_SRC/$part.bin" ] || fail "chipdb missing: $CHIPDB_SRC/$part.bin"
+while read -r family part chipdb; do
+    [ -f "$CHIPDB_SRC/$chipdb" ] || fail "chipdb missing for $part: $CHIPDB_SRC/$chipdb"
     # each family's prjxray-db must travel with its parts (fasm2frames needs
     # the segbits + part.yaml of that family), on-demand chipdb or not
     [ -d "$PKG/share/nextpnr/external/prjxray-db/$family" ]         || fail "prjxray-db missing for family: $family"
     NPARTS=$((NPARTS + 1))
 done < "$SCRATCH/parts.txt"
-ok "chipdb: all $NPARTS manifest parts present (with their family dbs)"
+NFILES=$(awk '{print $3}' "$SCRATCH/parts.txt" | sort -u | wc -l | tr -d ' ')
+ok "chipdb: all $NPARTS manifest parts present in $NFILES chipdb files (with their family dbs)"
 
 # --- XILINX-PARTS-INDEX.json, and the chipdb files it describes ----------
 INDEX="$PKG/XILINX-PARTS-INDEX.json"
@@ -222,7 +230,7 @@ fi
 if [ "$ON_DEMAND" = 1 ]; then
     cp "$CHIPDB_SRC"/*.bin "$PKG/chipdb/"
     INJECTED=$(find "$PKG/chipdb" -maxdepth 1 -name '*.bin' | wc -l | tr -d ' ')
-    [ "$INJECTED" = "$NPARTS" ] || fail "injected $INJECTED bins, expected $NPARTS"
+    [ "$INJECTED" = "$NFILES" ] || fail "injected $INJECTED bins, expected $NFILES"
     ok "chipdb injected: $INJECTED bins in chipdb/, where apio leaves them"
 fi
 
@@ -247,11 +255,6 @@ if echo "$PLL_OUT" | grep -q "PLLE2_BASE"; then
     fail "xc7pll --report unexpectedly emitted a module"
 fi
 ok "xc7pll: present and functional"
-
-# --- feature markers inside the packaged binary -----------------------------
-MARKERS=$(grep -a -c reportClockFmaxJson "$NEXTPNR_BIN" || true)
-[ "${MARKERS:-0}" -ge 1 ] || fail "marker reportClockFmaxJson NOT in the packaged nextpnr (stale binary?)"
-ok "markers: reportClockFmaxJson present in the packaged binary"
 
 # --- --version must be the expected rev ---------------------------------------
 EXPECTED_REV=$(sed -n 's/.*rev = "\([0-9a-f]\{40\}\)".*/\1/p' "$REPO_ROOT/nix/nextpnr-xilinx.nix" | head -1)
