@@ -210,6 +210,24 @@ def copy_python():
     write_access(dst)
     print(f"➡️  Dep: {mark}lib/{src.name}/")
 
+    # The interpreter's own shared libraries. tabbypy3 runs it through
+    # the bundled loader with a library path of only lib/. nextpnr used
+    # to bring libpython along because it linked it; the package builds
+    # nextpnr without an embedded interpreter, so the closure has to be
+    # copied with the interpreter or fasm2frames cannot start.
+    if not IS_DARWIN:
+        libs_target_dir = Path.cwd() / DIST / LIB
+        for lib_name, libs_path in get_dependencies("python3.12").items():
+            if libs_path == "":
+                continue
+            lib_target = libs_target_dir / Path(libs_path).name
+            if lib_target.exists():
+                mark = "📌"
+            else:
+                shutil.copy(libs_path, libs_target_dir)
+                mark = "✅"
+            print(f"➡️  Dep: {mark}lib/{lib_target.name} ({lib_name})")
+
 
 # ------------------------------------------------------------------
 # -- Locate the python package the devShell interpreter imports
