@@ -1,7 +1,7 @@
 {
   "description": "A virtual clock in the XDC must warn, never crash",
   "exercises": ["XDC virtual clocks", "per-clock fmax getter", "apio report parity"],
-  "why": "field bug: a create_clock with no physical pin used to abort the flow; the fix must also keep the clock table populated for --post-route, which is what apio report reads",
+  "why": "field bug: a create_clock with no physical pin used to abort the flow; the fix must also keep the clock table of the --report JSON populated, which is what apio report reads",
   "tags": ["parity", "timing"],
   "xdc_extra": [
     "create_clock -period 35.000 -name VIRTUAL_c1 -waveform {0.000 17.500}"

@@ -135,7 +135,7 @@ design. A big opaque design would buy realism at the cost of diagnosis — when
 
 | Metric | Meaning | Default tolerance |
 |---|---|---|
-| `fmax_mhz` | Worst clock from the post-route timing report | −5% fails |
+| `fmax_mhz` | Worst clock of nextpnr's `--report` JSON (timing after routing) | −5% fails |
 | `luts`, `ffs`, `brams`, `dsps` | Utilisation, counted from the bound bels | +10% warns, +20% fails |
 | `pnr_seconds` | Router+placer wall time | informational (machine-dependent); congestion pair opts into 2x/4x thrash detection |
 | `bit_bytes` | Bitstream size | any change warns |
