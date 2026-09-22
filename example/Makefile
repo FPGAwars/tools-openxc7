@@ -14,8 +14,10 @@ SHELL := /usr/bin/env bash
 # -- Path were the prjxray database is located
 PRJXRAY_DB_DIR = ${TOOLS_OPENXC7}/share/nextpnr/external/prjxray-db
 
-# -- Path of the python tools for the nextpnr executable
-NEXTPNR_XILINX_PYTHON_DIR = ${TOOLS_OPENXC7}/share/nextpnr/python
+# -- The chipdb generator of the nextpnr source tree the package is built
+# -- from (himbaechel/uarch/xilinx/gen/xilinx_gen.py). `nix develop` exports
+# -- it; only the chipdb target needs it.
+NEXTPNR_XILINX_CHIPDB_GEN ?=
 
 # -- Folder for the binary database
 CHIPDB_DIR = ${TOOLS_OPENXC7}/chipdb
@@ -36,11 +38,14 @@ TOP = ledon
 PART=xc7a35tcpg236
 PART1=${PART}"-1"
 
+#-- Its die: the chipdb is one per die, and an xc7a35t is an xc7a50t die
+DIE=xc7a50t
+
 #-- Constraint file
 XDC = ../config/basys3.xdc
 
 #-- Database file
-CHIPDB = ${CHIPDB_DIR}/${PART}.bin
+CHIPDB = ${CHIPDB_DIR}/chipdb-${DIE}.bin
 
 #──────────────────────────────────────────────────
 #─── Main target: GENERATE THE BITSTREAM
@@ -98,8 +103,8 @@ $(TOP).fasm: ${TOP}.json ${CHIPDB}
 	@echo -e ${BLUE}"─────────────────────────────────────"${RESET}
 	@echo -e ${BLUE}"➡️  Routing..."${RESET}
 	@echo -e ${BLUE}"─────────────────────────────────────"${RESET}
-	nextpnr-xilinx --chipdb ${CHIPDB} \
-       --xdc ${XDC} --json ${TOP}.json --fasm ${TOP}.fasm #-q
+	nextpnr-xilinx --device ${PART1} --chipdb ${CHIPDB} \
+       -o xdc=${XDC} --json ${TOP}.json -o fasm=${TOP}.fasm #-q
 	@echo
 
 
@@ -148,10 +153,11 @@ ${CHIPDB}:
 	@echo -e ${BLUE}"─────────────────────────────────────"${RESET}
 	@echo -e ${BLUE}"➡️  Database building..."${RESET}
 	@echo -e ${BLUE}"─────────────────────────────────────"${RESET}
-	pypy3 ${NEXTPNR_XILINX_PYTHON_DIR}/bbaexport.py \
-		  --device ${PART1} --bba ${PART}.bba
-	bbasm -l ${PART}.bba ${CHIPDB}
-	rm -f ${PART}.bba
+	@test -n "${NEXTPNR_XILINX_CHIPDB_GEN}" || { echo "NEXTPNR_XILINX_CHIPDB_GEN is not set: run from nix develop"; exit 1; }
+	python3 ${NEXTPNR_XILINX_CHIPDB_GEN} --xray ${PRJXRAY_DB_DIR}/artix7 \
+		  --device ${DIE} --bba chipdb-${DIE}.bba
+	bbasm --le chipdb-${DIE}.bba ${CHIPDB}
+	rm -f chipdb-${DIE}.bba
 	@echo
 
 #-- Borrado de la base de datos
