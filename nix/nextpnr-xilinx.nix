@@ -39,6 +39,16 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ cmake git pkg-config ];
   buildInputs = [ python312Packages.boost python312 eigen ];
 
+  # Apple clang rejects a std::string passed to log_error (a variadic
+  # function) as a hard error. GCC, which builds this tree on Linux and
+  # for the mingw cross, accepts it. The call is the LUT-RAM clock
+  # inversion disagreement diagnostic in the xilinx fasm writer; it is
+  # not on the path that emits a bitstream. The flag lets clang compile
+  # the same sources. It is not a change to those sources.
+  preConfigure = lib.optionalString stdenv.isDarwin ''
+    export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE -Wno-non-pod-varargs"
+  '';
+
   cmakeFlags = [
     # 8 hex digits: what `git describe --always` prints for this tree, so
     # --version reads the same as a build from a checkout.
@@ -50,7 +60,12 @@ stdenv.mkDerivation rec {
     "-DHIMBAECHEL_XILINX_DEVICES="
     "-DBUILD_GUI=OFF"
     "-DBUILD_TESTS=OFF"
-    "-DBUILD_PYTHON=ON"
+    # The embedded interpreter is unused: metrics come from --report.
+    # OFF drops libpython from the binary (and, on Windows, a cross-built
+    # CPython from the tools tree). Canonical FASM of the manifest blinkys
+    # and of the regression suite is byte-identical to the same sources
+    # built with it ON, so the IdString order does not move.
+    "-DBUILD_PYTHON=OFF"
     # USE_OPENMP stays at its default, OFF: that is the build the engine
     # was measured with against nextpnr-xilinx 0.9.5, and turning it on
     # is a factor of its own to measure before it ships.
