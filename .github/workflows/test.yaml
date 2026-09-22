@@ -6,11 +6,12 @@
 #
 #   linux    x86_64-linux    ubuntu-22.04  nextpnr-xilinx / prjxray / fasm
 #   macos    aarch64-darwin  macos-14      nextpnr-xilinx / prjxray / fasm
-#   windows  mingw cross     ubuntu-22.04  nextpnr.exe / prjxray .exe tools
-#                                          (passthru outputs of the tools
-#                                          tree — the chipdb is generated
-#                                          once by chipdb.yml and injected
-#                                          into the package by CI)
+#   windows  mingw cross     ubuntu-22.04  nextpnr-xilinx.exe (himbaechel,
+#                                          no embedded python) / prjxray
+#                                          .exe tools (passthru outputs of
+#                                          the tools tree — the chipdb is
+#                                          generated once by chipdb.yml and
+#                                          injected into the package by CI)
 #
 # Plus `static`: everything that needs no toolchain at all (unit tests, shell
 # syntax, the workflow graph, the terminology rule). It runs in a minute next
