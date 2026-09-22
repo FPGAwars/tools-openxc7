@@ -14,12 +14,12 @@ using [Nix](https://nixos.org), and publish one Apio package tarball per Apio su
 
 | Component                                 | Upstream                                             | Role in the flow                                   |
 | ----------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
-| `nextpnr-xilinx`                          | [openXC7](https://github.com/openXC7/nextpnr-xilinx) | Place & route, and FASM output                     |
+| `nextpnr-xilinx`, `bbasm`                 | [openXC7 nextpnr](https://github.com/openXC7/nextpnr) (the himbaechel xilinx uarch) | Place & route, and FASM output; `bbasm` assembles chipdb files |
 | `xc7frames2bit`, `bitread`, `xc7patch`    | [Project X-Ray](https://github.com/f4pga/prjxray)    | Frames → bitstream, and bitstream inspection       |
 | `fasm2frames` + the `fasm` Python library | [openXC7 fasm](https://github.com/openxc7/fasm)      | FASM → configuration frames                        |
-| `chipdb/`                                 | built here, downloaded on demand                     | Where apio leaves the per-FPGA device database nextpnr needs |
+| `chipdb/`                                 | built here, downloaded on demand                     | Where apio leaves the device database nextpnr needs: one file per die, `chipdb-<die>.bin` |
 | `XILINX-PARTS-INDEX.json`                 | built here                                           | Which chipdb file each part needs, which of them this release built, the asset, sizes and hashes of each one, and the place-and-route engine it is built for |
-| `share/nextpnr/external/prjxray-db`       | Project X-Ray database                               | Pin/part data (`part.yaml`, `package_pins.csv`, …) |
+| `share/nextpnr/external/prjxray-db`       | [Project X-Ray database](https://github.com/openXC7/prjxray-db) | Pin/part data (`part.yaml`, `package_pins.csv`, …) and the segbits `fasm2frames` writes; every chipdb is generated from it |
 
 Synthesis is **not** part of this package: it comes from `yosys`, shipped by
 [oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite).
@@ -31,24 +31,27 @@ For latest information see [Apio supported boards](https://fpgawars.github.io/ap
 Openxc7 but not by Apio can easily be added in the [Apio Definition Package repo](https://github.com/fpgawars/apio-definitions).
 
 Every package ships the prjxray database of three 7-series families, and the
-release publishes one chipdb asset per FPGA below — apio downloads the one
-your board needs into the package's `chipdb/` directory the first time you
-build (the package itself is ~200 MB instead of ~650 MB):
+release publishes one chipdb asset per die below, 2.6 to 6.5 MB each — apio
+downloads the one your board needs into the package's `chipdb/` directory the
+first time you build. Every device and package of a die shares its chipdb
+(an xc7a35t is an xc7a50t die):
 
-| Family         | Device   | Footprints                             | Boards (examples)                            |
-| -------------- | -------- | -------------------------------------- | -------------------------------------------- |
-| Artix-7        | xc7a35t  | `cpg236`, `csg324`, `fgg484`, `ftg256` | Basys3, Arty A7-35, Cmod A7                  |
-| Artix-7        | xc7a50t  | `csg324`, `fgg484`                     |                                              |
-| Artix-7        | xc7a100t | `csg324`, `ftg256`, `fgg484`, `fgg676` | Arty A7-100, Nexys                           |
-| Artix-7        | xc7a200t | `fbg484`                               |                                              |
-| Spartan-7      | xc7s50   | `csga324`                              | Arty S7-50                                   |
-| Zynq-7000 (PL) | xc7z010  | `clg400`                               | Zybo Z7-10, EBAZ4205                         |
-| Zynq-7000 (PL) | xc7z020  | `clg400`, `clg484`                     | Pynq-Z1/Z2, Arty Z7-20, Zybo Z7-20, ZedBoard |
+| Family         | Die (chipdb) | Devices              | Footprints                                         | Boards (examples)                            |
+| -------------- | ------------ | -------------------- | -------------------------------------------------- | -------------------------------------------- |
+| Artix-7        | xc7a50t      | xc7a35t, xc7a50t     | `cpg236`, `csg324`, `csg325`, `fgg484`, `ftg256`   | Basys3, Arty A7-35, Cmod A7                  |
+| Artix-7        | xc7a100t     | xc7a100t             | `csg324`, `ftg256`, `fgg484`, `fgg676`             | Arty A7-100, Nexys                           |
+| Artix-7        | xc7a200t     | xc7a200t             | `fbg484`, `fbg676`, `fbv484`, `fbv676`, `ffg1156`, `ffv1156`, `sbg484`, `sbv484` |          |
+| Spartan-7      | xc7s25       | xc7s25               | `csga324`                                          | Arty S7-25                                   |
+| Spartan-7      | xc7s50       | xc7s50               | `csga324`, `fgga484`, `ftgb196`                    | Arty S7-50                                   |
+| Zynq-7000 (PL) | xc7z010      | xc7z010              | `clg225`, `clg400`                                 | Zybo Z7-10, EBAZ4205                         |
+| Zynq-7000 (PL) | xc7z020      | xc7z020              | `clg400`, `clg484`                                 | Pynq-Z1/Z2, Arty Z7-20, Zybo Z7-20, ZedBoard |
+| Zynq-7000 (PL) | xc7z030      | xc7z030              | `fbg676`                                           |                                              |
+| Zynq-7000 (PL) | xc7z045      | xc7z045              | `ffg900`, `ffv900`                                 |                                              |
+| Zynq-7000 (PL) | xc7z100      | xc7z100              | `ffg900`, `ffg1156`, `ffv900`, `ffv1156`           |                                              |
 
 Zynq support is **PL-only**: the toolchain produces the fabric bitstream
-(loaded over JTAG); the ARM PS boots on its own. The Arty S7-25 cannot be
-supported yet (`xc7s25` is not in the prjxray database), and Kintex-7 is
-work in progress (its differential-input bits are missing upstream).
+(loaded over JTAG); the ARM PS boots on its own. Kintex-7 is work in progress
+(its differential-input bits are missing upstream).
 
 `chipdb-parts.json` is the **single source of truth** for that list: it is read by
 the packer, by the Windows build (which database families to ship) and by the CI
@@ -72,30 +75,38 @@ python3.12 openxc7-pack.py                           # the same, carrying every 
 
 `--no-chipdb` (or `OPENXC7_NO_CHIPDB=1`) is what the released packages are
 built with: `chipdb/` gets a `README.txt` and nothing else. Without it the
-packer generates every part of the manifest into the package, which is what
-you want for a self-contained local tree.
+packer generates the chipdb of every die of the manifest into the package,
+which is what you want for a self-contained local tree.
 
 The first `nix develop` builds the whole toolchain and takes a while (tens of
 minutes); later ones take seconds. `nix develop` (without `.#pack`) gives the
 full development shell; `.#pack` is the lighter profile the packer actually
 needs.
 
-Generating the chipdb is the slow part (one `bbaexport` per part, RAM hungry).
-The `.bin` files are **platform independent and byte-identical**, so they can be
-generated once and reused:
+Generating the chipdb is the slow part: one run of the uarch's generator
+(`himbaechel/uarch/xilinx/gen/xilinx_gen.py`, from the nextpnr source tree the
+package is built from; the packaging shell exports it as
+`NEXTPNR_XILINX_CHIPDB_GEN`) and one `bbasm` per die — about 14 minutes for
+the ten dies one at a time, 9 with `OPENXC7_CHIPDB_JOBS=10` under the default
+memory budget (a 20-core Linux server), and from 1 to 12.4 GB of memory each
+(`xc7z100` is the biggest). The `.bin` files are **platform independent and
+byte-identical**, so they can be generated once and reused:
 
-| Variable              | Meaning                                                 |
-| --------------------- | ------------------------------------------------------- |
-| `OPENXC7_PACK_DATE`   | Force the package date (`YYYY-MM-DD`), instead of today |
-| `OPENXC7_CHIPDB_SEED` | Directory of prebuilt `.bin` files to reuse             |
-| `OPENXC7_CHIPDB_JOBS` | Parallel chipdb jobs (memory hungry — raise with care)  |
-| `OPENXC7_NO_CHIPDB`   | `1` packs without the chipdb (same as `--no-chipdb`)    |
-| `OPENXC7_PARTS_INDEX` | The dated document to embed as `XILINX-PARTS-INDEX.json` |
+| Variable                | Meaning                                                 |
+| ----------------------- | ------------------------------------------------------- |
+| `OPENXC7_PACK_DATE`     | Force the package date (`YYYY-MM-DD`), instead of today |
+| `OPENXC7_CHIPDB_SEED`   | Directory of prebuilt `.bin` files to reuse (with the `chipdb-id.txt` of this toolchain) |
+| `OPENXC7_CHIPDB_JOBS`   | Dies generated at once (default 1)                      |
+| `OPENXC7_CHIPDB_MEM_GB` | Memory budget of those jobs (default 14: `xc7z045` and `xc7z100` never run together) |
+| `OPENXC7_NO_CHIPDB`     | `1` packs without the chipdb (same as `--no-chipdb`)    |
+| `OPENXC7_PARTS_INDEX`   | The document to embed as `XILINX-PARTS-INDEX.json`      |
+| `OPENXC7_BUILD_INFO`    | The `BUILD-INFO.json` to embed (`scripts/build-info.sh`) |
 
 > **Caveat:** when you change the toolchain revisions, remove `dist/`
-> before packing (`rm -rf dist`). Chipdb files built against a different
-> revision are silently incompatible and the toolchain rejects them at runtime
-> with an "internal IDs inconsistent" error.
+> before packing (`chmod -R u+w dist && rm -rf dist`). A chipdb file built
+> against a different revision of nextpnr or of the database is incompatible,
+> and nextpnr cannot always tell: the identity stamp (`chipdb-id.txt`) is what
+> keeps the packer from reusing one.
 
 ### Windows (cross-compiled from Linux)
 
@@ -118,8 +129,8 @@ CHIPDB_SOURCE=restored-from-cache CHIPDB_ID="$(cat /path/to/chipdb-bins/chipdb-i
 tar czhf apio-openxc7-windows-amd64-YYYYMMDD.tgz --mode=u+w -C package-win .
 ```
 
-The `nextpnr-xilinx.exe` in the tools tree embeds a Python interpreter, so
-`--post-route` scripts (and therefore `apio report`) work like on Linux/macOS.
+`apio report` reads the JSON that nextpnr writes with `--report`, the same on
+every platform.
 
 ## Validating a package
 
@@ -144,13 +155,16 @@ and exits non-zero on any failure:
 - the layout, that `chipdb/` holds only the placeholder, and that every part
   of `chipdb-parts.json` is in `XILINX-PARTS-INDEX.json` with the `chipdb-size` and
   `chipdb-sha256` of the chipdb file the release publishes for it;
-- feature markers and `--version` inside the *packaged* binary, so a stale
-  binary cannot sneak into a release;
+- `--version` of the *packaged* binary against the revision in
+  `nix/nextpnr-xilinx.nix`, so a stale binary cannot sneak into a release;
 - on macOS, the ad-hoc signature and that no Mach-O load command still points
   into `/nix/store`;
-- an end-to-end run for **every** part: synthesis → `nextpnr-xilinx` with
-  `router2` and a `--post-route` script → `fasm2frames` → `xc7frames2bit` → a
-  real, non-empty bitstream.
+- an end-to-end run for **every** part: synthesis → `nextpnr-xilinx` with the
+  command line apio runs for the package's engine (for the himbaechel uarch:
+  `--device <part> --chipdb chipdb-<die>.bin -o xdc=… -o fasm=… --report …`),
+  whose `--report` JSON must carry `fmax` and `utilization` → `fasm2frames`,
+  which must not print a single warning → `xc7frames2bit` → a real, non-empty
+  bitstream.
 
 That last step is also available on its own:
 
@@ -162,7 +176,10 @@ The second layer is the **regression suite**: 23 declarative tests (one
 folder + `test.json` each) that run real designs through the whole flow on
 every packaged family — primitives, structural properties, a parametric
 congestion pair, and the untouched upstream demo projects — and compare
-fmax/utilisation/router-time against per-platform baselines:
+fmax/utilisation/router-time against per-platform baselines. The harness
+reads the engine from the package's `XILINX-PARTS-INDEX.json` and speaks its
+command line; `regress/baselines/<platform>.json` belongs to the engine this
+branch packages:
 
 ```bash
 scripts/fetch-demos.sh                              # locked third-party sources
@@ -195,8 +212,7 @@ branch is a dispatch of it on that branch:
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,
-one `apio-xilinx-chipdb-<base-part>-<YYYYMMDD>.bin.tgz` per chipdb file it
-built, `XILINX-PARTS-INDEX.json`, and a `SHA256SUMS` covering every one of them
+one `apio-xilinx-chipdb-<die>-<YYYYMMDD>.bin.tgz` per chipdb file it built, `XILINX-PARTS-INDEX.json`, and a `SHA256SUMS` covering every one of them
 (written in the publishing job from the bytes it uploads, so it cannot drift
 from the release).
 
@@ -208,14 +224,15 @@ whether this release built it and — if it did — the chipdb file it needs
 (`chipdb`, `chipdb-size`, `chipdb-sha256`: what must end up on disk) and the
 asset that carries it (`asset`, `asset-size`, `asset-sha256`: what gets
 downloaded). Which parts share a chipdb file is ours to change, so the index
-names one per part: today the speed grades of a base part repeat the same
-file, and a loader that keeps what is already on disk with the right
-`chipdb-sha256` downloads it once. Parts the packaged prjxray database supports
+names one per part: today every part of a die repeats the same file,
+`chipdb-<die>.bin`, and a loader that keeps what is already on disk with the
+right `chipdb-sha256` downloads it once. Parts the packaged prjxray database supports
 but the release did not build are listed with `"generated": false`, so apio can
 tell "not in this release" from "unknown part". Every entry, built or not, also
 names in `pnr` the place-and-route engine its chipdb is built for — today
-`nextpnr-xilinx` for all of them. It names the engine, not the executable: the
-himbaechel-based engine apio 1.7 moves to installs as `nextpnr-xilinx` too.
+`nextpnr-himbaechel` for all of them, the himbaechel xilinx uarch of
+openXC7/nextpnr. It names the engine, not the executable: the package installs
+it as `nextpnr-xilinx`, the name the nextpnr-xilinx fork had before it.
 `pnr` is schema 6; apio 1.6.x reads schema 5 only, so a package that carries a
 schema 6 index is for the apio 1.7 line. Since no package ships a
 chipdb, that index and the per-FPGA assets are the whole contract: each
