@@ -66,6 +66,12 @@ def main() -> int:
     parser.add_argument("--chipdb-dir", type=Path,
                         help="directory of chipdb .bin for a package that "
                              "ships none (apio downloads them on demand)")
+    parser.add_argument("--engine", choices=("nextpnr-xilinx", "himbaechel"),
+                        default="nextpnr-xilinx",
+                        help="the place-and-route engine behind the package's "
+                             "nextpnr-xilinx: the fork (default) or the "
+                             "himbaechel xilinx uarch, which takes another "
+                             "command line and has its own baseline")
     args = parser.parse_args()
 
     try:
@@ -87,15 +93,19 @@ def main() -> int:
     if not specs:
         raise SystemExit("no tests selected")
 
-    package = Package.open(args.package, args.chipdb_dir)
+    package = Package.open(args.package, args.chipdb_dir, engine=args.engine)
     versions = package.versions()
-    baseline_path = BASELINES_DIR / f"{package.platform}.json"
+    # Two engines are two delay models: the same circuit reports a different
+    # fmax on each, so one engine's numbers are never the other's baseline.
+    suffix = "" if args.engine == "nextpnr-xilinx" else f"-{args.engine}"
+    baseline_path = BASELINES_DIR / f"{package.platform}{suffix}.json"
     baseline = {}
     if baseline_path.exists():
         import json
         baseline = json.loads(baseline_path.read_text())
 
     print(f"platform : {package.platform}")
+    print(f"engine   : {package.engine}")
     print(f"yosys    : {versions['yosys']}")
     print(f"nextpnr  : {versions['nextpnr']}")
     print(f"tests    : {len(specs)}\n")

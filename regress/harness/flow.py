@@ -2,7 +2,8 @@
 
 The flow is exactly the one apio runs — yosys → nextpnr-xilinx (with the
 `--post-route` hook that backs `apio report`) → fasm2frames → xc7frames2bit —
-truncated at whatever stage the test asked for.
+truncated at whatever stage the test asked for. With `--engine himbaechel` the
+place-and-route step speaks that uarch's command line and reads `--report`.
 
 Nothing here decides whether a test passed: the runner only reports what
 happened (log, artefacts, cells, utilisation, timing). Judgement lives in
@@ -150,6 +151,39 @@ def _count_cells(netlist: Path) -> dict:
     return counts, modules
 
 
+def _run_himbaechel(session, spec, pkg, part: str, xdc: Path, netlist: Path,
+                    fasm: Path, result: FlowResult) -> None:
+    """Place and route with the himbaechel xilinx uarch.
+
+    Its command line is not the fork's: the part goes in --device (the full
+    name apio knows, speed grade included), the XDC and FASM are uarch
+    options, and the chipdb is one per die. The metrics come from --report,
+    which is what apio reads: the fork's --post-route hook calls
+    ctx.reportClockFmaxJson(), a python binding himbaechel does not have.
+    """
+    report = session.workdir / "report.json"
+    result.pnr_seconds = round(session.step("nextpnr-xilinx", [
+        *pkg.cmd("nextpnr-xilinx"),
+        "--device", pkg.device(part, strict=False),
+        "--chipdb", str(pkg.chipdb(part)),
+        "-o", f"xdc={xdc}",
+        "-o", f"fasm={fasm}",
+        "--json", str(netlist),
+        "--report", str(report),
+        "--router", spec.router,
+        *spec.nextpnr_args,
+    ], env_extra=pkg.env_extra), 2)
+    if not report.exists():
+        raise _StepFailed("nextpnr-xilinx", "the --report file was not written")
+    observed = json.loads(report.read_text())
+    result.utilization = {
+        bel_type: counts["used"]
+        for bel_type, counts in observed.get("utilization", {}).items()
+        if counts.get("used")
+    }
+    result.fmax_raw = json.dumps(observed.get("fmax", {}))
+
+
 def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
     workdir.mkdir(parents=True, exist_ok=True)
     session = _Session(workdir, timeout=spec.timeout)
@@ -186,26 +220,29 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
         if spec.flow == "synth":
             return result
 
-        result.pnr_seconds = round(session.step("nextpnr-xilinx", [
-            *pkg.cmd("nextpnr-xilinx"),
-            "--chipdb", str(pkg.chipdb(part)),
-            "--xdc", str(xdc),
-            "--json", str(netlist),
-            "--fasm", str(fasm),
-            "--post-route", str(post_route),
-            "--router", spec.router,
-            *spec.nextpnr_args,
-        ], env_extra=pkg.env_extra), 2)
-        result.artifacts["fasm"] = fasm
-        if metrics_file.exists():
-            observed = json.loads(metrics_file.read_text())
-            result.utilization = observed.get("utilization", {})
-            result.fmax_raw = observed.get("fmax", "")
+        if pkg.engine == "himbaechel":
+            _run_himbaechel(session, spec, pkg, part, xdc, netlist, fasm, result)
         else:
-            raise _StepFailed(
-                "nextpnr-xilinx",
-                "the --post-route script did not run (this is the `apio report` path)",
-            )
+            result.pnr_seconds = round(session.step("nextpnr-xilinx", [
+                *pkg.cmd("nextpnr-xilinx"),
+                "--chipdb", str(pkg.chipdb(part)),
+                "--xdc", str(xdc),
+                "--json", str(netlist),
+                "--fasm", str(fasm),
+                "--post-route", str(post_route),
+                "--router", spec.router,
+                *spec.nextpnr_args,
+            ], env_extra=pkg.env_extra), 2)
+            if metrics_file.exists():
+                observed = json.loads(metrics_file.read_text())
+                result.utilization = observed.get("utilization", {})
+                result.fmax_raw = observed.get("fmax", "")
+            else:
+                raise _StepFailed(
+                    "nextpnr-xilinx",
+                    "the --post-route script did not run (this is the `apio report` path)",
+                )
+        result.artifacts["fasm"] = fasm
         if spec.flow == "pnr":
             return result
 

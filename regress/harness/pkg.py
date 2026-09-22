@@ -37,10 +37,12 @@ class Package:
     wine: bool = False
     winpy: str = ""
     chipdb_dir: Path | None = None
+    engine: str = "nextpnr-xilinx"
     _tmp: object = field(default=None, repr=False)
 
     @classmethod
-    def open(cls, path: Path, chipdb_dir: Path | None = None) -> "Package":
+    def open(cls, path: Path, chipdb_dir: Path | None = None,
+             engine: str = "nextpnr-xilinx") -> "Package":
         tmp = None
         if path.is_dir():
             root = path.resolve()
@@ -65,7 +67,7 @@ class Package:
         if (root / "bin" / "nextpnr-xilinx.exe").exists():
             return cls(root=root, platform="windows-amd64", wine=True,
                        winpy=_windows_python(), chipdb_dir=chipdb_dir,
-                       _tmp=tmp)
+                       engine=engine, _tmp=tmp)
         if not (root / "libexec" / "nextpnr-xilinx").exists():
             raise SystemExit(f"unrecognised package layout at {root}")
 
@@ -74,7 +76,7 @@ class Package:
         if platform is None:
             raise SystemExit(f"unsupported host: {host}")
         return cls(root=root, platform=platform, chipdb_dir=chipdb_dir,
-                   _tmp=tmp)
+                   engine=engine, _tmp=tmp)
 
     def tool(self, name: str) -> str:
         candidate = self.root / "bin" / name
@@ -132,10 +134,17 @@ class Package:
                 return external
         return packaged
 
-    def device(self, part: str) -> str:
-        """The part with its speedgrade, e.g. xc7a35tcpg236 -> xc7a35tcpg236-1."""
+    def device(self, part: str, strict: bool = True) -> str:
+        """The part with its speedgrade, e.g. xc7a35tcpg236 -> xc7a35tcpg236-1.
+
+        Not strict, a part the packaged db lacks comes back as it is, so that
+        the tool that cannot handle it is the one that says so (an
+        expected-fail guard must fail in place and route, not in the harness).
+        """
         matches = sorted(d.name for d in (self.db / family_of(part)).glob(f"{part}-*") if d.is_dir())
         if not matches:
+            if not strict:
+                return part
             raise SystemExit(f"part {part} is not in the packaged prjxray-db")
         return matches[0]
 
