@@ -25,6 +25,11 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PKG="$(cd "$1" && pwd)"
 WORK="$2"
 MODE="${3:-native}"
+# wine chatters on stderr unless told not to, and that noise is not a
+# fasm2frames warning. Real Windows does not need this.
+if [ "$MODE" = wine ]; then
+  export WINEDEBUG="${WINEDEBUG:--all}"
+fi
 mkdir -p "$WORK"
 cd "$WORK"
 
@@ -126,7 +131,9 @@ PYEOF
   fi
 
   # canonical fasm: comments/whitespace stripped, sorted
-  grep -v '^\s*#' "blinky-$part.fasm" | sed '/^\s*$/d' | sort > "blinky-$part.fasm.canon"
+  # nextpnr.exe writes CRLF; drop the CR so the canon file matches the
+  # other platforms line for line and byte for byte.
+  grep -v '^\s*#' "blinky-$part.fasm" | sed '/^\s*$/d' | tr -d '\r' | sort > "blinky-$part.fasm.canon"
 
   if [ "$MODE" = wine ]; then
     # apio on real Windows runs fasm2frames with oss-cad-suite's WINDOWS
@@ -142,6 +149,14 @@ PYEOF
           </dev/null 2> >(cat > "blinky-$part.f2f.err") | cat > "blinky-$part.frames" ) \
         || { echo "FAIL $part: fasm2frames (windows python)"; tail -3 "blinky-$part.f2f.err"; fail=1; continue; }
       test -s "blinky-$part.frames" || { echo "FAIL $part: empty frames (windows python)"; tail -3 "blinky-$part.f2f.err"; fail=1; continue; }
+      # Same gate as the native path: a warning is a feature the bitstream
+      # does not carry. WINEDEBUG is off, so this file is fasm2frames alone.
+      if [ -s "blinky-$part.f2f.err" ]; then
+        echo "FAIL $part: fasm2frames said something"
+        cat "blinky-$part.f2f.err"
+        fail=1
+        continue
+      fi
     else
       PYTHONPATH="$PKG/lib/python3.12/site-packages" \
         python3 "$PKG/libexec/fasm2frames" \
