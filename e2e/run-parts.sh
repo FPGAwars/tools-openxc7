@@ -4,15 +4,21 @@
 #   e2e/run-parts.sh <package-dir> <workdir> [wine]
 #
 # For every part of every family in chipdb-parts.json:
-#   yosys (host) -> nextpnr-xilinx (--chipdb <part>.bin, generated XDC,
-#   --post-route report) -> fasm2frames -> xc7frames2bit -> .bit
+#   yosys (host) -> nextpnr-xilinx (the chipdb file the package's
+#   XILINX-PARTS-INDEX.json names for the part, generated XDC, --report)
+#   -> fasm2frames -> xc7frames2bit -> .bit
+# The place-and-route line is the one apio runs for the package's engine
+# (the pnr of its index): the himbaechel xilinx uarch takes the part in
+# --device, the XDC and the FASM as uarch options and one chipdb per die,
+# and routes with router2 by default; the nextpnr-xilinx fork takes
+# --xdc/--fasm and one chipdb per base part, and is asked for router2.
 # With `wine`, nextpnr-xilinx.exe / xc7frames2bit.exe run under wine64
 # (fasm2frames runs with the host python, as apio does on Windows via
 # oss-cad-suite).
 #
 # Leaves <workdir>/blinky-<part>.fasm.canon (comments stripped, sorted) for
-# cross-platform comparison, and requires router2 to finish and the
-# --post-route report to run (parity with `apio report`).
+# cross-platform comparison, and requires the router to finish and the
+# --report JSON to carry fmax and utilization (what `apio report` reads).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,7 +32,22 @@ DB="$PKG/share/nextpnr/external/prjxray-db"
 # E2E_PARTS overrides the manifest (space-separated) — handy for quick runs
 PARTS=${E2E_PARTS:-$(python3 -c "import json;print(' '.join(p for ps in json.load(open('$REPO/chipdb-parts.json')).values() for p in ps))")}
 
-# part -> family, same prefix rule as pack/families.py and chipdb.nix
+# The engine and the chipdb file of every part, from the package's own
+# XILINX-PARTS-INDEX.json, the way apio reads them: an "engine <name>"
+# line, then one "<part> <chipdb file>" line per part.
+# shellcheck disable=SC2086
+PYTHONPATH="$REPO${PYTHONPATH:+:$PYTHONPATH}" python3 -c '
+import sys
+from pack.parts_index import chipdb_name, read_package_engine
+engine, files = read_package_engine(sys.argv[1])
+print("engine", engine)
+for part in sys.argv[2:]:
+    print(part, files.get(part) or chipdb_name(part, engine))
+' "$PKG" $PARTS > parts-chipdb.txt
+ENGINE=$(awk '$1 == "engine" {print $2}' parts-chipdb.txt)
+echo "== engine: $ENGINE =="
+
+# part -> family, same prefix rule as pack/families.py
 family_of() {
   case "$1" in
     xc7a*) echo artix7 ;;
@@ -52,17 +73,6 @@ run_tool() {  # run_tool <exe-basename> <args...>
   fi
 }
 
-# --post-route parity probe (same idea as the windows CI E2E)
-cat > report.py <<'EOF'
-import json
-bels = 0
-for bel in ctx.getBels():
-    if ctx.getBoundBelCell(bel):
-        bels += 1
-with open("hardware.pnr", "w") as f:
-    json.dump({"bound_bels": bels}, f)
-EOF
-
 if [ -n "${E2E_JSON:-}" ]; then
   # imported netlist: yosys/abc are not bit-deterministic across platforms,
   # so cross-platform fasm comparison must start from the same json
@@ -79,20 +89,41 @@ for part in $PARTS; do
   echo
   echo "===== $part ====="
   family=$(family_of "$part")
+  chipdb=$(awk -v p="$part" '$1 == p {print $2}' parts-chipdb.txt)
   python3 "$REPO/e2e/gen_xdc.py" "$DB" "$family" "$part" > "blinky-$part.xdc"
   device=$(basename "$(ls -d "$DB/$family/$part"-* | sort | head -1)")
 
-  rm -f hardware.pnr
-  if ! run_tool nextpnr-xilinx \
-        --chipdb "$PKG/chipdb/$part.bin" \
-        --xdc "blinky-$part.xdc" \
-        --json blinky.json \
-        --fasm "blinky-$part.fasm" \
-        --post-route report.py \
-        --router router2 -q; then
-    echo "FAIL $part: nextpnr-xilinx (router2)"; fail=1; continue
+  rm -f "blinky-$part.pnr"
+  if [ "$ENGINE" = nextpnr-xilinx ]; then
+    pnr=(--chipdb "$PKG/chipdb/$chipdb"
+         --xdc "blinky-$part.xdc"
+         --json blinky.json
+         --fasm "blinky-$part.fasm"
+         --report "blinky-$part.pnr"
+         --router router2 -q)
+  else
+    pnr=(--device "$device"
+         --chipdb "$PKG/chipdb/$chipdb"
+         -o "xdc=blinky-$part.xdc"
+         --json blinky.json
+         -o "fasm=blinky-$part.fasm"
+         --report "blinky-$part.pnr"
+         -q)
   fi
-  test -f hardware.pnr || { echo "FAIL $part: --post-route did not run"; fail=1; continue; }
+  if ! run_tool nextpnr-xilinx "${pnr[@]}"; then
+    echo "FAIL $part: nextpnr-xilinx ($chipdb)"; fail=1; continue
+  fi
+  # The report is what `apio report` reads: timing and utilization.
+  if ! python3 - "blinky-$part.pnr" <<'PYEOF'
+import json, sys
+report = json.load(open(sys.argv[1]))
+missing = [key for key in ("fmax", "utilization") if key not in report]
+if missing or not report["utilization"]:
+    raise SystemExit(f"--report lacks {missing or ['a non-empty utilization']}")
+PYEOF
+  then
+    echo "FAIL $part: --report JSON without fmax/utilization"; fail=1; continue
+  fi
 
   # canonical fasm: comments/whitespace stripped, sorted
   grep -v '^\s*#' "blinky-$part.fasm" | sed '/^\s*$/d' | sort > "blinky-$part.fasm.canon"
@@ -120,7 +151,13 @@ for part in $PARTS; do
   else
     run_tool fasm2frames \
         --part "$device" --db-root "$DB/$family" "blinky-$part.fasm" \
-        > "blinky-$part.frames" || { echo "FAIL $part: fasm2frames"; fail=1; continue; }
+        > "blinky-$part.frames" 2> "blinky-$part.f2f.err" \
+        || { echo "FAIL $part: fasm2frames"; cat "blinky-$part.f2f.err"; fail=1; continue; }
+    # Every feature must have its bits: a warning here is a line of the
+    # routing the bitstream does not carry.
+    if [ -s "blinky-$part.f2f.err" ]; then
+      echo "FAIL $part: fasm2frames said something"; cat "blinky-$part.f2f.err"; fail=1; continue
+    fi
   fi
 
   if ! run_tool xc7frames2bit \
@@ -131,7 +168,7 @@ for part in $PARTS; do
     echo "FAIL $part: xc7frames2bit"; fail=1; continue
   fi
   test -s "blinky-$part.bit" || { echo "FAIL $part: empty .bit"; fail=1; continue; }
-  echo "OK $part ($(stat -c%s "blinky-$part.bit" 2>/dev/null || stat -f%z "blinky-$part.bit") bytes)"
+  echo "OK $part ($chipdb, $(stat -c%s "blinky-$part.bit" 2>/dev/null || stat -f%z "blinky-$part.bit") bytes)"
 done
 
 echo

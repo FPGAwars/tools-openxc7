@@ -1,9 +1,11 @@
 """Running one test on one part: the flow, and everything it observes.
 
 The flow is exactly the one apio runs — yosys → nextpnr-xilinx (with the
-`--post-route` hook that backs `apio report`) → fasm2frames → xc7frames2bit —
-truncated at whatever stage the test asked for. With `--engine himbaechel` the
-place-and-route step speaks that uarch's command line and reads `--report`.
+`--report` JSON that backs `apio report`) → fasm2frames → xc7frames2bit —
+truncated at whatever stage the test asked for. The place-and-route step speaks
+the command line of the package's engine: the himbaechel xilinx uarch (the part
+in --device, the XDC and FASM as uarch options, one chipdb per die) or the
+nextpnr-xilinx fork.
 
 Nothing here decides whether a test passed: the runner only reports what
 happened (log, artefacts, cells, utilisation, timing). Judgement lives in
@@ -21,27 +23,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from pack.families import family_of
-
-# Runs inside nextpnr's embedded interpreter. The output path is prepended as
-# an assignment, which keeps this readable python instead of a format template.
-POST_ROUTE = '''\
-import json
-
-util = {}
-for bel in ctx.getBels():
-    if ctx.getBoundBelCell(bel):
-        key = str(ctx.getBelType(bel))
-        util[key] = util.get(key, 0) + 1
-
-try:
-    fmax = ctx.reportClockFmaxJson()
-except Exception:                   # report it as missing, never break the flow
-    fmax = ""
-
-with open(OUTPUT, "w") as handle:
-    json.dump({"utilization": util, "fmax": fmax}, handle)
-'''
-
 
 @dataclass
 class FlowResult:
@@ -151,18 +132,29 @@ def _count_cells(netlist: Path) -> dict:
     return counts, modules
 
 
-def _run_himbaechel(session, spec, pkg, part: str, xdc: Path, netlist: Path,
-                    fasm: Path, result: FlowResult) -> None:
-    """Place and route with the himbaechel xilinx uarch.
+def _pnr_command(spec, pkg, part: str, xdc: Path, netlist: Path, fasm: Path,
+                 report: Path) -> list:
+    """The place-and-route command line of the package's engine.
 
-    Its command line is not the fork's: the part goes in --device (the full
-    name apio knows, speed grade included), the XDC and FASM are uarch
-    options, and the chipdb is one per die. The metrics come from --report,
-    which is what apio reads: the fork's --post-route hook calls
-    ctx.reportClockFmaxJson(), a python binding himbaechel does not have.
+    Both write the metrics with --report, which is what apio reads (since
+    apio#1048; the fork's --post-route hook called ctx.reportClockFmaxJson(),
+    a python binding the himbaechel uarch does not have).
     """
-    report = session.workdir / "report.json"
-    result.pnr_seconds = round(session.step("nextpnr-xilinx", [
+    if pkg.engine == "nextpnr-xilinx":
+        return [
+            *pkg.cmd("nextpnr-xilinx"),
+            "--chipdb", str(pkg.chipdb(part)),
+            "--xdc", str(xdc),
+            "--json", str(netlist),
+            "--fasm", str(fasm),
+            "--report", str(report),
+            "--router", spec.router,
+            *spec.nextpnr_args,
+        ]
+    # The himbaechel uarch: the part goes in --device (the full name apio
+    # knows, speed grade included), the XDC and FASM are uarch options, and
+    # the chipdb is the one of the part's die.
+    return [
         *pkg.cmd("nextpnr-xilinx"),
         "--device", pkg.device(part, strict=False),
         "--chipdb", str(pkg.chipdb(part)),
@@ -172,16 +164,7 @@ def _run_himbaechel(session, spec, pkg, part: str, xdc: Path, netlist: Path,
         "--report", str(report),
         "--router", spec.router,
         *spec.nextpnr_args,
-    ], env_extra=pkg.env_extra), 2)
-    if not report.exists():
-        raise _StepFailed("nextpnr-xilinx", "the --report file was not written")
-    observed = json.loads(report.read_text())
-    result.utilization = {
-        bel_type: counts["used"]
-        for bel_type, counts in observed.get("utilization", {}).items()
-        if counts.get("used")
-    }
-    result.fmax_raw = json.dumps(observed.get("fmax", {}))
+    ]
 
 
 def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
@@ -193,9 +176,7 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
     fasm = workdir / "design.fasm"
     frames = workdir / "design.frames"
     bitstream = workdir / "design.bit"
-    metrics_file = workdir / "post_route.json"
-    post_route = workdir / "post_route.py"
-    post_route.write_text(f"OUTPUT = {str(metrics_file)!r}\n" + POST_ROUTE)
+    report = workdir / "report.json"
 
     try:
         xdc = _write_constraints(spec, pkg, part, workdir, repo)
@@ -220,28 +201,21 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
         if spec.flow == "synth":
             return result
 
-        if pkg.engine == "himbaechel":
-            _run_himbaechel(session, spec, pkg, part, xdc, netlist, fasm, result)
-        else:
-            result.pnr_seconds = round(session.step("nextpnr-xilinx", [
-                *pkg.cmd("nextpnr-xilinx"),
-                "--chipdb", str(pkg.chipdb(part)),
-                "--xdc", str(xdc),
-                "--json", str(netlist),
-                "--fasm", str(fasm),
-                "--post-route", str(post_route),
-                "--router", spec.router,
-                *spec.nextpnr_args,
-            ], env_extra=pkg.env_extra), 2)
-            if metrics_file.exists():
-                observed = json.loads(metrics_file.read_text())
-                result.utilization = observed.get("utilization", {})
-                result.fmax_raw = observed.get("fmax", "")
-            else:
-                raise _StepFailed(
-                    "nextpnr-xilinx",
-                    "the --post-route script did not run (this is the `apio report` path)",
-                )
+        result.pnr_seconds = round(session.step(
+            "nextpnr-xilinx",
+            _pnr_command(spec, pkg, part, xdc, netlist, fasm, report),
+            env_extra=pkg.env_extra), 2)
+        if not report.exists():
+            raise _StepFailed(
+                "nextpnr-xilinx",
+                "the --report file was not written (this is the `apio report` path)")
+        observed = json.loads(report.read_text())
+        result.utilization = {
+            bel_type: counts["used"]
+            for bel_type, counts in observed.get("utilization", {}).items()
+            if counts.get("used")
+        }
+        result.fmax_raw = json.dumps(observed.get("fmax", {}))
         result.artifacts["fasm"] = fasm
         if spec.flow == "pnr":
             return result
