@@ -15,6 +15,8 @@ first.
 
 import importlib.util
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -40,6 +42,8 @@ def package(platform, **overrides):
         "release-tag": "2026-09-07",
         "yosys-release-tag": "2026-03-24",
         "nextpnr-xilinx-revision": "68aeeb39f92e39bfb239c7e4a44dd93451fc1889",
+        "prjxray-db-revision": "a90f27c1caefee5276f47440f4c730b50519a86f",
+        "eigen-version": "3.4.0",
         "chipdb-source": "restored-from-cache",
         "use-cached-chipdb": True,
         "chipdb-id": "2e00b07a2226c0ad",
@@ -128,6 +132,19 @@ class ComposeTests(unittest.TestCase):
             release_build_info.compose(documents)
         self.assertIn("chipdb-id", str(raised.exception))
 
+    def test_a_disagreement_on_the_database_revision_is_an_error(self):
+        """The prjxray-db every chipdb and every package is built from."""
+        documents = release(**{"darwin-arm64": {
+            "prjxray-db-revision": "1768fb35" + "0" * 32}})
+        with self.assertRaises(ValueError) as raised:
+            release_build_info.compose(documents)
+        self.assertIn("prjxray-db-revision", str(raised.exception))
+
+    def test_the_database_revision_reaches_the_release_document(self):
+        document = release_build_info.compose(release())
+        self.assertEqual(document["prjxray-db-revision"],
+                         "a90f27c1caefee5276f47440f4c730b50519a86f")
+
     def test_a_document_with_a_different_field_set_is_an_error(self):
         documents = release()
         del documents["darwin-arm64"]["yosys-release-tag"]
@@ -154,6 +171,25 @@ class ComposeTests(unittest.TestCase):
     def test_no_documents_at_all_is_an_error(self):
         with self.assertRaises(ValueError):
             release_build_info.compose({})
+
+
+class FixtureTests(unittest.TestCase):
+
+    def test_the_fixture_carries_the_fields_build_info_writes(self):
+        """The documents above stand for what scripts/build-info.sh writes:
+        the same keys in the same order, or these tests describe another
+        document."""
+        with tempfile.TemporaryDirectory() as scratch:
+            out = Path(scratch) / "BUILD-INFO.json"
+            env = {key: value for key, value in os.environ.items()
+                   if not key.startswith("GITHUB_")}
+            env.update(EIGEN_VERSION="3.4.0", YOSYS_RELEASE_TAG="2026-09-07")
+            subprocess.run(
+                ["bash", str(REPO / "scripts" / "build-info.sh"),
+                 "linux-x86-64", "2026-09-07", "x.tgz", str(out)],
+                env=env, check=True, capture_output=True)
+            written = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(list(written), list(package("linux-x86-64")))
 
 
 class CommandLineTests(unittest.TestCase):
