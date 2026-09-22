@@ -1,22 +1,26 @@
 # Generate (or restore) the chipdb and build every chipdb release asset.
 #
-# The chipdb .bin files are a deterministic serialization of prjxray-db
-# (bbaexport.py + bbasm): platform-independent by construction, and measured
-# byte-identical across linux / darwin / mingw since 2026-07. Generating them
-# is the slow, memory-heavy step of the whole build (the big parts need more
-# RAM than a hosted macOS runner has and hours of its 3 vCPUs), so it happens
-# ONCE here, on a linux runner. The packages ship none of those bins: apio
-# downloads the one the board needs (apio#947), so `chipdb-bins` is what the
-# platform jobs VALIDATE against, and the per-FPGA `chipdb-assets` are what
-# users actually get. `parts-index` (~50 kB) carries the document that maps
-# parts to assets, which is all a platform job embeds.
+# One chipdb file per die, chipdb-<die>.bin: the himbaechel xilinx uarch
+# reads the same file for every part (package, speed grade) of a die. Each
+# one is a deterministic serialization of prjxray-db (the engine's own
+# generator, xilinx_gen.py, then bbasm): platform-independent by
+# construction (a die generated on darwin came out byte-identical to the
+# linux one).
+# Generating them is the slow, memory-heavy step of the whole build (the
+# generator of xc7z100 alone peaks at 12.4 GB, more than a hosted macOS
+# runner has), so it happens ONCE here, on a linux runner. The packages
+# ship none of those bins: apio downloads the one the board needs
+# (apio#947), so `chipdb-bins` is what the platform jobs VALIDATE against,
+# and the per-die `chipdb-assets` are what users actually get.
+# `parts-index` (~50 kB) carries the document that maps parts to assets,
+# which is all a platform job embeds.
 #
 # Owns two revision-keyed caches: the bins (a hit makes generation a few
-# minutes; a miss regenerates every part of chipdb-parts.json) and the
-# compressed assets (a pure function of the bins, so the same key applies —
-# 12-14 min of gzip skipped on a hit). The .bin travel with their identity
-# stamp (chipdb-id.txt): a seed, or an asset cache, from another toolchain
-# revision is rejected instead of silently reused.
+# minutes; a miss regenerates every die of chipdb-parts.json) and the
+# compressed assets (a pure function of the bins, so the same key applies).
+# The .bin travel with their identity stamp (chipdb-id.txt): a seed, or an
+# asset cache, from another toolchain revision is rejected instead of
+# silently reused.
 name: chipdb
 
 on:
@@ -27,7 +31,7 @@ on:
         required: true
         type: string
       regenerate:
-        description: "Ignore the cache and generate every part from scratch (exercises the generation path even when nothing changed)"
+        description: "Ignore the cache and generate every die from scratch (exercises the generation path even when nothing changed)"
         required: false
         default: false
         type: boolean
@@ -65,14 +69,17 @@ jobs:
           echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Asset date: $DATE"
 
-      # The .bin are byte-identical per (nextpnr, prjxray, chipdb derivation,
-      # manifest, patches) -> that tuple IS the cache key. It covers the same
-      # set the packer hashes for the identity stamp (pack/chipdb.py, which
-      # also reads nix/patches/*.patch), plus prjxray.nix. hashFiles hashes
-      # the set of files the patterns match together, so the patch pattern
-      # matching nothing today (there is no nix/patches yet) leaves the key
-      # unchanged; the empty string is only returned when NO pattern matches.
-      # `regenerate` skips the restore: the run must then produce every part
+      # The .bin are byte-identical per (nextpnr, prjxray-db, chipdb
+      # derivation, manifest, patches) -> that tuple IS the cache key. It is
+      # the set the packer hashes for the identity stamp (chipdb_identity()
+      # in pack/chipdb.py; tests/test_chipdb_cache_key.py keeps the two
+      # lists together), plus prjxray.nix, which only makes the key more
+      # conservative. hashFiles hashes the set of files the patterns match
+      # together, so the patch pattern matching nothing today (there is no
+      # nix/patches) leaves the key unchanged; the empty string is only
+      # returned when NO pattern matches. The v2 prefix starts the per-die
+      # caches clean: the v1 entries hold one bin per base part.
+      # `regenerate` skips the restore: the run must then produce every die
       # from scratch, which is how the generation path itself gets tested
       # without waiting for a toolchain revision change.
       - name: Restore the chipdb cache (keyed by revisions + manifest)
@@ -80,23 +87,28 @@ jobs:
         uses: actions/cache@v6
         with:
           path: chipdb-cache
-          key: chipdb-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json', 'nix/patches/*.patch') }}
+          key: chipdb-v2-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray-db.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'nix/prjxray.nix', 'chipdb-parts.json', 'nix/patches/*.patch') }}
 
-      # The .bin.tgz of a part is a pure function of its .bin, so the same
+      # The .bin.tgz of a die is a pure function of its .bin, so the same
       # tuple keys them. Separate entry, not another path on the bins cache:
       # actions/cache does not re-save on an exact key hit, so adding a path
-      # to a populated key would never fill it. Compressing the bins is the
-      # slow half of the job (12-14 min for the 15-part set, measured
-      # 2026-08-26; ~3x that with the full 46-part manifest) and this skips it.
+      # to a populated key would never fill it.
       - name: Restore the chipdb asset cache (same revisions + manifest)
         if: ${{ !inputs.regenerate }}
         uses: actions/cache@v6
         with:
           path: chipdb-assets-cache
-          key: chipdb-assets-v1-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'chipdb-parts.json', 'nix/patches/*.patch') }}
+          key: chipdb-assets-v2-${{ hashFiles('nix/nextpnr-xilinx.nix', 'nix/prjxray-db.nix', 'nix/nextpnr-xilinx-chipdb.nix', 'nix/prjxray.nix', 'chipdb-parts.json', 'nix/patches/*.patch') }}
 
+      # Three dies at a time under the packer's default memory budget
+      # (OPENXC7_CHIPDB_MEM_GB, 14 GB for this 16 GB runner): a die starts
+      # only when its measured peak fits next to the ones running, so
+      # xc7z100 and xc7z045 never run together. Measured on the build
+      # server: 9 min for the 10 dies with 10 jobs, ~14 min one at a time.
       - name: Generate the chipdb (or seed it from the cache)
         id: gen
+        env:
+          OPENXC7_CHIPDB_JOBS: 3
         run: |
           rm -rf dist   # stale-dist guard (see pack/chipdb.py)
           if [ "${{ inputs.regenerate }}" = "true" ]; then
@@ -108,7 +120,7 @@ jobs:
             echo "chipdb: seeding from cache ($(ls chipdb-cache/*.bin | wc -l) bins)"
             echo "mode=restored-from-cache" >> "$GITHUB_OUTPUT"
           else
-            echo "chipdb: generating every manifest part from scratch (slow)"
+            echo "chipdb: generating every manifest die from scratch (slow)"
             echo "mode=generated" >> "$GITHUB_OUTPUT"
           fi
           nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py --chipdb-only'
@@ -117,12 +129,21 @@ jobs:
           cp dist/chipdb/*.bin dist/chipdb/chipdb-id.txt chipdb-cache/
           ls -la chipdb-cache
 
-      - name: Assert every manifest part is present
+      # The file list comes from the manifest through the packer's own rule
+      # (pack.families.chipdb_dies): one chipdb-<die>.bin per die, and
+      # nothing else next to them.
+      - name: Assert every manifest die is present
         run: |
-          jq -r 'to_entries[] | .value[]' chipdb-parts.json | while read -r p; do
-            test -f "dist/chipdb/$p.bin" || { echo "::error::chipdb missing: $p.bin"; exit 1; }
+          python3 -c 'from pack.families import chipdb_dies; from pack.chipdb import chipdb_file; print("\n".join(chipdb_file(die) for _, die in chipdb_dies()))' > chipdb-files.txt
+          test -s chipdb-files.txt
+          while read -r f; do
+            test -f "dist/chipdb/$f" || { echo "::error::chipdb missing: $f"; exit 1; }
+          done < chipdb-files.txt
+          for f in dist/chipdb/*.bin; do
+            grep -Fxq "$(basename "$f")" chipdb-files.txt \
+              || { echo "::error::unexpected chipdb file: $f"; exit 1; }
           done
-          echo "chipdb complete: $(ls dist/chipdb/*.bin | wc -l) parts"
+          echo "chipdb complete: $(wc -l < chipdb-files.txt) dies"
 
       - name: Export the identity stamp
         id: stamp
@@ -132,13 +153,27 @@ jobs:
           echo "chipdb identity: $ID"
           {
             echo "### chipdb"
-            echo "mode: **${{ steps.gen.outputs.mode }}** · identity: \`$ID\` · $(ls dist/chipdb/*.bin | wc -l) parts"
+            echo "mode: **${{ steps.gen.outputs.mode }}** · identity: \`$ID\` · $(ls dist/chipdb/*.bin | wc -l) files, one per die"
             echo ""
-            echo "| part | bytes | sha256 |"; echo "|---|---|---|"
-            for f in dist/chipdb/*.bin; do echo "| $(basename "$f" .bin) | $(stat -c %s "$f") | $(sha256sum "$f" | cut -c1-16)… |"; done
+            python3 - dist/chipdb <<'PYEOF'
+          import hashlib, sys
+          from pathlib import Path
+          from pack.chipdb import chipdb_file
+          from pack.families import chipdb_parts, die_of
+          users = {}
+          for _, part in chipdb_parts():
+              users.setdefault(die_of(part), []).append(part)
+          print("| file | die | manifest parts | bytes | sha256 |")
+          print("|---|---|---|---:|---|")
+          for die, parts in users.items():
+              path = Path(sys.argv[1]) / chipdb_file(die)
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              print(f"| {path.name} | {die} | {', '.join(parts)} "
+                    f"| {path.stat().st_size} | {digest[:16]}… |")
+          PYEOF
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Build the per-FPGA assets and the XILINX-PARTS-INDEX document
+      - name: Build the per-die assets and the XILINX-PARTS-INDEX document
         id: assets
         env:
           # a pure function of the bins: reused across dates, refreshed when
@@ -155,7 +190,7 @@ jobs:
           # The published index carries the same name as the file inside
           # every package, XILINX-PARTS-INDEX.json: the release it belongs
           # to is written inside it, so its name does not repeat the date
-          # (PARTS-INDEX.json before the apio#1002 rename). The per-FPGA
+          # (PARTS-INDEX.json before the apio#1002 rename). The per-die
           # assets stay dated.
           INDEX="XILINX-PARTS-INDEX.json"
           test -f "chipdb-assets/$INDEX"
@@ -179,6 +214,17 @@ jobs:
               tally[1] += 1 if entry["generated"] else 0
           for family, (parts, built) in counts.items():
               print(f"| {family} | {parts} | {built} |")
+          print()
+          assets = {}
+          for part, entry in data["parts"].items():
+              if entry["generated"]:
+                  row = assets.setdefault(entry["asset"], [entry, 0])
+                  row[1] += 1
+          print("| asset | chipdb file | parts | bytes |")
+          print("|---|---|---:|---:|")
+          for asset, (entry, parts) in assets.items():
+              print(f"| {asset} | {entry['chipdb']} | {parts} "
+                    f"| {entry['asset-size']} |")
           PYEOF
 
       # Consumed by the linux, darwin and windows package jobs of this run:
@@ -196,7 +242,7 @@ jobs:
           if-no-files-found: error
 
       # The index alone (~50 kB), for the three package jobs: they embed it
-      # as XILINX-PARTS-INDEX.json and never need the ~2 GB of assets next
+      # as XILINX-PARTS-INDEX.json and never need the ~40 MB of assets next
       # to it.
       - name: Publish the XILINX-PARTS-INDEX document for the platform jobs
         uses: actions/upload-artifact@v7
@@ -208,7 +254,7 @@ jobs:
 
       # Release inputs: uploaded unchanged by the pre-release job. These are
       # what users download -- the packages carry no chipdb.
-      - name: Publish the per-FPGA assets and the document
+      - name: Publish the per-die assets and the document
         uses: actions/upload-artifact@v7
         with:
           name: chipdb-assets
