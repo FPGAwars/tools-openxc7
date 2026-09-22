@@ -18,7 +18,7 @@ using [Nix](https://nixos.org), and publish one Apio package tarball per Apio su
 | `xc7frames2bit`, `bitread`, `xc7patch`    | [Project X-Ray](https://github.com/f4pga/prjxray)    | Frames → bitstream, and bitstream inspection       |
 | `fasm2frames` + the `fasm` Python library | [openXC7 fasm](https://github.com/openxc7/fasm)      | FASM → configuration frames                        |
 | `chipdb/`                                 | built here, downloaded on demand                     | Where apio leaves the device database nextpnr needs: one file per die, `chipdb-<die>.bin` |
-| `XILINX-PARTS-INDEX.json`                 | built here                                           | Which chipdb file each part needs, which of them this release built, the asset, sizes and hashes of each one, and the place-and-route engine it is built for |
+| `XILINX-PARTS-INDEX.json`                 | built here                                           | Which chipdb file each part needs, which of them this release built, the asset, sizes and hashes of each one; its schema number says which place-and-route engine it is built for |
 | `share/nextpnr/external/prjxray-db`       | [Project X-Ray database](https://github.com/openXC7/prjxray-db) | Pin/part data (`part.yaml`, `package_pins.csv`, …) and the segbits `fasm2frames` writes; every chipdb is generated from it |
 
 Synthesis is **not** part of this package: it comes from `yosys`, shipped by
@@ -153,7 +153,7 @@ scripts/validate-package.sh <package.tgz> --chipdb-dir <dir> --wine
 scripts/validate-package.sh <package.tgz> --chipdb-dir <dir> --parts "xc7a35tcpg236" --keep
 ```
 
-`--chipdb-dir` is the directory of `.bin` the release publishes as per-FPGA
+`--chipdb-dir` is the directory of `.bin` the release publishes as per-die
 assets: the gate checks them against the package's `XILINX-PARTS-INDEX.json` and then
 **injects** them into the extracted tarball, exactly where apio's loader leaves
 them, so what is validated is the tree a user ends up with. A package built
@@ -213,16 +213,19 @@ branch is a dispatch of it on that branch:
 | Workflow | What it does |
 |---|---|
 | `test.yaml` | Per-commit compile test: linux, macos and windows-cross jobs (push/PR guard) |
-| `chipdb.yml` | Owns chipdb generation/cache, identity, the per-FPGA release assets (cached too) and `XILINX-PARTS-INDEX.json` |
+| `chipdb.yml` | Owns chipdb generation/cache, identity, the per-die release assets (cached too) and `XILINX-PARTS-INDEX.json`: one `chipdb-<die>.bin` per die of the manifest, generated three at a time under a memory budget so the two biggest dies never run together on the 16 GB runner |
 | `linux-package.yml` | Consumes the chipdb artifacts, then builds + validates `linux-x86-64` |
 | `darwin-package.yml` | Consumes the chipdb artifacts, then builds + validates `darwin-arm64` |
-| `windows-package.yml` | Consumes the chipdb artifacts, then cross-builds + validates `windows-amd64` under wine |
+| `windows-package.yml` | Consumes the chipdb artifacts, then cross-builds + validates `windows-amd64` under wine (an inline E2E with the himbaechel command line and its `--report`, then L1 and L2) |
 | `build-pre-release.yaml` | Daily orchestrator (FPGAwars convention): prepares chipdb, builds the three platforms, then publishes |
 | `make-pre-release-stable.yaml` | Manual dispatch: re-verifies a candidate and marks it stable + latest (apio's remote-config is then updated by hand) |
 
 `build-pre-release.yaml` creates the release **only after every platform is
 green**, as a dated **prerelease** (never "latest"), with the three tarballs,
-one `apio-xilinx-chipdb-<die>-<YYYYMMDD>.bin.tgz` per chipdb file it built, `XILINX-PARTS-INDEX.json`, and a `SHA256SUMS` covering every one of them
+one `apio-xilinx-chipdb-<die>-<YYYYMMDD>.bin.tgz` per chipdb file it built
+(the set is checked against the index before the upload: as many assets as
+the index names, with its sizes and hashes), `XILINX-PARTS-INDEX.json`,
+`BUILD-INFO.json`, and a `SHA256SUMS` covering every one of them
 (written in the publishing job from the bytes it uploads, so it cannot drift
 from the release).
 
@@ -245,7 +248,7 @@ the same entry keys as schema 5. Schema 7, which this package emits, is the
 himbaechel engine, still installed as `nextpnr-xilinx`, one chipdb file per
 die (`chipdb-<die>.bin`; the entry names the file its part uses). apio 1.6.x
 reads schema 5 only, so a schema 7 index is for the apio 1.7 line. Since no package ships a
-chipdb, that index and the per-FPGA assets are the whole contract: each
+chipdb, that index and the per-die assets are the whole contract: each
 platform's L1 and L2 gates run with those very bins injected into the extracted
 tarball. Old prereleases are
 pruned automatically; promoting a candidate to a real release is a deliberate
@@ -269,7 +272,7 @@ To rebuild an existing tag without leaving anyone without a package:
    it is stable, mark it as a pre-release first (GitHub moves `latest` back to
    the previous stable). A still-stable tag makes the workflow fail on purpose.
 2. Dispatch `build-pre-release.yaml` with that date. Set `regenerate_chipdb` to
-   true to generate every chipdb part from scratch (no cache). The existing
+   true to generate every chipdb die from scratch (no cache). The existing
    pre-release stays up until the last minute.
 3. Wait for the run to finish green: the dated pre-release is then the newly
    validated packages.
