@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .families import die_of, family_of
-from .parts_index import (ENTRY_KEYS, INDEX_ASSET, NOTE, PNR_ENGINE, SCHEMA,
+from .parts_index import (ENTRY_KEYS, INDEX_ASSET, NOTE, SCHEMA,
                           asset_name, chipdb_name, release_tag)
 
 # Name of the identity stamp inside a chipdb directory (pack.chipdb owns it;
@@ -207,13 +207,11 @@ def build_assets(repo: Path, chipdb: Path, output: Path, date: str,
     # is in the manifest -- the parts L1 routes -- and the parts of a die
     # repeat its chipdb file, asset and hashes on purpose: which parts
     # share a file is ours to change, and the index is what hides it.
-    # Every entry, built or not, names the engine this package's chipdb
-    # files are built for.
+    # The schema number says which engine the file was built for.
     parts_doc = {}
     for part, meta in inventory.items():
         entry = dict(meta)
         entry["generated"] = meta["base-part"] in manifest_base_parts
-        entry["pnr"] = PNR_ENGINE
         if entry["generated"]:
             entry.update(by_die[die_of(meta["base-part"])])
         parts_doc[part] = {key: entry[key] for key in ENTRY_KEYS

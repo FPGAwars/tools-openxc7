@@ -25,8 +25,9 @@ TAG = "2026-08-28"
 DATE = "20260828"
 BASE_PART = "xc7a35tcpg236"
 PARTS = (f"{BASE_PART}-1", f"{BASE_PART}-2L")   # one chipdb file, two parts
-CHIPDB = f"{BASE_PART}.bin"
-ASSET = f"apio-xilinx-chipdb-{BASE_PART}-{DATE}.bin.tgz"
+# xc7a35t is the xc7a50t die: schema 7 names that die's file.
+CHIPDB = "chipdb-xc7a50t.bin"
+ASSET = f"apio-xilinx-chipdb-xc7a50t-{DATE}.bin.tgz"
 INDEX = "XILINX-PARTS-INDEX.json"        # since the apio#1002 rename
 BUILD_INFO = "BUILD-INFO.json"           # the release-level one, apio#1009
 PREVIOUS_INDEX = "PARTS-INDEX.json"      # apio#990, up to the rename
@@ -93,7 +94,6 @@ def release(**overrides) -> dict:
     }
     built = {
         "generated": True,
-        "pnr": "nextpnr-xilinx",
         "chipdb": CHIPDB,
         "chipdb-size": len(BIN),
         "chipdb-sha256": hashlib.sha256(BIN).hexdigest(),
@@ -102,7 +102,7 @@ def release(**overrides) -> dict:
         "asset-sha256": hashlib.sha256(tgz).hexdigest(),
     }
     info = {
-        "schema": 6,
+        "schema": 7,
         "date": DATE,
         "release-tag": TAG,
         "chipdb-id": "fixture-id",
@@ -286,23 +286,39 @@ class AssetCheckTests(unittest.TestCase):
              "parts": {}}).encode()
         code, output = run(files)
         self.assertEqual(code, 0, output)
-        self.assertIn("schema 4, not 6", output)
+        self.assertIn("schema 4, not 7", output)
         self.assertIn("legacy release", output)
 
     def test_the_last_schema_5_index_is_legacy_not_a_failure(self):
         """The index the 2026-09-15 release published, byte for byte.
 
-        Schema 6 added pnr (apio#1070); a release published under schema 5
-        is what apio 1.6.x installs from, and it is not this gate's
-        contract any more.
+        Schema 7 is the himbaechel engine's index; a release published
+        under schema 5 is what apio 1.6.x installs from, and it is not
+        this gate's contract any more.
         """
         files = release()
         files[f"{BASE}/{INDEX}"] = PUBLISHED_SCHEMA_5.read_bytes()
         code, output = run(resum(files))
         self.assertEqual(code, 0, output)
-        self.assertIn(f"— {INDEX}: schema 5, not 6", output)
+        self.assertIn(f"— {INDEX}: schema 5, not 7", output)
         self.assertIn("legacy release", output)
         self.assertIn("asset-check: OK", output)
+
+    def test_a_schema_6_index_is_legacy_not_a_failure(self):
+        """Schema 6 is the current engine's index. This gate checks
+        schema 7, so a schema 6 release is legacy, not a failed one."""
+        files = release()
+        info = json.loads(files[f"{BASE}/{INDEX}"])
+        info["schema"] = 6
+        for entry in info["parts"].values():
+            entry["chipdb"] = f"{BASE_PART}.bin"
+            entry["asset"] = f"apio-xilinx-chipdb-{BASE_PART}-{DATE}.bin.tgz"
+        files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
+        code, output = run(files)
+        self.assertEqual(code, 0, output)
+        self.assertIn(f"— {INDEX}: schema 6, not 7", output)
+        self.assertIn("legacy release", output)
+        self.assertNotIn("❌", output)
 
     def test_full_checks_the_hashes_and_the_chipdb_inside(self):
         files = release()

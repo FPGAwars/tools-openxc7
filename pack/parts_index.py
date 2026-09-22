@@ -19,6 +19,11 @@ This module owns the format (schema, note, asset names) and validates it:
 ``pack.chipdb_assets`` writes the document, L1 checks a package against
 the bins it describes, and scripts/asset-check.sh checks a published
 release against it -- one validator, three callers.
+
+The schema number is the contract (apio#1071). A package carries one
+engine, so a reader asserts the number and already knows the binary and
+the command line. Schema 7, which this module emits, is the himbaechel
+engine. Schema 6 is the current engine. An entry has no engine field.
 """
 
 from __future__ import annotations
@@ -30,27 +35,19 @@ from pathlib import Path
 
 from .families import die_of, family_of
 
-SCHEMA = 6
+SCHEMA = 7
 
-# The place-and-route engine the chipdb files of this package are built
-# for: what every entry's pnr says. It names the ENGINE, not the
-# executable -- both engines install as nextpnr-xilinx (apio#1070) -- and
-# it changes when the package moves to another engine, as it did here:
-# the himbaechel xilinx uarch of openXC7/nextpnr, with one chipdb per die.
-# Schema 6 added it (apio#1070); a schema 5 index is nextpnr-xilinx by
-# definition.
+# Schema 6 (and 5 before it) is the current engine: one chipdb file per
+# base part, command line ``nextpnr-xilinx --chipdb <file> --xdc``.
+# Schema 7, which this module emits, is the himbaechel engine installed
+# as the same binary: one chipdb file per die, command line
+# ``nextpnr-xilinx --device <part> --chipdb <file> -o xdc= -o fasm=
+# --report``. The validator accepts only the schema this branch emits.
+PER_BASE_PART_SCHEMA = 6
+
+# Name the harness still compares against when it has not yet read the
+# schema number. Schema 7 is this engine.
 PNR_ENGINE = "nextpnr-himbaechel"
-
-# Every engine a reader may find in pnr: the nextpnr-xilinx fork's and the
-# himbaechel uarch's. apio refuses a part whose engine it does not know,
-# so a value outside this list must never be published.
-PNR_ENGINES = ("nextpnr-xilinx", "nextpnr-himbaechel")
-
-# The engine whose chipdb files are one per BASE PART, <base-part>.bin:
-# the fork's bbaexport built them that way. Every other engine's are one
-# per die, chipdb-<die>.bin -- the file names follow the entry's pnr, so a
-# schema 6 index written for either engine validates.
-PER_BASE_PART_ENGINE = "nextpnr-xilinx"
 
 # Keys an entry has only when this release built the part's chipdb. Each
 # name says WHAT it describes -- the chipdb file that must end up on disk,
@@ -59,8 +56,9 @@ GENERATED_KEYS = ("chipdb", "chipdb-size", "chipdb-sha256",
                   "asset", "asset-size", "asset-sha256")
 
 # Order of the keys inside one entry, as a reader of the JSON sees them.
-ENTRY_KEYS = ("family", "base-part", "speed", "generated",
-              "pnr") + GENERATED_KEYS
+# The same keys schema 5 published: the schema number, not a field,
+# says which engine the file was built for.
+ENTRY_KEYS = ("family", "base-part", "speed", "generated") + GENERATED_KEYS
 
 NOTE = (
     "Keyed by the full part number, <base-part>-<speed>, in Vivado's "
@@ -81,10 +79,15 @@ NOTE = (
     "prjxray database directory the part lives in "
     "($PRJXRAY_DB_DIR/<family>/<part>/part.yaml). An entry with "
     "generated=false is a part the packaged database supports that this "
-    "release did not build: supported, not available for download. pnr "
-    "names the place-and-route engine the part's chipdb is built for "
-    "(nextpnr-xilinx or nextpnr-himbaechel): the engine, not the "
-    "executable, since both engines install as nextpnr-xilinx. A "
+    "release did not build: supported, not available for download. "
+    "schema 6 is the index of the current engine: one chipdb file per "
+    "base part, command line nextpnr-xilinx --chipdb <file> --xdc. "
+    "schema 7 is the index of the himbaechel engine, installed as the "
+    "same nextpnr-xilinx binary: one chipdb file per die "
+    "(chipdb-<die>.bin; the entry names the file its part uses), "
+    "command line nextpnr-xilinx --device <part> --chipdb <file> "
+    "-o xdc= -o fasm= --report. A package carries one engine, so the "
+    "schema number is the contract. A "
     "chipdb file is only valid with the openxc7 package of the SAME "
     "release tag; chipdb-id is the identity stamp of the set."
 )
@@ -117,30 +120,54 @@ def release_tag(date: str) -> str:
     return f"{date[:4]}-{date[4:6]}-{date[6:]}"
 
 
-def _chipdb_unit(base_part: str, engine: str) -> str:
-    """What one chipdb file covers for *engine*: the die, or the base part."""
-    return base_part if engine == PER_BASE_PART_ENGINE else die_of(base_part)
+def _as_schema(schema: int | str) -> int:
+    """Schema number. An engine name is the schema of that engine.
+
+    The harness still passes the name it stored; the schema number is
+    what decides the file.
+    """
+    if schema == "nextpnr-xilinx":
+        return PER_BASE_PART_SCHEMA
+    if schema == PNR_ENGINE:
+        return SCHEMA
+    if isinstance(schema, int) and not isinstance(schema, bool):
+        return schema
+    raise ValueError(f"unknown parts-index schema {schema!r}")
 
 
-def asset_name(base_part: str, date: str, engine: str = PNR_ENGINE) -> str:
+def _chipdb_unit(base_part: str, schema: int) -> str:
+    """What one chipdb file covers under *schema*: the die, or the base part."""
+    if schema <= PER_BASE_PART_SCHEMA:
+        return base_part
+    if schema != SCHEMA:
+        raise ValueError(
+            f"schema {schema} has no chipdb file names "
+            f"(this index emits schema {SCHEMA})")
+    return die_of(base_part)
+
+
+def asset_name(base_part: str, date: str, schema: int | str = SCHEMA) -> str:
     """Release asset carrying a base part's chipdb, for a given date.
 
-    One per die (every base part of a die names the same asset), or one
-    per base part for the nextpnr-xilinx engine.
+    One per die under schema 7 (every base part of a die names the same
+    asset), or one per base part under schema 6.
     """
-    return (f"apio-xilinx-chipdb-{_chipdb_unit(base_part, engine)}-"
+    number = _as_schema(schema)
+    return (f"apio-xilinx-chipdb-{_chipdb_unit(base_part, number)}-"
             f"{date}.bin.tgz")
 
 
-def chipdb_name(base_part: str, engine: str = PNR_ENGINE) -> str:
+def chipdb_name(base_part: str, schema: int | str = SCHEMA) -> str:
     """Chipdb file a base part needs: what apio leaves in chipdb/.
 
-    The file of its die, chipdb-xc7a50t.bin for an xc7a35tcsg324; for the
-    nextpnr-xilinx engine, the base part's own, xc7a35tcsg324.bin.
+    Schema 7: the file of its die, chipdb-xc7a50t.bin for an
+    xc7a35tcsg324. Schema 6: the base part's own, xc7a35tcsg324.bin.
     """
-    if engine == PER_BASE_PART_ENGINE:
-        return f"{base_part}.bin"
-    return f"chipdb-{die_of(base_part)}.bin"
+    number = _as_schema(schema)
+    unit = _chipdb_unit(base_part, number)
+    if number <= PER_BASE_PART_SCHEMA:
+        return f"{unit}.bin"
+    return f"chipdb-{unit}.bin"
 
 
 def previous_index_asset_names(date: str) -> list[str]:
@@ -165,6 +192,15 @@ def _check_entry(part: str, entry: dict, date: str) -> None:
     """Check one part entry on its own."""
     if not isinstance(entry, dict):
         raise ValueError(f"XILINX-PARTS-INDEX entry for {part} must be an object")
+    # The index is a contract: a key this schema does not define (the
+    # engine field the schema 6 draft carried, for one) is refused, not
+    # ignored. apio asserts the schema number and reads these keys only.
+    unknown = sorted(key for key in entry if key not in ENTRY_KEYS)
+    if unknown:
+        kind = "key" if len(unknown) == 1 else "keys"
+        raise ValueError(
+            f"XILINX-PARTS-INDEX: {part} has unknown {kind} "
+            f"{', '.join(unknown)}")
     base = entry.get("base-part")
     speed = entry.get("speed")
     if not isinstance(base, str) or not isinstance(speed, str):
@@ -177,14 +213,6 @@ def _check_entry(part: str, entry: dict, date: str) -> None:
         raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has the wrong family")
     if not isinstance(entry.get("generated"), bool):
         raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has no generated flag")
-    # Required on every entry, built or not: the engine is a property of
-    # the part in this package, and apio looks it up part by part.
-    if "pnr" not in entry:
-        raise ValueError(f"XILINX-PARTS-INDEX entry for {part} has no pnr")
-    if entry["pnr"] not in PNR_ENGINES:
-        raise ValueError(
-            f"XILINX-PARTS-INDEX: {part} pnr {entry['pnr']!r} is not one of "
-            f"{', '.join(PNR_ENGINES)}")
     if not entry["generated"]:
         # A part nobody can download must not look downloadable.
         extra = [key for key in GENERATED_KEYS if key in entry]
@@ -195,15 +223,14 @@ def _check_entry(part: str, entry: dict, date: str) -> None:
     for key in GENERATED_KEYS:
         if key not in entry:
             raise ValueError(f"XILINX-PARTS-INDEX: generated {part} has no {key}")
-    engine = entry["pnr"]
-    if entry["chipdb"] != chipdb_name(base, engine):
+    if entry["chipdb"] != chipdb_name(base):
         raise ValueError(
             f"XILINX-PARTS-INDEX: {part} chipdb {entry['chipdb']!r} is not the file "
-            f"apio leaves in chipdb/ for {base} ({chipdb_name(base, engine)})")
-    if entry["asset"] != asset_name(base, date, engine):
+            f"apio leaves in chipdb/ for {base} ({chipdb_name(base)})")
+    if entry["asset"] != asset_name(base, date):
         raise ValueError(
             f"XILINX-PARTS-INDEX: {part} asset {entry['asset']!r} is not the "
-            f"name apio resolves for {date} ({asset_name(base, date, engine)})")
+            f"name apio resolves for {date} ({asset_name(base, date)})")
     for key in ("chipdb-size", "asset-size"):
         if not isinstance(entry[key], int) or entry[key] <= 0:
             raise ValueError(f"XILINX-PARTS-INDEX: {part} has an invalid {key}")
@@ -253,26 +280,16 @@ def validate_document(info: dict, expect_tag: str | None = None) -> dict:
             generated[part] = entry
 
     # The parts that name one chipdb file -- every part of a die -- must
-    # promise the same bytes and the same engine. Divergence here would
-    # have a loader fetch one file and check it against another's hash,
-    # or run it with an engine it was not built for.
+    # promise the same bytes. Divergence here would have a loader fetch
+    # one file and check it against another's hash.
     by_file: dict = {}
     for part, entry in generated.items():
-        promise = tuple(entry[key] for key in ("pnr",) + GENERATED_KEYS)
+        promise = tuple(entry[key] for key in GENERATED_KEYS)
         first = by_file.setdefault(entry["chipdb"], (part, promise))
         if first[1] != promise:
             raise ValueError(
                 f"XILINX-PARTS-INDEX: {part} and {first[0]} share chipdb "
                 f"file {entry['chipdb']} but describe different files")
-    # The speed grades of a base part are one device in one package: one
-    # engine, built or not.
-    engines: dict = {}
-    for part, entry in parts.items():
-        first = engines.setdefault(entry["base-part"], (part, entry["pnr"]))
-        if first[1] != entry["pnr"]:
-            raise ValueError(
-                f"XILINX-PARTS-INDEX: {part} and {first[0]} share base part "
-                f"{entry['base-part']} but name different engines")
 
     chipdb_files = {entry["chipdb"] for entry in generated.values()}
     base_parts = {entry["base-part"] for entry in parts.values()}
@@ -318,38 +335,61 @@ def validate_package_info(info_path: Path, chipdb: Path) -> dict:
                                        "chipdb-count", "base-part-count")}
 
 
-def package_engine(info: dict | None) -> tuple:
-    """(engine, {base part: chipdb file}) of a package, from its index.
+def _described_files(info: dict) -> dict:
+    """{base part: chipdb file} for the parts the document says are built."""
+    parts = info.get("parts") or {}
+    files = {}
+    if isinstance(parts, dict):
+        for entry in parts.values():
+            if (isinstance(entry, dict) and entry.get("generated")
+                    and "base-part" in entry and "chipdb" in entry):
+                files[entry["base-part"]] = entry["chipdb"]
+    return files
 
-    A package carries ONE engine, and schema 6 names it on every part: two
-    in one document are refused rather than guessed at. An older document
-    predates the field and is nextpnr-xilinx by definition; a package with
-    no document at all (a local pack without OPENXC7_PARTS_INDEX) is taken
-    to carry the engine this repository builds, PNR_ENGINE. The files are
-    the ones the document names for its built parts, read the way apio
-    reads them.
+
+def package_schema(info: dict | None) -> tuple:
+    """(schema, {base part: chipdb file}) of a package, from its index.
+
+    No document: the schema this repository emits. Schema 5 and 6 are the
+    current engine; schema 7 is the himbaechel engine. Any other number
+    is refused rather than guessed at. The files are the ones the
+    document names for its built parts, read the way apio reads them.
     """
     if info is None:
-        return PNR_ENGINE, {}
-    parts = info.get("parts", {})
-    if info.get("schema", 0) < 6:
-        engines = {PER_BASE_PART_ENGINE}
-    else:
-        engines = {entry.get("pnr") for entry in parts.values()}
-    if len(engines) != 1:
-        raise ValueError(f"XILINX-PARTS-INDEX names {len(engines)} engines "
-                         f"({sorted(map(str, engines))}); a package carries one")
-    files = {entry["base-part"]: entry["chipdb"]
-             for entry in parts.values() if entry.get("generated")}
-    return engines.pop(), files
+        return SCHEMA, {}
+    schema = info.get("schema")
+    if schema not in (5, 6, SCHEMA):
+        raise ValueError(
+            f"XILINX-PARTS-INDEX schema {schema!r} is not one of 5, 6, {SCHEMA}")
+    return schema, _described_files(info)
+
+
+def read_package_schema(package: Path) -> tuple:
+    """package_schema() of the package tree at *package*."""
+    index = Path(package) / PACKAGE_FILE
+    if not index.is_file():
+        return package_schema(None)
+    return package_schema(json.loads(index.read_text(encoding="utf-8")))
+
+
+def package_engine(info: dict | None) -> tuple:
+    """(engine name, files) for a caller that has not moved to the number.
+
+    Schema 6 and 5 are the current engine; schema 7 is the himbaechel
+    one. The name is not in the document.
+    """
+    schema, files = package_schema(info)
+    if schema <= PER_BASE_PART_SCHEMA:
+        return "nextpnr-xilinx", files
+    return PNR_ENGINE, files
 
 
 def read_package_engine(package: Path) -> tuple:
     """package_engine() of the package tree at *package*."""
-    index = Path(package) / PACKAGE_FILE
-    if not index.is_file():
-        return package_engine(None)
-    return package_engine(json.loads(index.read_text(encoding="utf-8")))
+    schema, files = read_package_schema(package)
+    if schema <= PER_BASE_PART_SCHEMA:
+        return "nextpnr-xilinx", files
+    return PNR_ENGINE, files
 
 
 def main() -> None:
