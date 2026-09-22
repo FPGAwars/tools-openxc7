@@ -3,7 +3,9 @@
 # document produced once by chipdb.yml, then validates the assembled tarball
 # under Wine against the chipdb-bins artifact of that same job -- injected
 # into the extracted tarball the way apio's loader leaves it. The package
-# itself carries no chipdb (apio#947). See nix/windows/.
+# itself carries no chipdb (apio#947). The .exe is the himbaechel xilinx
+# uarch without an embedded Python: `apio report` reads its --report JSON,
+# the same on every platform. See nix/windows/.
 name: windows-package
 
 on:
@@ -51,8 +53,8 @@ jobs:
           name: chipdb-bins
           path: chipdb-bins
 
-      # the index alone: the per-FPGA release assets next to it in
-      # chipdb-assets are ~2 GB this job has no use for
+      # the index alone: the per-die release assets next to it in
+      # chipdb-assets are ~40 MB this job has no use for
       - name: Download the XILINX-PARTS-INDEX document
         uses: actions/download-artifact@v8
         with:
@@ -66,12 +68,19 @@ jobs:
           test ! -e result-win-tools/chipdb
           test -f result-win-tools/bin/nextpnr-xilinx.exe
           test -f result-win-tools/bin/xc7frames2bit.exe
-          test -f result-win-tools/bin/libpython3.11.dll
-          test -f result-win-tools/lib/python3.11/os.py
+          # the mingw runtime sits next to the .exe (no rpath on Windows)
+          for dll in libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll libmcfgthread-1.dll; do
+            test -f "result-win-tools/bin/$dll" || { echo "::error::tools tree lacks bin/$dll"; exit 1; }
+          done
+          # built with BUILD_PYTHON=OFF: no embedded interpreter, no stdlib
+          # for it, and none of the python helpers the old engine installed
+          test ! -e result-win-tools/bin/libpython3.11.dll
+          test ! -e result-win-tools/lib/python3.11
+          test ! -e result-win-tools/share/nextpnr/python
           test -f result-win-tools/lib/python3.12/site-packages/fasm/__init__.py
           test -f result-win-tools/share/nextpnr/external/prjxray-db/artix7/settings.sh
           test -f result-win-tools/bin/xc7pll.cmd
-          echo "tools tree shape OK; chipdb absent"
+          echo "tools tree shape OK; chipdb and embedded python absent"
 
       - name: Assemble a writable package tree (placeholder + XILINX-PARTS-INDEX)
         run: |
@@ -84,18 +93,19 @@ jobs:
           test -f package-win/chipdb/README.txt
 
           # The bins are not packaged, but the artifact must still be the
-          # right one: exactly the manifest parts, with the identity the
+          # right one: one chipdb-<die>.bin per die of the manifest (the
+          # packer's rule, pack.families.chipdb_dies), with the identity the
           # caller declared. L1 and L2 validate the package against them.
-          jq -r 'to_entries[] | .value[]' chipdb-parts.json > /tmp/chipdb-parts.txt
-          test -s /tmp/chipdb-parts.txt
-          while read -r p; do
-            test -f "chipdb-bins/$p.bin" || { echo "::error::chipdb artifact missing $p.bin"; exit 1; }
-          done < /tmp/chipdb-parts.txt
+          python3 -c 'from pack.families import chipdb_dies; from pack.chipdb import chipdb_file; print("\n".join(chipdb_file(die) for _, die in chipdb_dies()))' > /tmp/chipdb-files.txt
+          test -s /tmp/chipdb-files.txt
+          while read -r f; do
+            test -f "chipdb-bins/$f" || { echo "::error::chipdb artifact missing $f"; exit 1; }
+          done < /tmp/chipdb-files.txt
           for f in chipdb-bins/*.bin; do
-            grep -Fxq "$(basename "$f" .bin)" /tmp/chipdb-parts.txt \
+            grep -Fxq "$(basename "$f")" /tmp/chipdb-files.txt \
               || { echo "::error::unexpected chipdb artifact member: $f"; exit 1; }
           done
-          EXPECTED=$(wc -l < /tmp/chipdb-parts.txt)
+          EXPECTED=$(wc -l < /tmp/chipdb-files.txt)
           ACTUAL=$(find chipdb-bins -maxdepth 1 -type f -name '*.bin' | wc -l)
           [ "$ACTUAL" -eq "$EXPECTED" ] || { echo "::error::chipdb artifact has $ACTUAL bins, expected $EXPECTED"; exit 1; }
           test -s chipdb-bins/chipdb-id.txt
@@ -190,21 +200,26 @@ jobs:
             DB=$PKG/share/nextpnr/external/prjxray-db/artix7
             mkdir -p run && cd run
             yosys -q -p "synth_xilinx -arch xc7 -top ledon; write_json ledon.json" ../example/ledon.v
-            # report script exercising the embedded python of nextpnr (apio passes this
-            # via --post-route; proves apio report works on Windows).
-            printf "%s\n" "import json, os" "from pathlib import Path" \
-              "rep = {\"utilization\": {}}" \
-              "for b in ctx.getBels():" \
-              "    t = ctx.getBelType(b); rep[\"utilization\"][t] = rep[\"utilization\"].get(t, 0) + 1" \
-              "Path(os.environ[\"ENV_BUILD_PATH\"], \"hardware.pnr\").write_text(json.dumps(rep))" \
-              "print(\"POST_ROUTE_OK types=\", len(rep[\"utilization\"]))" > report.py
-            export ENV_BUILD_PATH="$PWD"
-            wine64 ../$PKG/bin/nextpnr-xilinx.exe --chipdb ../chipdb-bins/xc7a35tcpg236.bin \
-              --xdc ../config/basys3.xdc --json ledon.json --fasm ledon.fasm \
-              --post-route report.py --router router2
-            test -f hardware.pnr \
-              && echo "✅ parity: embedded python ran --post-route -> apio report works"
-            grep -v "^\s*#" ledon.fasm | sed "/^\s*$/d" | sort > ledon.fasm.canon
+            # The command line apio runs for a schema 7 package: the part in
+            # --device, the chipdb of its die, the XDC and the FASM as -o
+            # options, and --report, whose JSON is what apio report reads.
+            # stdin from /dev/null and stdout through a pipe: wine wants
+            # valid handles, not a detached terminal.
+            wine64 ../$PKG/bin/nextpnr-xilinx.exe --device xc7a35tcpg236-1 \
+              --chipdb ../chipdb-bins/chipdb-xc7a50t.bin \
+              -o xdc=../config/basys3.xdc --json ledon.json \
+              -o fasm=ledon.fasm --report ledon.report.json </dev/null 2>&1 | cat
+            python3 - ledon.report.json <<"PYEOF"
+          import json, sys
+          report = json.load(open(sys.argv[1]))
+          missing = [key for key in ("fmax", "utilization") if key not in report]
+          if missing or not report["utilization"]:
+              raise SystemExit("--report lacks " + str(missing or ["a non-empty utilization"]))
+          print("--report OK:", len(report["utilization"]), "bel types, fmax", report["fmax"])
+          PYEOF
+            echo "✅ parity: --report carries fmax and utilization -> apio report works"
+            # nextpnr.exe writes CRLF: drop the CR like e2e/run-parts.sh does
+            grep -v "^\s*#" ledon.fasm | sed "/^\s*$/d" | tr -d "\r" | sort > ledon.fasm.canon
             # fasm2frames exactly like apio on real Windows: the WINDOWS
             # python + a shell redirect (catches POSIX-isms like /dev/stdout)
             WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)
