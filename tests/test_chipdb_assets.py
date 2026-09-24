@@ -1,4 +1,4 @@
-"""Tests for per-FPGA chipdb assets, the cache and the database inventory."""
+"""Tests for per-die chipdb assets, the cache and the database inventory."""
 
 import json
 import tarfile

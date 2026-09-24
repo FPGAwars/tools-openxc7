@@ -137,7 +137,7 @@ def _pnr_command(spec, pkg, part: str, xdc: Path, netlist: Path, fasm: Path,
     """The place-and-route command line of the package's schema.
 
     Both write the metrics with --report, which is what apio reads (since
-    apio#1048; the current engine's --post-route hook called
+    apio#1048; the current engine's report hook script called
     ctx.reportClockFmaxJson(), a python binding the himbaechel uarch does
     not have).
     """

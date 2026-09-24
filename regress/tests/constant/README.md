@@ -17,20 +17,22 @@ assign both pads) stay valid. `led` remains driven by the constant.
 ## Why it exists
 
 This is the reproducer of the most valuable bug this project has found.
-`bbaexport` built the global VCC/GND node out of column `x=0` wires only,
-while the pseudo-driver bel that feeds it can be placed in any tile. A driver
-placed outside column 0 could therefore only reach its own row, and
+The chipdb exporter of the previous engine (nextpnr-xilinx) built the global
+VCC/GND node out of column `x=0` wires only, while the pseudo-driver bel that
+feeds it can be placed in any tile. A driver placed outside column 0 could
+therefore only reach its own row, and
 `assign led = 1'b1` failed to route on **every** part, with every seed.
 
-The fix (a nix patch to `bbaexport`, so the global node spans every tile)
-closed three open upstream issues at once. It also costs ~0.5 MB per chipdb
-`.bin`, which is why a regression here would be tempting to "optimise" away.
+The fix (the global node spans every tile) closed three open upstream issues
+at once. It also cost ~0.5 MB per chipdb `.bin` of that engine, which is why
+a regression here would be tempting to "optimise" away.
 
 ## Expected result
 
-Routes and produces a bitstream on all 11 parts. Utilisation is trivially
-small and constant: 1 LUT, 1 flip-flop. `fmax` is meaningless here (there is
-no real timing path) — it is recorded, but nothing depends on it.
+Routes and produces a bitstream on every part of the manifest. Utilisation
+is trivially small and constant: 1 LUT, 1 flip-flop. `fmax` is meaningless
+here (there is no real timing path) — it is recorded, but nothing depends on
+it.
 
 The metric worth watching is `pnr_seconds`, which scales with part size and
 is a cheap smoke signal for chipdb loading across the whole manifest.
@@ -39,8 +41,8 @@ is a cheap smoke signal for chipdb loading across the whole manifest.
 
 - **Routing fails on some parts but not others** — the classic shape of the
   original bug: the global node does not span the fabric. Suspect any change
-  to `bbaexport`, to the chipdb generation, or a version bump that dropped the
-  patch.
+  to the chipdb generator (`himbaechel/uarch/xilinx/gen/xilinx_gen.py` in the
+  engine's source tree) or to how the uarch builds its constant network.
 - **Routing fails everywhere** — more likely a general breakage; check the
   other tests before blaming the constant network.
 - **`fasm2frames` rejects a feature** — the constant path emits very few fasm

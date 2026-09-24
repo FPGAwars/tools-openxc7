@@ -67,9 +67,10 @@ family_of() {
 run_tool() {  # run_tool <exe-basename> <args...>
   local tool="$1"; shift
   if [ "$MODE" = wine ]; then
-    # nextpnr's embedded python dies at init_sys_streams (WinError 6) under
-    # wine when stdout is a redirected FILE; a pipe works, and stdin must be
-    # a valid handle too (nohup/ssh detach) -> pipe through cat, /dev/null in
+    # The previous engine's exe embedded a python that died at
+    # init_sys_streams (WinError 6) under wine when stdout was a redirected
+    # FILE; the pipe costs nothing, so it stays, and stdin must be a valid
+    # handle (nohup/ssh detach) -> pipe through cat, /dev/null in
     wine64 "$PKG/bin/$tool.exe" "$@" </dev/null 2>&1 | cat
   elif [ -x "$PKG/bin/$tool" ]; then
     "$PKG/bin/$tool" "$@"

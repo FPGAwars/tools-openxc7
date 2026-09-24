@@ -1,8 +1,8 @@
 // Wide multiplexer: F7/F8 muxes and fractured LUTs sharing input pins.
 //
-// This is the shape that once produced false timing loops in the post-route
-// pin fixup and emptied the clock table, so it guards both the timing walk
-// and the fractured-LUT pin handling.
+// This is the shape that once produced false timing loops in the pin fixup
+// after routing and emptied the clock table, so it guards both the timing
+// walk and the fractured-LUT pin handling.
 module widemux (
     input  wire clk,
     output wire led

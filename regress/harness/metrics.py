@@ -31,7 +31,7 @@ _GROUPS = {"luts": ("LUT",), "ffs": ("FF",), "brams": ("RAMB",), "dsps": ("DSP",
 
 
 def worst_fmax(raw: str) -> float | None:
-    """The slowest achieved clock in nextpnr's post-route report.
+    """The slowest achieved clock in nextpnr's timing report after routing.
 
     Rather than tying this to one exact schema, collect every plausible
     achieved-frequency number and keep the worst — that is the one that

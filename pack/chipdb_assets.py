@@ -1,4 +1,4 @@
-"""Per-FPGA chipdb assets and the parts index that maps parts to them.
+"""Per-die chipdb assets and the parts index that maps parts to them.
 
 One deterministic ``.bin.tgz`` per chipdb file this release builds -- one
 per die of the manifest -- plus the document that describes every part

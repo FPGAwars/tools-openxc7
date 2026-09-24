@@ -15,8 +15,8 @@
 #   1. re-verify the release the way apio will fetch it
 #      (scripts/asset-check.sh) — a broken candidate stops HERE. By
 #      default that is `--full`: every asset is downloaded and hashed
-#      against what the release promises, ~2 GB and a couple of
-#      minutes on a runner. This is the last gate before users install
+#      against what the release promises, ~285 MB and a couple
+#      of minutes on a runner. This is the last gate before users install
 #      it, so it pays them;
 #   2. mark it stable on GitHub (idempotent if already done);
 #   3. drop the "Pre-release note" section from the release body, which
@@ -50,7 +50,7 @@ on:
         description: "Dated release tag to publish (YYYY-MM-DD)"
         required: true
       full:
-        description: "Verify the bytes of every asset, not just their sizes (~2 GB)"
+        description: "Verify the bytes of every asset, not just their sizes (~285 MB)"
         required: false
         default: true
         type: boolean

@@ -12,7 +12,7 @@ the failure this guards did not break routing: it emptied the timing report.
 
 ## Why it exists
 
-Two related defects, both in the post-route timing walk:
+Two related defects, both in the timing walk after routing:
 
 1. The pin fixup created **false timing loops** out of shared fractured-LUT
    pins. The walk hit them, aborted, and the clock table came back empty — so

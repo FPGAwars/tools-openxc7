@@ -24,6 +24,10 @@ using [Nix](https://nixos.org), and publish one Apio package tarball per Apio su
 Synthesis is **not** part of this package: it comes from `yosys`, shipped by
 [oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite).
 
+Without a chipdb inside, a package is 73 to 92 MB (the `2026-09-23` release:
+windows-amd64 73 MB, darwin-arm64 77 MB, linux-x86-64 92 MB), and the chipdb
+of one die adds 2.6 to 6.5 MB the first time a board of that die is built.
+
 ## Supported Boards and FPGAs
 
 For latest information see [Apio supported boards](https://fpgawars.github.io/apio/docs/supported-boards/) and
@@ -189,7 +193,7 @@ congestion pair, and the untouched upstream demo projects — and compare
 fmax/utilisation/router-time against per-platform baselines. The harness
 reads the engine from the package's `XILINX-PARTS-INDEX.json` and speaks its
 command line; `regress/baselines/<platform>.json` belongs to the engine this
-branch packages:
+repository packages:
 
 ```bash
 scripts/fetch-demos.sh                              # locked third-party sources

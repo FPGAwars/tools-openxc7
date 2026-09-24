@@ -14,11 +14,11 @@
 # Since the on-demand chipdb (apio#947) that is no longer only the three
 # platform tarballs. The packages ship no device database: apio reads
 # XILINX-PARTS-INDEX.json, resolves the asset for the board's part and
-# downloads it from the same release. A missing or truncated per-FPGA asset is a
+# downloads it from the same release. A missing or truncated chipdb asset is a
 # user who cannot build for that board, and the release gate must see it,
 # so this script also validates the published index and every asset it
-# declares. Several parts (the speed grades of one base part) share an
-# asset, so the assets are checked once each, not once per part. A
+# declares. Several parts share an asset (under schema 7 every part of a
+# die, one per die), so the assets are checked once each, not once per part. A
 # release whose index is not the one apio reads today -- absent under
 # every name it has been published with, or an older schema -- predates
 # this contract and is reported as legacy, not failed: it is not what
@@ -100,8 +100,8 @@ def request(url, method="GET", attempts=3):
     if token and url.startswith("https://api.github.com/"):
         req.add_header("Authorization", f"Bearer {token}")
     # A transient connection failure is not an answer about the release, and
-    # this check now makes one request per published asset -- about forty on
-    # a full-manifest release, ~2 GB with --full. Retried, with a pause; an
+    # this check now makes one request per published asset -- about fifteen
+    # on a full-manifest release, ~285 MB with --full. Retried, with a pause; an
     # HTTPError is NOT retried, because 404 is the answer we came for.
     for attempt in range(1, attempts + 1):
         try:
@@ -308,10 +308,10 @@ def check_build_info():
 has_build_info = check_build_info()
 
 # ---------------------------------------------------------------------------
-# The on-demand chipdb: the parts index, and every per-FPGA asset it names.
+# The on-demand chipdb: the parts index, and every chipdb asset it names.
 # ---------------------------------------------------------------------------
 def check_chipdb_asset(asset, entry, parts):
-    """Verify one per-FPGA asset against what the index promises.
+    """Verify one chipdb asset against what the index promises.
 
     *parts* are the parts served by it — the speed grades of one base
     part share a file, so one asset answers for several of them.
@@ -416,7 +416,7 @@ def fetch_index():
 def check_chipdb_release():
     """Validate the published parts index and every asset it names.
 
-    Returns how many per-FPGA assets were verified (0 on a legacy release).
+    Returns how many chipdb assets were verified (0 on a legacy release).
     """
     index_asset, raw = fetch_index()
     if index_asset is None:
@@ -478,9 +478,9 @@ def check_chipdb_release():
         line += " · sha256 == SHA256SUMS"
     print(line)
 
-    # One request per FILE, not per part: the four speed grades of a base
-    # part name the same asset, and asking for it four times would be ~200
-    # downloads (~3 GB with --full) for the 15 files a release publishes.
+    # One request per FILE, not per part: every part of a die names the
+    # same asset, and asking once per part would be 128 downloads for the
+    # 10 chipdb assets a release publishes.
     by_asset = {}
     for part, entry in sorted(generated.items()):
         by_asset.setdefault(entry["asset"], (entry, []))[1].append(part)
