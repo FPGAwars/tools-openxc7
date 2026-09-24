@@ -8,52 +8,44 @@ let
   upstream = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr-xilinx";
-    rev = "a9ceeec26770f6d1ea97c6afd8cf731a587afcf1";
-    hash = "sha256-f9t1HdpmV/Wucga19RJXdagik3qbcF0IMTVsm7qWmVw=";
+    rev = "0eae9fbb19dfb83cdd30d5048d8b0ba744180ad0";
+    hash = "sha256-2zE4sOLAvdw+sf7ZoNwDEIlqs5osrSn1Z0q/Que5cV8=";
     fetchSubmodules = true;
   };
 in
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
-  version = "0.9.5";
+  version = "0.9.7";
 
-  # Upstream release 0.9.5 (2026-09-13), 17 commits over 0.9.4, in three
-  # blocks.
+  # Upstream release 0.9.7 (2026-09-23), 19 commits over 0.9.5 (0.9.6 is
+  # the intermediate tag). Grouped by what they change in a build.
   #
-  # shenki's constant-net series (#184): routeVcc() hands back the constant
-  # sinks it could not reach, routeConstants() places a constant INIT LUT
-  # next to each of them, moves that sink wire's whole group of users onto
-  # it and re-routes, and anything still unreached is an ERROR unless
-  # --allow-const-holdouts is given. An unprogrammed IMUX reads 1 on xc7, so
-  # a RAM32M address bit tied to ground used to float high while nextpnr
-  # exited 0. Two router2 fixes come with it -- release a net's old binding
-  # before rebinding, and adopt pre-existing routing with the arc state the
-  # ripup path expects -- both needed because that series re-routes an
-  # already routed design. The new flag is a plain bool on Arch, not a
-  # ctx->settings entry, so it interns no IdString before packing (the
-  # ordering effect measured in nextpnr-xilinx#184).
+  # IOB defaults now match Vivado (gHashTag's #120): the default LVCMOS33/
+  # LVTTL drive (12) emits DRIVE.I12_I16 instead of I12_I8, and HR-bank
+  # input-only pads no longer get SLEW.SLOW. Both were found against the
+  # Vivado-built references prjxray-db ships under artix7/harness; they move
+  # two bits on almost every output pad and one on every HR input pad, so
+  # the bitstream of nearly every design changes, by design.
   #
-  # AssassinK786's #187 closes the BUFHCE pass-through: the CE pin of a
-  # BUFHCE used as a pure route-thru was left floating with ZINV_CE set
-  # unconditionally. It is now bridged explicitly to $PACKER_VCC_NET, which
-  # is what the database already defaults that IMUX to, so every pip the
-  # bridge binds is bitless and the emitted bitstream is unchanged -- the
-  # variant measured against the five Vivado golden references of #177.
+  # The database gitlink follows prjxray-db to a90f27c1 (db#18/#20/#21):
+  # the top-SING IOB33/IOI3 tiles of xc7s25, xc7s100 and xc7vx485t carry
+  # alias start_offset 0, so fasm2frames writes pads such as J6/L13/G13 of
+  # the xc7s25 into their own tile instead of the neighbouring one (a design
+  # using J6 together with L4/K4 used to fail with FasmInconsistentBits);
+  # plus the real xc7s100/xc7s75 tilegrid (db#17). artix7, zynq7 and the
+  # other spartan7 devices are untouched.
   #
-  # And the database gitlink follows prjxray-db to 1768fb35 (db#15): the
-  # REAL xc7s25 device model, in place of the copy of the xc7s50 fabric that
-  # addressed the wrong frames (clock configuration column 19 against the
-  # model's 23, a 3060-frame image against 4970), plus the MONITOR_*_FUJI2
-  # tile types it needs; complete part.json for the xc7s6/xc7s15/xc7s50-1Q/
-  # xc7s75/xc7s100 packages; and xc7s75 off its own bogus fabric copy. That
-  # model is the precondition xc7s25csga324 was waiting on to enter the
-  # manifest.
+  # Packer, placer and backend fixes: RAMB36E1 data-cascade pairs are moved
+  # onto the one bel the cascade can reach after placement (#204, a no-op
+  # without cascades); a LUT-RAM with an inverted write clock drives the
+  # half-slice CLKINV (#203); RAM64X1S packs (#196); constant-driven
+  # STARTUPE2 pins are routed again, as Vivado does (#194); a warning names
+  # two IOs constrained to the same package pin (#197); the verbose timing
+  # walk no longer asserts on unrouted nets (#200).
   #
-  # constids.inc and bbaexport are untouched and no family other than
-  # spartan7 changes in the database, so the chipdb bins of the parts we
-  # already built keep their content: only the identity stamp moves, CI
-  # regenerates them and rejects older seeds, as designed. ZERO local
-  # patches.
+  # constids.inc and bbaexport are untouched and the only db tilegrid in
+  # our manifest that changes is xc7s25's, whose chipdb does not encode
+  # start_offset. ZERO local patches.
   src = upstream;
 
   # 0.9.x detects eigen via pkg-config (upstream 77911357)
