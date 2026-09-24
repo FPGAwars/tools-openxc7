@@ -233,11 +233,15 @@ def run(spec, pkg, part: str, workdir: Path, repo: Path) -> FlowResult:
         if spec.flow == "fasm":
             return result
 
+        # xc7frames2bit writes --frm_file verbatim into the .bit header, so
+        # an absolute path made bit_bytes depend on where the suite ran
+        # (+17 B on the dev Mac). Every step runs in workdir: the bare name
+        # keeps the header, and bit_bytes, the same on every machine.
         session.step("xc7frames2bit", [
             *pkg.cmd("xc7frames2bit"),
             "--part_file", str(pkg.db / family_of(part) / device / "part.yaml"),
             "--part_name", device,
-            "--frm_file", str(frames),
+            "--frm_file", frames.name,
             "--output_file", str(bitstream),
         ], env_extra=pkg.env_extra)
         if bitstream.stat().st_size == 0:

@@ -1,7 +1,7 @@
 {
   "bram": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192182,
+      "bit_bytes": 2192116,
       "brams": 1,
       "dsps": 0,
       "env": {
@@ -16,7 +16,7 @@
   },
   "carry-const-di": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192192,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -31,7 +31,7 @@
   },
   "carry64": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192185,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -46,7 +46,7 @@
   },
   "congestion-local": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192194,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -61,7 +61,7 @@
   },
   "congestion-scatter": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192196,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -76,7 +76,7 @@
   },
   "constant": {
     "xc7a100tcsg324": {
-      "bit_bytes": 3825964,
+      "bit_bytes": 3825893,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -89,7 +89,7 @@
       "pnr_seconds": 4.05
     },
     "xc7a100tfgg484": {
-      "bit_bytes": 3825964,
+      "bit_bytes": 3825893,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -102,7 +102,7 @@
       "pnr_seconds": 3.89
     },
     "xc7a100tfgg676": {
-      "bit_bytes": 3825964,
+      "bit_bytes": 3825893,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -115,7 +115,7 @@
       "pnr_seconds": 3.93
     },
     "xc7a100tftg256": {
-      "bit_bytes": 3825964,
+      "bit_bytes": 3825893,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -128,7 +128,7 @@
       "pnr_seconds": 3.58
     },
     "xc7a200tfbg484": {
-      "bit_bytes": 9730828,
+      "bit_bytes": 9730757,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -141,7 +141,7 @@
       "pnr_seconds": 6.72
     },
     "xc7a200tfbg676": {
-      "bit_bytes": 9730828,
+      "bit_bytes": 9730757,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -154,7 +154,7 @@
       "pnr_seconds": 6.7
     },
     "xc7a200tfbv484": {
-      "bit_bytes": 9730828,
+      "bit_bytes": 9730757,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -167,7 +167,7 @@
       "pnr_seconds": 7.66
     },
     "xc7a200tfbv676": {
-      "bit_bytes": 9730828,
+      "bit_bytes": 9730757,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -180,7 +180,7 @@
       "pnr_seconds": 8.16
     },
     "xc7a200tffg1156": {
-      "bit_bytes": 9730830,
+      "bit_bytes": 9730758,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -193,7 +193,7 @@
       "pnr_seconds": 6.89
     },
     "xc7a200tffv1156": {
-      "bit_bytes": 9730830,
+      "bit_bytes": 9730758,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -206,7 +206,7 @@
       "pnr_seconds": 6.81
     },
     "xc7a200tsbg484": {
-      "bit_bytes": 9730828,
+      "bit_bytes": 9730757,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -219,7 +219,7 @@
       "pnr_seconds": 9.88
     },
     "xc7a200tsbv484": {
-      "bit_bytes": 9730828,
+      "bit_bytes": 9730757,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -232,7 +232,7 @@
       "pnr_seconds": 6.43
     },
     "xc7a35tcpg236": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -245,7 +245,7 @@
       "pnr_seconds": 2.69
     },
     "xc7a35tcsg324": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -258,7 +258,7 @@
       "pnr_seconds": 2.96
     },
     "xc7a35tcsg325": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -271,7 +271,7 @@
       "pnr_seconds": 2.7
     },
     "xc7a35tfgg484": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -284,7 +284,7 @@
       "pnr_seconds": 2.7
     },
     "xc7a35tftg256": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -297,7 +297,7 @@
       "pnr_seconds": 2.64
     },
     "xc7a50tcpg236": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -310,7 +310,7 @@
       "pnr_seconds": 2.65
     },
     "xc7a50tcsg324": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -323,7 +323,7 @@
       "pnr_seconds": 2.8
     },
     "xc7a50tcsg325": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -336,7 +336,7 @@
       "pnr_seconds": 3.16
     },
     "xc7a50tfgg484": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -349,7 +349,7 @@
       "pnr_seconds": 3.1
     },
     "xc7a50tftg256": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -362,7 +362,7 @@
       "pnr_seconds": 2.69
     },
     "xc7s25csga324": {
-      "bit_bytes": 1241978,
+      "bit_bytes": 1241908,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -375,7 +375,7 @@
       "pnr_seconds": 2.07
     },
     "xc7s50csga324": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -388,7 +388,7 @@
       "pnr_seconds": 2.89
     },
     "xc7s50fgga484": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -401,7 +401,7 @@
       "pnr_seconds": 2.91
     },
     "xc7s50ftgb196": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -414,7 +414,7 @@
       "pnr_seconds": 3.12
     },
     "xc7z010clg225": {
-      "bit_bytes": 2083914,
+      "bit_bytes": 2083844,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -427,7 +427,7 @@
       "pnr_seconds": 2.88
     },
     "xc7z010clg400": {
-      "bit_bytes": 2083914,
+      "bit_bytes": 2083844,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -440,7 +440,7 @@
       "pnr_seconds": 2.36
     },
     "xc7z020clg400": {
-      "bit_bytes": 4045738,
+      "bit_bytes": 4045668,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -453,7 +453,7 @@
       "pnr_seconds": 4.19
     },
     "xc7z020clg484": {
-      "bit_bytes": 4045738,
+      "bit_bytes": 4045668,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -466,7 +466,7 @@
       "pnr_seconds": 3.86
     },
     "xc7z030fbg676": {
-      "bit_bytes": 5980090,
+      "bit_bytes": 5980020,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -479,7 +479,7 @@
       "pnr_seconds": 4.99
     },
     "xc7z045ffg900": {
-      "bit_bytes": 13321578,
+      "bit_bytes": 13321508,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -492,7 +492,7 @@
       "pnr_seconds": 12.87
     },
     "xc7z045ffv900": {
-      "bit_bytes": 13321578,
+      "bit_bytes": 13321508,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -505,7 +505,7 @@
       "pnr_seconds": 8.18
     },
     "xc7z100ffg1156": {
-      "bit_bytes": 17416524,
+      "bit_bytes": 17416453,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -518,7 +518,7 @@
       "pnr_seconds": 8.45
     },
     "xc7z100ffg900": {
-      "bit_bytes": 17416522,
+      "bit_bytes": 17416452,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -531,7 +531,7 @@
       "pnr_seconds": 8.87
     },
     "xc7z100ffv1156": {
-      "bit_bytes": 17416524,
+      "bit_bytes": 17416453,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -544,7 +544,7 @@
       "pnr_seconds": 8.2
     },
     "xc7z100ffv900": {
-      "bit_bytes": 17416522,
+      "bit_bytes": 17416452,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -559,7 +559,7 @@
   },
   "demo-arty": {
     "xc7a35tcsg324": {
-      "bit_bytes": 2192187,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -574,7 +574,7 @@
   },
   "demo-basys3": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192189,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -589,7 +589,7 @@
   },
   "demo-zybo": {
     "xc7z010clg400": {
-      "bit_bytes": 2083915,
+      "bit_bytes": 2083844,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -604,7 +604,7 @@
   },
   "dsp48": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192183,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 1,
       "env": {
@@ -619,7 +619,7 @@
   },
   "fanout": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192184,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -634,7 +634,7 @@
   },
   "hier": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192182,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -649,7 +649,7 @@
   },
   "lutram": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192184,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -664,7 +664,7 @@
   },
   "pll": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192181,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -679,7 +679,7 @@
   },
   "sonata-blinky": {
     "xc7a50tcsg324": {
-      "bit_bytes": 2192191,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -694,7 +694,7 @@
   },
   "spartan7-blinky": {
     "xc7s50csga324": {
-      "bit_bytes": 2192193,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -709,7 +709,7 @@
   },
   "srl": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192181,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -724,7 +724,7 @@
   },
   "srl-cascade": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192189,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -739,7 +739,7 @@
   },
   "srl-cascade-deep": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192194,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -754,7 +754,7 @@
   },
   "tristate": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192186,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -769,7 +769,7 @@
   },
   "vclk": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192182,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {
@@ -784,7 +784,7 @@
   },
   "widemux": {
     "xc7a35tcpg236": {
-      "bit_bytes": 2192185,
+      "bit_bytes": 2192116,
       "brams": 0,
       "dsps": 0,
       "env": {

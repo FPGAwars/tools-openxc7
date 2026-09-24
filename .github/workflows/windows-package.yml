@@ -219,7 +219,7 @@ jobs:
           PYEOF
             echo "✅ parity: --report carries fmax and utilization -> apio report works"
             # nextpnr.exe writes CRLF: drop the CR like e2e/run-parts.sh does
-            grep -v "^\s*#" ledon.fasm | sed "/^\s*$/d" | tr -d "\r" | sort > ledon.fasm.canon
+            grep -v "^\s*#" ledon.fasm | sed "/^\s*$/d" | tr -d "\r" | LC_ALL=C sort > ledon.fasm.canon
             # fasm2frames exactly like apio on real Windows: the WINDOWS
             # python + a shell redirect (catches POSIX-isms like /dev/stdout)
             WINPY=$(ls -d /nix/store/*-python3-x86_64-w64-mingw32-* 2>/dev/null | grep -v .drv | head -1 || true)

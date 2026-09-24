@@ -97,7 +97,7 @@ for part in $PARTS; do
   family=$(family_of "$part")
   chipdb=$(awk -v p="$part" '$1 == p {print $2}' parts-chipdb.txt)
   python3 "$REPO/e2e/gen_xdc.py" "$DB" "$family" "$part" > "blinky-$part.xdc"
-  device=$(basename "$(ls -d "$DB/$family/$part"-* | sort | head -1)")
+  device=$(basename "$(ls -d "$DB/$family/$part"-* | LC_ALL=C sort | head -1)")
 
   rm -f "blinky-$part.pnr"
   if [ "$SCHEMA_NUM" -le 6 ]; then
@@ -131,10 +131,11 @@ PYEOF
     echo "FAIL $part: --report JSON without fmax/utilization"; fail=1; continue
   fi
 
-  # canonical fasm: comments/whitespace stripped, sorted
+  # canonical fasm: comments/whitespace stripped, sorted bytewise (the
+  # locale's collation orders the same lines differently on macOS)
   # nextpnr.exe writes CRLF; drop the CR so the canon file matches the
   # other platforms line for line and byte for byte.
-  grep -v '^\s*#' "blinky-$part.fasm" | sed '/^\s*$/d' | tr -d '\r' | sort > "blinky-$part.fasm.canon"
+  grep -v '^\s*#' "blinky-$part.fasm" | sed '/^\s*$/d' | tr -d '\r' | LC_ALL=C sort > "blinky-$part.fasm.canon"
 
   if [ "$MODE" = wine ]; then
     # apio on real Windows runs fasm2frames with oss-cad-suite's WINDOWS

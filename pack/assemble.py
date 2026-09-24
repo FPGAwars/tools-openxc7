@@ -155,13 +155,16 @@ def build_tarball(version: str):
 
     # -- Compress by calling tar in the shell.
     # -- COPYFILE_DISABLE=1 keeps the macOS tar from including AppleDouble
-    # -- '._*' files with the metadata/xattrs (harmless on Linux).
+    # -- '._*' files with the metadata/xattrs (harmless on Linux), and
+    # -- --no-xattrs keeps it from writing them as pax headers instead
+    # -- (LIBARCHIVE.xattr.com.apple.provenance, one per file, which GNU tar
+    # -- warns about when it reads the package). GNU tar takes it too.
     print(f"➡️  {tarball_name}")
     print("⏳ Comprimiendo...")
     # cmd = ["tar", "-czf", f"{tarball_name}",
     #        "--transform=s|^dist|openxc7|", "dist/"]
     # -- tar -czf hola.tgz -C dist/ .
-    cmd = ["tar", "-czf", f"{tarball_name}", "-C", "dist/", "."]
+    cmd = ["tar", "--no-xattrs", "-czf", f"{tarball_name}", "-C", "dist/", "."]
     subprocess.run(cmd,
                    check=True,
                    capture_output=True,
