@@ -7,8 +7,8 @@ let
   upstream = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr";
-    rev = "c8a7946f9f312d2672ae6af4e2b4dbbc41ea5ff9";
-    hash = "sha256-6dWIBUdBJH9YRUjkv+Argj4RSpkQV770Js9L7m3/lSU=";
+    rev = "e860c9c8360d8501a1b55df94e58f3dfe7bde958";
+    hash = "sha256-1Xo2T7w8FF2NacKLfDDDOxcw2K2tmLAh30hnySOrOz8=";
     # himbaechel/uarch/xilinx/meta (openXC7/nextpnr-xilinx-meta a4af910c)
     # is what the chipdb generator reads the site and wire metadata from.
     fetchSubmodules = true;
@@ -16,13 +16,17 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
-  version = "0-unstable-2026-09-22";
+  version = "1.0.0";
 
   # The himbaechel xilinx uarch of openXC7/nextpnr (apio#1070): the engine
-  # the package moves to from the nextpnr-xilinx fork. The repository has
-  # no tags, so the revision above is the version, as it always was here.
-  # main of 2026-09-22; everything since the tree measured against
-  # nextpnr-xilinx 0.9.5 (0ebc9a1f) is CI only. ZERO local patches.
+  # the package moves to from the nextpnr-xilinx fork. The revision above
+  # is the tag 1.0.0, the repository's first. Over c8a7946f, the tree
+  # measured against nextpnr-xilinx 0.9.5, it changes only the FASM writer
+  # and the hold fix: LVCMOS33/LVTTL at DRIVE 12 writes the I12_I16
+  # pattern (#31), a used BRAM tile gets the ZALMOST offset defaults (#33),
+  # hold-fix detours respect pip availability (#28) and the BUFRCLK
+  # enables are emitted (#38). The chipdb generator and the constids do
+  # not change. ZERO local patches.
   #
   # It installs as bin/nextpnr-xilinx, the name apio runs (the engine is
   # named in XILINX-PARTS-INDEX.json, not by the executable), and it
