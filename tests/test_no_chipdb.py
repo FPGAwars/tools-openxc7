@@ -1,4 +1,4 @@
-"""Tests for the on-demand placeholder that stands where the bins used to be."""
+"""Tests for the tools-only placeholder a --no-chipdb pack leaves behind."""
 
 import io
 import os
@@ -31,7 +31,10 @@ class PlaceholderTests(unittest.TestCase):
         (self.chipdb / f"{PART}.bba").write_text("truncated")
         with redirect_stdout(io.StringIO()):
             skip_chipdb()
-        self.assertIn("on-demand", (self.chipdb / PLACEHOLDER).read_text())
+        text = (self.chipdb / PLACEHOLDER).read_text()
+        self.assertIn("--no-chipdb", text)
+        self.assertIn("chipdb-<die>.bin", text)
+        self.assertNotIn("on-demand", text)
         self.assertFalse((self.chipdb / "chipdb-id.txt").exists())
         self.assertFalse((self.chipdb / f"{PART}.bba").exists())
 

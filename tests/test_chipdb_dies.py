@@ -135,10 +135,10 @@ class ChipdbFileTests(unittest.TestCase):
     def test_one_file_per_die(self):
         self.assertEqual(chipdb.chipdb_file("xc7a50t"), "chipdb-xc7a50t.bin")
 
-    def test_the_placeholder_names_the_per_die_assets(self):
+    def test_the_placeholder_says_the_bins_belong_in_a_release(self):
         self.assertIn("chipdb-<die>.bin", chipdb.PLACEHOLDER_TEXT)
-        self.assertIn("apio-xilinx-chipdb-<die>-<YYYYMMDD>.bin.tgz",
-                      chipdb.PLACEHOLDER_TEXT)
+        self.assertIn("--no-chipdb", chipdb.PLACEHOLDER_TEXT)
+        self.assertNotIn("apio-xilinx-chipdb-", chipdb.PLACEHOLDER_TEXT)
 
     def test_every_die_of_the_manifest_has_a_measured_peak(self):
         """The budget is only as good as the table: a die of the real

@@ -88,10 +88,10 @@ def write_env():
         print()
 
     # -- The index of the parts: which ones the packaged database supports,
-    # -- which of them this release built, and the chipdb file, asset, size
-    # -- and sha256 of each one. The release publishes it dated; inside
-    # -- every package its name is fixed, so apio locates it without
-    # -- deriving the release date.
+    # -- which of them this release built, and the chipdb file each built
+    # -- part uses. The files themselves travel in chipdb/. The release
+    # -- publishes the same document; inside every package its name is
+    # -- fixed, so apio locates it without deriving the release date.
     parts_index = os.environ.get("OPENXC7_PARTS_INDEX")
     if parts_index:
         shutil.copy(parts_index, dst / PACKAGE_FILE)

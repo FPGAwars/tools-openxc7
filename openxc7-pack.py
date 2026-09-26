@@ -39,12 +39,11 @@ if IS_DARWIN:
 # -- and generated once, then every platform package seeds from them.
 CHIPDB_ONLY = "--chipdb-only" in sys.argv[1:]
 
-# -- `--no-chipdb` (or OPENXC7_NO_CHIPDB=1): pack WITHOUT the device
-# -- databases. chipdb/ ships a README.txt and apio downloads the .bin its
-# -- board needs from the release assets, guided by the package's
-# -- XILINX-PARTS-INDEX.json. This is what the release packages are; the
-# -- full variant stays for local
-# -- work and for anyone wanting a self-contained tree.
+# -- `--no-chipdb` (or OPENXC7_NO_CHIPDB=1): local tools-only pack.
+# -- chipdb/ ships a README.txt and no bins. That tree is not a release
+# -- package. The release pack is the default: the bins are generated, or
+# -- seeded from OPENXC7_CHIPDB_SEED (what CI points at the chipdb job),
+# -- and travel inside the tarball next to XILINX-PARTS-INDEX.json.
 NO_CHIPDB = ("--no-chipdb" in sys.argv[1:]
              or os.environ.get("OPENXC7_NO_CHIPDB") == "1")
 if NO_CHIPDB and CHIPDB_ONLY:
@@ -76,8 +75,8 @@ if IS_DARWIN:
     macpack.relocate_dist(Path.cwd() / DIST)
 
 # --- Generation of the database
-# --- One chipdb-<die>.bin per die of chipdb-parts.json, or the placeholder
-# --- that says where apio downloads them from
+# --- One chipdb-<die>.bin per die of chipdb-parts.json (the release pack),
+# --- or the placeholder a local --no-chipdb pack leaves behind
 if NO_CHIPDB:
     skip_chipdb()
 else:

@@ -1,4 +1,4 @@
-"""Chipdb generation, and the placeholder that replaces it in a package.
+"""Chipdb generation, and the placeholder a tools-only pack leaves behind.
 
 One dist/chipdb/chipdb-<die>.bin is generated per die of the manifest
 chipdb-parts.json (single source of parts, shared with
@@ -6,12 +6,10 @@ nix/windows/default.nix): every part of a die routes on that die's chipdb,
 so xc7a35t and xc7a50t parts share one file. The set is guarded by the
 identity stamp so that bins from another toolchain are never reused.
 
-Released packages do not carry those bins any more: apio downloads the
-one the board needs (XILINX-PARTS-INDEX.json says which file a part needs
-and which asset carries it) and leaves it in chipdb/, next to the
-README.txt this module writes. Run as a script to write that placeholder
-into a directory -- the Windows package is assembled by CI, not by this
-packer, and must not grow its own copy of the text:
+A release package carries those bins in chipdb/, next to chipdb-id.txt.
+``--no-chipdb`` is a local tools-only pack: chipdb/ gets the README this
+module writes and no bins, and that tree is not a release package. Run
+as a script to write that placeholder into a directory:
 
     python3 -m pack.chipdb <package>/chipdb
 """
@@ -36,28 +34,23 @@ from .families import CHIPDB_PARTS_FILE, chipdb_dies, chipdb_parts, die_of
 # -- inside the package which toolchain the chipdb was generated with.
 CHIPDB_STAMP = "chipdb-id.txt"
 
-# -- The placeholder that occupies chipdb/ in a package without bins. It is
-# -- the first thing a user looking for a missing .bin will read, so it says
-# -- where the files come from and where the list of them is.
+# -- The placeholder that occupies chipdb/ in a local --no-chipdb pack. It
+# -- is the first thing a user looking for a missing .bin will read, so it
+# -- says this tree is not a release package and where the files belong.
 PLACEHOLDER = "README.txt"
 PLACEHOLDER_TEXT = """\
-This directory is the placeholder for the on-demand chipdb files.
+This directory is empty because this tree was packed with --no-chipdb.
 
-This package does not ship the device databases. Apio downloads the one
-your board needs and leaves it here.
+That is a local tools-only pack, not a release package. A release package
+carries the device databases here: one file per die, chipdb-<die>.bin,
+named by XILINX-PARTS-INDEX.json at the root of the package (the chipdb
+field of each part this release built). Apio does not download them.
+Parts the packaged database supports that this release did not build are
+listed there with generated=false: supported, not built.
 
-XILINX-PARTS-INDEX.json, at the root of this package, lists every part the
-packaged database supports, which of them this release built, the chipdb
-file each one needs and what it must be on disk (chipdb, chipdb-size,
-chipdb-sha256), and the asset that carries it (asset, asset-size,
-asset-sha256). There is one chipdb file per die, chipdb-<die>.bin, shared
-by every part of that die. The assets are published in the GitHub release
-named by that file's release-tag, as
-apio-xilinx-chipdb-<die>-<YYYYMMDD>.bin.tgz (a tar.gz with the chipdb
-file at its root).
-
-A chipdb file is only valid with the package of the SAME release tag: it
-is generated for the exact nextpnr this package carries, and nextpnr
+chipdb-id.txt, next to those files, is the identity stamp of the set. A
+chipdb file is only valid with the package of the SAME release tag: it
+is generated for the exact nextpnr that package carries, and nextpnr
 cannot always tell a foreign one apart.
 """
 
@@ -90,7 +83,7 @@ def chipdb_file(die: str) -> str:
 
 
 def write_placeholder(directory: Path) -> Path:
-    """Create <directory>/README.txt, the on-demand chipdb placeholder."""
+    """Create <directory>/README.txt, the tools-only chipdb placeholder."""
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     target = directory / PLACEHOLDER
@@ -99,7 +92,7 @@ def write_placeholder(directory: Path) -> Path:
 
 
 def skip_chipdb():
-    """Leave dist/chipdb as the on-demand placeholder instead of bins.
+    """Leave dist/chipdb as the tools-only placeholder instead of bins.
 
     Nothing is deleted: the .bin are the expensive part of a build and
     dist/chipdb deliberately survives across runs (see
@@ -114,7 +107,7 @@ def skip_chipdb():
         raise SystemExit(
             f"❌ --no-chipdb: dist/chipdb still holds {len(leftovers)} .bin "
             "from a previous run.\n"
-            "   A package without chipdb ships only the placeholder "
+            "   A tools-only pack ships only the placeholder "
             f"{PLACEHOLDER}, and these\n"
             "   are too expensive to delete here. Move them out and re-run:\n"
             "       mkdir -p chipdb-bins\n"
@@ -130,10 +123,10 @@ def skip_chipdb():
     target = write_placeholder(chipdb_dir)
     print()
     print(f"{ansi.GREEN}──────────────────────────────────")
-    print("  CHIPDB BAJO DEMANDA (sin bins)")
+    print("  CHIPDB AUSENTE (pack local, sin bins)")
     print(f"{ansi.GREEN}──────────────────────────────────")
     print(ansi.DEFAULT, end='', flush=True)
-    print(f"🔵 ✅chipdb/{target.name} (apio descarga aqui los .bin)")
+    print(f"🔵 ✅chipdb/{target.name} (no es un paquete de release)")
     print()
 
 
@@ -476,7 +469,7 @@ def build_chipdb():
 
 
 def main() -> None:
-    """Write the on-demand placeholder into the directory given as argv[1]."""
+    """Write the tools-only placeholder into the directory given as argv[1]."""
     if len(sys.argv) != 2:
         raise SystemExit("usage: python3 -m pack.chipdb <chipdb-dir>")
     target = write_placeholder(Path(sys.argv[1]))
