@@ -11,24 +11,20 @@
 # was never published). This script chases exactly that: it recomputes the
 # URL by apio's rule and checks what is actually there.
 #
-# Since the on-demand chipdb (apio#947) that is no longer only the three
-# platform tarballs. The packages ship no device database: apio reads
-# XILINX-PARTS-INDEX.json, resolves the asset for the board's part and
-# downloads it from the same release. A missing or truncated chipdb asset is a
-# user who cannot build for that board, and the release gate must see it,
-# so this script also validates the published index and every asset it
-# declares. Several parts share an asset (under schema 7 every part of a
-# die, one per die), so the assets are checked once each, not once per part. A
-# release whose index is not the one apio reads today -- absent under
+# Schema 8 (apio#1070) publishes six assets: the three platform tarballs,
+# SHA256SUMS, XILINX-PARTS-INDEX.json and BUILD-INFO.json. The chipdb files
+# travel inside each tarball (chipdb/chipdb-<die>.bin), and the index names
+# the file each part uses. There is no apio-xilinx-chipdb-*.bin.tgz asset.
+# --full downloads each platform package and checks that the bins inside
+# it are exactly the files the index names, with the index's chipdb-id.
+# A release whose index is not the one apio reads today -- absent under
 # every name it has been published with, or an older schema -- predates
 # this contract and is reported as legacy, not failed: it is not what
 # apio installs from.
 #
 # SHA256SUMS covers every asset since apio#990 (it used to list only the
-# three packages). Where it and the index both describe an asset, the two
-# documents are required to agree, which is the whole point of writing
-# them from the same bytes in the same job: the hash comparison itself
-# happens once, against the index, and never twice over the same bytes.
+# three packages). A schema 8 release's manifest lists the six assets
+# above and nothing else.
 #
 # BUILD-INFO.json is published alongside them since apio#1009: the identity
 # of this build -- toolchain revisions, oss-cad-suite tag, chipdb identity,
@@ -38,13 +34,12 @@
 #
 # Usage:
 #   scripts/asset-check.sh <tag>                     # existence + SHA256SUMS
-#                                                    # + parts index and assets
+#                                                    # + parts index
 #   scripts/asset-check.sh <tag> --expect-dir DIR    # local tarballs must match
 #                                                    # the published SHA256SUMS
-#   scripts/asset-check.sh <tag> --full              # download + hash for real
-#                                                    # (tarballs without
-#                                                    # SHA256SUMS, and every
-#                                                    # chipdb asset: ~2 GB)
+#   scripts/asset-check.sh <tag> --full              # download each platform
+#                                                    # package and check the
+#                                                    # chipdb files inside it
 #   scripts/asset-check.sh <tag> --platform linux-x86-64   # repeatable filter
 #
 # Env: ASSET_CHECK_REPO to point at a fork (default FPGAwars/tools-openxc7);
@@ -68,9 +63,8 @@ done
 [ ${#PLATFORMS[@]} -gt 0 ] || PLATFORMS=(linux-x86-64 darwin-arm64 windows-amd64)
 
 python3 - "$REPO_ROOT" "$TAG" "$EXPECT_DIR" "$FULL" "${PLATFORMS[@]}" <<'PYEOF'
-import hashlib, json, os, sys, tarfile, tempfile, time
+import hashlib, io, json, os, sys, tarfile, time
 import urllib.error, urllib.request
-from pathlib import Path
 
 repo_root, tag, expect_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 full = sys.argv[4] == "1"
@@ -79,7 +73,7 @@ platforms = sys.argv[5:]
 # The index is validated by the SAME code that writes it (one validator,
 # used by L1 on a package and here on a release).
 sys.path.insert(0, repo_root)
-from pack.parts_index import (INDEX_ASSET, SCHEMA,  # noqa: E402
+from pack.parts_index import (INDEX_ASSET, SCHEMA, STAMP_FILE,  # noqa: E402
                               previous_index_asset_names, validate_document)
 
 repo = os.environ.get("ASSET_CHECK_REPO", "FPGAwars/tools-openxc7")
@@ -100,8 +94,8 @@ def request(url, method="GET", attempts=3):
     if token and url.startswith("https://api.github.com/"):
         req.add_header("Authorization", f"Bearer {token}")
     # A transient connection failure is not an answer about the release, and
-    # this check now makes one request per published asset -- about fifteen
-    # on a full-manifest release, ~285 MB with --full. Retried, with a pause; an
+    # this check makes one request per published asset -- six on a schema 8
+    # release, the three platform packages with --full. Retried, with a pause; an
     # HTTPError is NOT retried, because 404 is the answer we came for.
     for attempt in range(1, attempts + 1):
         try:
@@ -147,13 +141,26 @@ except urllib.error.HTTPError:
     print("SHA256SUMS: not published on this release (pre-build-pre-release era)")
 
 # Does this manifest cover the whole release or only the packages? Until
-# apio#990 it listed the three tarballs alone, and requiring the chipdb
-# assets of such a release would fail one that was complete when it was
-# made. Anything that is not a platform package marks the wider manifest.
+# apio#990 it listed the three tarballs alone. Anything that is not a
+# platform package marks the wider manifest.
 covers_everything = any(not name.startswith("apio-openxc7-") for name in sums)
 if sums and not covers_everything:
     print("   the platform packages only: published before SHA256SUMS "
-          "covered the chipdb assets")
+          "covered the rest of the release")
+
+# Platform-package bytes kept when --full downloaded them, so the chipdb
+# check below does not fetch each tarball a second time.
+package_blobs = {}
+
+
+def read_hashed(source):
+    """(sha256 hex, bytes) of a response or an open binary file."""
+    digest = hashlib.sha256()
+    chunks = []
+    for chunk in iter(lambda: source.read(1 << 20), b""):
+        digest.update(chunk)
+        chunks.append(chunk)
+    return digest.hexdigest(), b"".join(chunks)
 
 # Every name this run looked at, to catch a manifest line describing an
 # asset the release does not have (checked at the end).
@@ -205,11 +212,12 @@ for platform in platforms:
             line += f" · local sha256 {local_sha[:12]}… (no SHA256SUMS to compare; use --full)"
     elif full:
         with request(url) as resp:
-            remote_sha = sha256_stream(resp)
+            remote_sha, blob = read_hashed(resp)
         if published is not None and remote_sha != published:
             print(f"❌ {asset}: downloaded sha256 {remote_sha[:12]}… != SHA256SUMS {published[:12]}…")
             failed.append(asset)
             continue
+        package_blobs[asset] = blob
         line += f" · sha256(downloaded) {remote_sha[:12]}…" + (" == SHA256SUMS" if published else "")
 
     print(line)
@@ -308,89 +316,50 @@ def check_build_info():
 has_build_info = check_build_info()
 
 # ---------------------------------------------------------------------------
-# The on-demand chipdb: the parts index, and every chipdb asset it names.
+# The parts index. The chipdb files it names travel inside each platform
+# package; schema 8 publishes no separate chipdb asset.
 # ---------------------------------------------------------------------------
-def check_chipdb_asset(asset, entry, parts):
-    """Verify one chipdb asset against what the index promises.
+def chipdb_members(blob):
+    """(set of chipdb/*.bin names, chipdb-id.txt text) inside a package."""
+    bins = set()
+    stamp = ""
+    with tarfile.open(fileobj=io.BytesIO(blob), mode="r:*") as archive:
+        for member in archive.getmembers():
+            if not member.isfile():
+                continue
+            name = member.name[2:] if member.name.startswith("./") else member.name
+            if name == f"chipdb/{STAMP_FILE}":
+                extracted = archive.extractfile(member)
+                stamp = extracted.read().decode().strip() if extracted else ""
+            elif (name.startswith("chipdb/") and name.endswith(".bin")
+                    and name.count("/") == 1):
+                bins.add(name.split("/", 1)[1])
+    return bins, stamp
 
-    *parts* are the parts served by it — the speed grades of one base
-    part share a file, so one asset answers for several of them.
-    """
-    chipdb = entry["chipdb"]
-    accounted.add(asset)
-    url = f"{base}/{asset}"
-    status, size = head(url)
-    if status != 200:
-        print(f"❌ {asset}: HTTP {status} — named by the index, not in the release")
-        print(f"   apio WILL 404 for {', '.join(parts)}: no board using that")
-        print("   FPGA can build.")
+
+def check_package_chipdb(asset, blob, info, described):
+    """--full: the bins inside one platform package match the index."""
+    try:
+        bins, stamp = chipdb_members(blob)
+    except tarfile.TarError as error:
+        print(f"❌ {asset}: not a tarball ({error})")
         failed.append(asset)
         return
-    if size != entry["asset-size"]:
-        print(f"❌ {asset}: {size} bytes published, index says {entry['asset-size']}")
-        print("   the uploaded asset is NOT the one the index describes")
+    missing = sorted(described - bins)
+    extra = sorted(bins - described)
+    if missing or extra:
+        print(f"❌ {asset}: chipdb/ does not match the index: "
+              f"missing {missing or 'none'}, unexpected {extra or 'none'}")
         failed.append(asset)
         return
-    line = (f"✅ {asset}: HTTP 200 ({size / 1e6:.0f} MB == asset-size)"
-            f" · {len(parts)} parts")
-
-    # The two documents of the release describe this asset; they are
-    # written in the same job from the same bytes, so they must agree.
-    # Comparing them costs no download, and it is the whole verification
-    # SHA256SUMS adds here: the bytes themselves are hashed once, below,
-    # against the index.
-    if covers_everything:
-        published = sums.get(asset)
-        if published is None:
-            print(f"❌ {asset}: named by the index, MISSING from SHA256SUMS")
-            failed.append(asset)
-            return
-        if published != entry["asset-sha256"]:
-            print(f"❌ {asset}: SHA256SUMS says {published[:12]}…, the index "
-                  f"says {entry['asset-sha256'][:12]}…")
-            print("   the release's two documents describe different bytes")
-            failed.append(asset)
-            return
-        line += " · sha256 == SHA256SUMS"
-
-    if full:
-        with tempfile.TemporaryDirectory() as scratch:
-            blob = Path(scratch) / asset
-            digest = hashlib.sha256()
-            with request(url) as resp, blob.open("wb") as out:
-                for chunk in iter(lambda: resp.read(1 << 20), b""):
-                    digest.update(chunk)
-                    out.write(chunk)
-            if digest.hexdigest() != entry["asset-sha256"]:
-                print(f"❌ {asset}: downloaded sha256 {digest.hexdigest()[:12]}… "
-                      f"!= index asset-sha256 {entry['asset-sha256'][:12]}…")
-                failed.append(asset)
-                return
-            # And what the loader ends up with on disk: the chipdb inside.
-            try:
-                with tarfile.open(blob) as archive:
-                    member = archive.getmember(chipdb)
-                    if member.size != entry["chipdb-size"]:
-                        print(f"❌ {asset}: {chipdb} is {member.size} bytes, "
-                              f"index says {entry['chipdb-size']}")
-                        failed.append(asset)
-                        return
-                    inner = hashlib.sha256()
-                    with archive.extractfile(member) as source:
-                        for chunk in iter(lambda: source.read(1 << 20), b""):
-                            inner.update(chunk)
-            except (KeyError, tarfile.TarError) as error:
-                print(f"❌ {asset}: does not carry {chipdb} at its root ({error})")
-                failed.append(asset)
-                return
-            if inner.hexdigest() != entry["chipdb-sha256"]:
-                print(f"❌ {asset}: {chipdb} sha256 {inner.hexdigest()[:12]}… "
-                      f"!= index chipdb-sha256 {entry['chipdb-sha256'][:12]}…")
-                failed.append(asset)
-                return
-        line += (f" · sha256 == index · {chipdb} "
-                 f"{entry['chipdb-size']} B verified")
-    print(line)
+    if stamp != info.get("chipdb-id"):
+        found = stamp or "absent"
+        print(f"❌ {asset}: chipdb/{STAMP_FILE} is {found!r}, "
+              f"index chipdb-id is {info.get('chipdb-id')!r}")
+        failed.append(asset)
+        return
+    print(f"✅ {asset}: {len(bins)} chipdb files inside match the index "
+          f"(chipdb-id {stamp})")
 
 
 def fetch_index():
@@ -414,17 +383,19 @@ def fetch_index():
 
 
 def check_chipdb_release():
-    """Validate the published parts index and every asset it names.
+    """Validate the published parts index. True when this schema was read.
 
-    Returns how many chipdb assets were verified (0 on a legacy release).
+    An absent index, or an older schema, is a legacy release: reported,
+    not failed. --full then checks the chipdb files inside each platform
+    package against that index.
     """
     index_asset, raw = fetch_index()
     if index_asset is None:
         print(f"— {INDEX_ASSET}: not published (HTTP 404)")
         print("  legacy release: no parts index under any of the names apio"
-              " has resolved, so the on-demand contract this gate checks is"
-              " not the one that release was published under")
-        return 0
+              " has resolved, so the contract this gate checks is not the"
+              " one that release was published under")
+        return False
     accounted.add(index_asset)
 
     try:
@@ -432,28 +403,28 @@ def check_chipdb_release():
     except (ValueError, UnicodeDecodeError) as error:
         print(f"❌ {index_asset}: not readable as JSON ({error})")
         failed.append(index_asset)
-        return 0
+        return False
 
-    # This schema IS the on-demand contract: the index apio's loader reads to
-    # find the asset for a board's part, written by the same run that builds
-    # the packages (pack/parts_index.py, where SCHEMA is a constant, so a
-    # current run cannot produce an older one). An older one is a release from
-    # before that contract, and what its assets mean is its own gate's
-    # business, not this one's. Reported, never failed.
+    # This schema IS the contract: the index written by the same run that
+    # builds the packages (pack/parts_index.py, where SCHEMA is a constant,
+    # so a current run cannot produce an older one). An older one is a
+    # release from before that contract, and what its assets mean is its
+    # own gate's business, not this one's. Reported, never failed.
     if info.get("schema") != SCHEMA:
         print(f"— {index_asset}: schema {info.get('schema')!r}, not {SCHEMA}")
         print("  legacy release: an index older than the contract this gate"
               " checks, so its assets are not what apio installs from today")
-        return 0
+        return False
 
     try:
         generated = validate_document(info, expect_tag=tag)
     except ValueError as error:
         print(f"❌ {index_asset}: {error}")
-        print("   apio's on-demand loader reads this index: a release whose")
-        print("   map is wrong points every download at the wrong place.")
+        print("   apio reads this index to find each part's chipdb file: a")
+        print("   release whose map is wrong points every build at the")
+        print("   wrong file.")
         failed.append(index_asset)
-        return 0
+        return False
 
     line = (f"✅ {index_asset}: HTTP 200 ({len(raw)} B) ·"
             f" schema {info['schema']} · release-tag {info['release-tag']}"
@@ -478,24 +449,27 @@ def check_chipdb_release():
         line += " · sha256 == SHA256SUMS"
     print(line)
 
-    # One request per FILE, not per part: every part of a die names the
-    # same asset, and asking once per part would be 128 downloads for the
-    # 10 chipdb assets a release publishes.
-    by_asset = {}
-    for part, entry in sorted(generated.items()):
-        by_asset.setdefault(entry["asset"], (entry, []))[1].append(part)
-    for asset, (entry, parts) in sorted(by_asset.items()):
-        check_chipdb_asset(asset, entry, parts)
-    return len(by_asset)
+    # The files named by the index live in each platform package. --full
+    # already downloaded those tarballs; check them once each, not once
+    # per part (every part of a die names the same file).
+    if full:
+        described = {entry["chipdb"] for entry in generated.values()}
+        for platform in platforms:
+            asset = f"apio-openxc7-{platform}-{date}.tgz"
+            blob = package_blobs.get(asset)
+            if blob is None:
+                continue
+            check_package_chipdb(asset, blob, info, described)
+    return True
 
 
-checked_chipdb = check_chipdb_release()
+index_checked = check_chipdb_release()
 
 # The other direction: a manifest line for something this release does not
-# describe -- a leftover from an earlier run, or an asset the index forgot.
-# Only meaningful when the whole release was walked (no --platform filter,
-# and an index this gate could read).
-if covers_everything and checked_chipdb and len(platforms) == 3:
+# describe -- a leftover chipdb asset from an earlier contract, or a name
+# the index forgot. Only meaningful when the whole release was walked (no
+# --platform filter, and an index this gate could read).
+if covers_everything and index_checked and len(platforms) == 3:
     extra = sorted(set(sums) - accounted)
     if extra:
         print(f"❌ SHA256SUMS lists {len(extra)} asset(s) nothing in this "
@@ -505,11 +479,12 @@ if covers_everything and checked_chipdb and len(platforms) == 3:
 if failed:
     print(f"\nasset-check: FAIL ({len(failed)}: {', '.join(failed)})")
     sys.exit(1)
-tail = (f" and for the {checked_chipdb} chipdb assets of this release"
-        if checked_chipdb else "")
+tail = ("; chipdb files travel inside the platform packages"
+        + (" and match the index" if full else "")
+        if index_checked else "")
 if has_build_info:
     tail += "; its BUILD-INFO.json names this very tag"
-if checked_chipdb and covers_everything:
+if index_checked and covers_everything:
     tail += f"; SHA256SUMS ({len(sums)} entries) agrees with the index"
 print(f"\nasset-check: OK — apio's URL rule resolves for every platform{tail}")
 PYEOF

@@ -1,6 +1,5 @@
 """Tests for XILINX-PARTS-INDEX.json: packaging it and validating it."""
 
-import hashlib
 import io
 import json
 import os
@@ -13,9 +12,10 @@ from unittest import mock
 from pack.assemble import write_env
 from pack.chipdb import write_placeholder
 from pack.parts_index import (ENTRY_KEYS, INDEX_ASSET, NOTE, PACKAGE_FILE,
-                              SCHEMA, chipdb_name, package_schema,
-                              previous_index_asset_names, read_package_schema,
-                              validate_document, validate_package_info)
+                              SCHEMA, STAMP_FILE, asset_name, chipdb_name,
+                              package_schema, previous_index_asset_names,
+                              read_package_schema, validate_document,
+                              validate_package_info)
 
 BASE = "xc7a35tcpg236"
 OTHER = "xc7a50tcsg324"
@@ -23,6 +23,7 @@ PART = f"{BASE}-1"
 SLOW = f"{BASE}-2L"          # same base part -> same chipdb file
 DIE_FILE = "chipdb-xc7a50t.bin"   # BASE and OTHER share the xc7a50t die
 DATA = b"packaged chipdb"
+STAMP = "fixture-id"
 # The document of the 2026-09-15 release, byte for byte as published (its
 # sha256 is in that release's SHA256SUMS): the last schema 5 index.
 PUBLISHED_SCHEMA_5 = (Path(__file__).resolve().parent / "data" /
@@ -37,8 +38,11 @@ class PartsIndexTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def _stamp(self, chipdb):
+        (chipdb / STAMP_FILE).write_text(STAMP + "\n", encoding="utf-8")
+
     def make_index(self, **overrides):
-        """A valid schema 7 index plus the one chipdb file it describes.
+        """A valid schema 8 index plus the one chipdb file it describes.
 
         Two speed grades of one base part, one file: the die's. The other
         base part of that die is listed and not built.
@@ -46,19 +50,13 @@ class PartsIndexTests(unittest.TestCase):
         chipdb = self.root / "chipdb"
         chipdb.mkdir(exist_ok=True)
         (chipdb / DIE_FILE).write_bytes(DATA)
-        built = {
-            "chipdb": DIE_FILE,
-            "chipdb-size": len(DATA),
-            "chipdb-sha256": hashlib.sha256(DATA).hexdigest(),
-            "asset": "apio-xilinx-chipdb-xc7a50t-20260827.bin.tgz",
-            "asset-size": 123,
-            "asset-sha256": "0" * 64,
-        }
+        self._stamp(chipdb)
+        built = {"chipdb": DIE_FILE}
         info = {
-            "schema": 7,
+            "schema": SCHEMA,
             "date": "20260827",
             "release-tag": "2026-08-27",
-            "chipdb-id": "fixture-id",
+            "chipdb-id": STAMP,
             "part-count": 3,
             "generated-count": 2,
             "chipdb-count": 1,
@@ -82,23 +80,17 @@ class PartsIndexTests(unittest.TestCase):
         path.write_text(json.dumps(info), encoding="utf-8")
 
     def make_die_index(self):
-        """A himbaechel index: two base parts of the xc7a50t die (xc7a35t
-        and xc7a50t), three built parts, ONE chipdb file; plus an xc7a100t
-        part the release did not build."""
+        """Two base parts of the xc7a50t die (xc7a35t and xc7a50t), three
+        built parts, ONE chipdb file; plus an xc7a100t part the release
+        did not build."""
         chipdb = self.root / "chipdb"
         chipdb.mkdir(exist_ok=True)
         (chipdb / DIE_FILE).write_bytes(DATA)
-        built = {
-            "chipdb": DIE_FILE,
-            "chipdb-size": len(DATA),
-            "chipdb-sha256": hashlib.sha256(DATA).hexdigest(),
-            "asset": "apio-xilinx-chipdb-xc7a50t-20260827.bin.tgz",
-            "asset-size": 123,
-            "asset-sha256": "0" * 64,
-        }
+        self._stamp(chipdb)
+        built = {"chipdb": DIE_FILE}
         info = {
-            "schema": 7, "date": "20260827", "release-tag": "2026-08-27",
-            "chipdb-id": "fixture-id", "part-count": 4,
+            "schema": SCHEMA, "date": "20260827", "release-tag": "2026-08-27",
+            "chipdb-id": STAMP, "part-count": 4,
             "generated-count": 3, "chipdb-count": 1, "base-part-count": 3,
             "note": "fixture",
             "parts": {
@@ -107,8 +99,7 @@ class PartsIndexTests(unittest.TestCase):
                 SLOW: {"family": "artix7", "base-part": BASE, "speed": "2L",
                        "generated": True, **built},
                 f"{OTHER}-1": {"family": "artix7", "base-part": OTHER,
-                               "speed": "1", "generated": True,
-                               **built},
+                               "speed": "1", "generated": True, **built},
                 "xc7a100tcsg324-1": {"family": "artix7",
                                      "base-part": "xc7a100tcsg324",
                                      "speed": "1", "generated": False},
@@ -160,22 +151,35 @@ class PartsIndexTests(unittest.TestCase):
         external = self.root / "chipdb-bins"
         external.mkdir()
         (external / DIE_FILE).write_bytes(DATA)
-        for stale in chipdb.glob("*.bin"):        # the on-demand package
+        self._stamp(external)
+        for stale in chipdb.glob("*.bin"):
             stale.unlink()
         write_placeholder(chipdb)
         self.assertEqual(validate_package_info(index_path, external)
                          ["generated-count"], 2)
 
-    def test_rejects_chipdb_drift(self):
+    def test_rejects_a_stamp_that_is_not_the_index(self):
         index_path, chipdb, _ = self.make_index()
-        (chipdb / DIE_FILE).write_bytes(b"different")
-        with self.assertRaisesRegex(ValueError, "size differs"):
+        (chipdb / STAMP_FILE).write_text("other-toolchain\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "chipdb-id"):
+            validate_package_info(index_path, chipdb)
+
+    def test_rejects_a_missing_stamp(self):
+        index_path, chipdb, _ = self.make_index()
+        (chipdb / STAMP_FILE).unlink()
+        with self.assertRaisesRegex(ValueError, "absent"):
+            validate_package_info(index_path, chipdb)
+
+    def test_rejects_a_missing_bin_by_name(self):
+        index_path, chipdb, _ = self.make_index()
+        (chipdb / DIE_FILE).unlink()
+        with self.assertRaisesRegex(ValueError, DIE_FILE):
             validate_package_info(index_path, chipdb)
 
     def test_rejects_a_chipdb_file_it_does_not_describe(self):
         index_path, chipdb, _ = self.make_index()
         (chipdb / f"{OTHER}.bin").write_bytes(b"extra")
-        with self.assertRaisesRegex(ValueError, "do not match"):
+        with self.assertRaisesRegex(ValueError, f"unexpected \\['{OTHER}.bin'\\]"):
             validate_package_info(index_path, chipdb)
 
     def test_rejects_an_older_schema(self):
@@ -184,24 +188,22 @@ class PartsIndexTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "schema"):
             validate_package_info(index_path, chipdb)
 
-    def test_accepts_a_schema_7_document(self):
-        """Schema 7 is the himbaechel engine: schema 5's entry keys, one
-        file per die, and no engine field."""
+    def test_accepts_a_schema_8_document(self):
+        """Schema 8: one file per die, the file name only, no engine field."""
         _, _, info = self.make_index()
         self.assertEqual(info["schema"], SCHEMA)
-        self.assertEqual(SCHEMA, 7)
+        self.assertEqual(SCHEMA, 8)
         for entry in info["parts"].values():
             self.assertEqual(list(entry),
                              [key for key in ENTRY_KEYS if key in entry])
+            self.assertFalse(
+                {"chipdb-size", "chipdb-sha256", "asset", "asset-size",
+                 "asset-sha256"} & set(entry))
         self.assertEqual(sorted(validate_document(info, "2026-08-27")),
                          [PART, SLOW])
 
     def test_rejects_an_unknown_entry_key(self):
-        """A key outside ENTRY_KEYS is refused. The index is a contract.
-
-        The schema 6 draft carried an engine field. That key is not
-        schema 7, and it is not ignored.
-        """
+        """A key outside ENTRY_KEYS is refused. The index is a contract."""
         for part in (PART, f"{OTHER}-1"):
             with self.subTest(part=part):
                 index_path, chipdb, info = self.make_index()
@@ -211,38 +213,61 @@ class PartsIndexTests(unittest.TestCase):
                         ValueError, f"{part} has unknown key pnr"):
                     validate_package_info(index_path, chipdb)
 
-    def test_the_note_names_both_schemas(self):
-        self.assertIn("schema 6", NOTE)
-        self.assertIn("schema 7", NOTE)
-        self.assertIn("one chipdb file per base part", NOTE)
-        self.assertIn("one chipdb file per die", NOTE)
+    def test_rejects_the_removed_download_fields(self):
+        """Schema 7's sizes, hashes and asset name are not schema 8."""
+        for key, value in (("chipdb-size", 1),
+                           ("chipdb-sha256", "a" * 64),
+                           ("asset", "apio-xilinx-chipdb-xc7a50t-20260827.bin.tgz"),
+                           ("asset-size", 1),
+                           ("asset-sha256", "b" * 64)):
+            with self.subTest(key=key):
+                index_path, chipdb, info = self.make_index()
+                info["parts"][PART][key] = value
+                self.rewrite(index_path, info)
+                with self.assertRaisesRegex(
+                        ValueError, f"{PART} has unknown key {key}"):
+                    validate_package_info(index_path, chipdb)
+
+    def test_the_note_describes_the_in_package_chipdb(self):
+        self.assertIn("travel inside", NOTE)
+        self.assertIn("in chipdb/", NOTE)
+        self.assertIn("generated=false", NOTE)
+        self.assertIn("supported, not built", NOTE)
+        self.assertIn("schema 8", NOTE)
+        self.assertNotIn("asset-sha256", NOTE)
+        self.assertNotIn("download", NOTE)
 
     def test_the_published_schema_5_document_is_rejected(self):
         """The index of the 2026-09-15 release, as published. This
-        validator accepts schema 7 only."""
+        validator accepts schema 8 only."""
         info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
-        with self.assertRaisesRegex(ValueError, "schema is 5, expected 7"):
+        with self.assertRaisesRegex(ValueError, "schema is 5, expected 8"):
             validate_document(info, "2026-09-15")
 
     def test_a_schema_6_document_is_rejected(self):
-        """Schema 6 is the current engine's index. This branch emits 7,
-        so a schema 6 document is not accepted as another form of it."""
         info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
         info["schema"] = 6
-        with self.assertRaisesRegex(ValueError, "schema is 6, expected 7"):
+        with self.assertRaisesRegex(ValueError, "schema is 6, expected 8"):
             validate_document(info, "2026-09-15")
 
-    def test_schema_7_is_one_form(self):
-        """Bumping the published document to 7 is not enough: its files
-        are one per base part, and schema 7 names one per die."""
-        info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
+    def test_a_schema_7_document_is_rejected(self):
+        """Schema 7 is the previous contract (per-die files, downloaded).
+        Bumping nothing else, a schema 8 reader refuses it."""
+        _, _, info = self.make_index()
         info["schema"] = 7
-        with self.assertRaisesRegex(ValueError, "leaves in chipdb/"):
+        with self.assertRaisesRegex(ValueError, "schema is 7, expected 8"):
+            validate_document(info, "2026-08-27")
+
+    def test_bumping_a_schema_5_document_to_8_is_not_enough(self):
+        """The published document's download fields are unknown keys, and
+        its files are one per base part."""
+        info = json.loads(PUBLISHED_SCHEMA_5.read_text(encoding="utf-8"))
+        info["schema"] = 8
+        with self.assertRaisesRegex(ValueError, "unknown keys"):
             validate_document(info, "2026-09-15")
 
     def test_accepts_one_chipdb_file_per_die(self):
-        """The himbaechel document: two base parts of one die, three built
-        parts, one chipdb file -- and the bins on disk are that one file."""
+        """Two base parts of one die, three built parts, one chipdb file."""
         index_path, chipdb, info = self.make_die_index()
         self.assertEqual(sorted(validate_document(info, "2026-08-27")),
                          [PART, SLOW, f"{OTHER}-1"])
@@ -251,12 +276,20 @@ class PartsIndexTests(unittest.TestCase):
                           "chipdb-count": 1, "base-part-count": 3})
 
     def test_the_schema_decides_the_file_name(self):
-        """Schema 7 names the die; schema 6 names the base part. A schema
-        7 entry that carries the base-part file is refused."""
+        """Schema 7 and 8 name the die; schema 6 names the base part."""
         self.assertEqual(chipdb_name(BASE), DIE_FILE)
+        self.assertEqual(chipdb_name(BASE, 8), DIE_FILE)
         self.assertEqual(chipdb_name(BASE, 7), DIE_FILE)
         self.assertEqual(chipdb_name(BASE, 6), f"{BASE}.bin")
         self.assertEqual(chipdb_name(BASE, 5), f"{BASE}.bin")
+        with self.assertRaisesRegex(ValueError, "no chipdb assets"):
+            asset_name(BASE, "20260827")
+        self.assertEqual(
+            asset_name(BASE, "20260827", 7),
+            "apio-xilinx-chipdb-xc7a50t-20260827.bin.tgz")
+        self.assertEqual(
+            asset_name(BASE, "20260827", 6),
+            f"apio-xilinx-chipdb-{BASE}-20260827.bin.tgz")
 
         index_path, chipdb, info = self.make_die_index()
         info["parts"][f"{OTHER}-1"]["chipdb"] = f"{OTHER}.bin"
@@ -265,29 +298,20 @@ class PartsIndexTests(unittest.TestCase):
                                     f"{DIE_FILE}"):
             validate_package_info(index_path, chipdb)
 
-    def test_rejects_an_asset_that_is_not_the_die_one(self):
-        _, _, info = self.make_die_index()
-        info["parts"][PART]["asset"] = \
-            f"apio-xilinx-chipdb-{BASE}-20260827.bin.tgz"
-        with self.assertRaisesRegex(ValueError, "apio resolves .*xc7a50t"):
-            validate_document(info)
-
-    def test_rejects_parts_of_one_die_that_promise_different_files(self):
-        """Different base parts, one file: a loader dedups by sha256."""
-        _, _, info = self.make_die_index()
-        info["parts"][f"{OTHER}-1"]["chipdb-sha256"] = "1" * 64
-        with self.assertRaisesRegex(ValueError,
-                                    f"share chipdb file {DIE_FILE}"):
-            validate_document(info)
-
     def test_the_schema_number_is_what_a_package_carries(self):
         """What the harness and the E2E run: the schema of the package,
         and the file each built base part needs, as apio reads them."""
         _, _, info = self.make_die_index()
         self.assertEqual(package_schema(info),
-                         (7, {BASE: DIE_FILE, OTHER: DIE_FILE}))
-        # schema 6 is the current engine, even though this validator
-        # refuses to publish it: the reader still reports the number.
+                         (8, {BASE: DIE_FILE, OTHER: DIE_FILE}))
+        # Older schemas are refused by the validator and still reported
+        # by the reader, so a harness can open an older package.
+        per_die = {
+            "schema": 7,
+            "parts": {PART: {"base-part": BASE, "generated": True,
+                             "chipdb": DIE_FILE}},
+        }
+        self.assertEqual(package_schema(per_die), (7, {BASE: DIE_FILE}))
         per_base = {
             "schema": 6,
             "parts": {PART: {"base-part": BASE, "generated": True,
@@ -299,7 +323,6 @@ class PartsIndexTests(unittest.TestCase):
         schema, files = package_schema(published)
         self.assertEqual(schema, 5)
         self.assertEqual(files["xc7a35tcsg324"], "xc7a35tcsg324.bin")
-        # no index at all: the schema this repository emits
         self.assertEqual(package_schema(None), (SCHEMA, {}))
         self.assertEqual(read_package_schema(self.root), (SCHEMA, {}))
         with self.assertRaisesRegex(ValueError, "schema 4"):
@@ -313,19 +336,11 @@ class PartsIndexTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "the key IS the part"):
             validate_package_info(index_path, chipdb)
 
-    def test_rejects_a_chipdb_name_that_is_not_the_base_part(self):
+    def test_rejects_a_chipdb_name_that_is_not_the_die_file(self):
         index_path, chipdb, info = self.make_index()
         info["parts"][PART]["chipdb"] = f"{OTHER}.bin"
         self.rewrite(index_path, info)
-        with self.assertRaisesRegex(ValueError, "leaves in chipdb/"):
-            validate_package_info(index_path, chipdb)
-
-    def test_rejects_speed_grades_that_promise_different_files(self):
-        """One file, one promise: a loader dedups by sha256."""
-        index_path, chipdb, info = self.make_index()
-        info["parts"][SLOW]["asset-size"] = 999
-        self.rewrite(index_path, info)
-        with self.assertRaisesRegex(ValueError, "describe different files"):
+        with self.assertRaisesRegex(ValueError, "in chipdb/"):
             validate_package_info(index_path, chipdb)
 
     def test_rejects_a_tag_that_is_not_the_date(self):
@@ -335,16 +350,7 @@ class PartsIndexTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "release-tag"):
             validate_package_info(index_path, chipdb)
 
-    def test_rejects_an_asset_name_of_another_date(self):
-        index_path, chipdb, info = self.make_index()
-        for part in (PART, SLOW):
-            info["parts"][part]["asset"] = \
-                f"apio-xilinx-chipdb-{BASE}-20260826.bin.tgz"
-        self.rewrite(index_path, info)
-        with self.assertRaisesRegex(ValueError, "apio resolves"):
-            validate_package_info(index_path, chipdb)
-
-    def test_rejects_a_non_generated_part_that_looks_downloadable(self):
+    def test_rejects_a_non_generated_part_that_names_a_file(self):
         index_path, chipdb, info = self.make_index()
         info["parts"][f"{OTHER}-1"]["chipdb"] = f"{OTHER}.bin"
         self.rewrite(index_path, info)
@@ -380,9 +386,7 @@ class PartsIndexTests(unittest.TestCase):
         Publishing it under the same fixed name it has inside every
         package (XILINX-PARTS-INDEX.json since the apio#1002 rename,
         PARTS-INDEX.json under apio#990) is what lets a reader ask for
-        the index of a release without deriving a date first, and what
-        makes "the asset and the file in the package are the same bytes"
-        a comparison of two files with the same name.
+        the index of a release without deriving a date first.
         """
         self.assertEqual(INDEX_ASSET, "XILINX-PARTS-INDEX.json")
         self.assertEqual(INDEX_ASSET, PACKAGE_FILE)

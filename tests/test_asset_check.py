@@ -25,8 +25,10 @@ TAG = "2026-08-28"
 DATE = "20260828"
 BASE_PART = "xc7a35tcpg236"
 PARTS = (f"{BASE_PART}-1", f"{BASE_PART}-2L")   # one chipdb file, two parts
-# xc7a35t is the xc7a50t die: schema 7 names that die's file.
+# xc7a35t is the xc7a50t die: schema 8 names that die's file.
 CHIPDB = "chipdb-xc7a50t.bin"
+STAMP = "fixture-id"
+# A name schema 7 published and schema 8 must not.
 ASSET = f"apio-xilinx-chipdb-xc7a50t-{DATE}.bin.tgz"
 INDEX = "XILINX-PARTS-INDEX.json"        # since the apio#1002 rename
 BUILD_INFO = "BUILD-INFO.json"           # the release-level one, apio#1009
@@ -39,12 +41,29 @@ PUBLISHED_SCHEMA_5 = REPO / "tests" / "data" / "XILINX-PARTS-INDEX-2026-09-15.js
 
 
 def _tgz(payload: bytes, arcname: str) -> bytes:
-    """A tar.gz carrying one member, like the published assets."""
+    """A tar.gz carrying one member."""
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
         info = tarfile.TarInfo(arcname)
         info.size = len(payload)
         archive.addfile(info, io.BytesIO(payload))
+    return buffer.getvalue()
+
+
+def _package(payload: bytes = BIN, stamp: str = STAMP,
+             extra=()) -> bytes:
+    """A platform package carrying chipdb/<file> and chipdb-id.txt."""
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+        members = [(f"chipdb/{CHIPDB}", payload),
+                   ("chipdb/chipdb-id.txt", (stamp + "\n").encode())]
+        members.extend(extra)
+        for name, data in members:
+            if data is None:
+                continue
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
     return buffer.getvalue()
 
 
@@ -86,23 +105,18 @@ def resum(files: dict, promised=None) -> dict:
 
 
 def release(**overrides) -> dict:
-    """A healthy on-demand release: three tarballs, SHA256SUMS, one FPGA."""
-    tgz = _tgz(BIN, CHIPDB)
+    """A healthy schema 8 release: three packages, the index, BUILD-INFO.
+
+    Six assets once SHA256SUMS is added. No chipdb release asset: the bin
+    travels inside each platform package.
+    """
     tarballs = {
-        f"apio-openxc7-{platform}-{DATE}.tgz": f"{platform} package".encode()
+        f"apio-openxc7-{platform}-{DATE}.tgz": _package()
         for platform in ("linux-x86-64", "darwin-arm64", "windows-amd64")
     }
-    built = {
-        "generated": True,
-        "chipdb": CHIPDB,
-        "chipdb-size": len(BIN),
-        "chipdb-sha256": hashlib.sha256(BIN).hexdigest(),
-        "asset": ASSET,
-        "asset-size": len(tgz),
-        "asset-sha256": hashlib.sha256(tgz).hexdigest(),
-    }
+    built = {"generated": True, "chipdb": CHIPDB}
     info = {
-        "schema": 7,
+        "schema": 8,
         "date": DATE,
         "release-tag": TAG,
         "chipdb-id": "fixture-id",
@@ -134,7 +148,6 @@ def release(**overrides) -> dict:
         **{f"{BASE}/{name}": body for name, body in tarballs.items()},
         f"{BASE}/{BUILD_INFO}": json.dumps(build_info).encode(),
         f"{BASE}/{INDEX}": json.dumps(info).encode(),
-        f"{BASE}/{ASSET}": tgz,
     }
     files.update(overrides)
     files = {url: body for url, body in files.items() if body is not None}
@@ -186,34 +199,41 @@ class AssetCheckTests(unittest.TestCase):
         self.assertEqual(code, 0, output)
         self.assertIn("asset-check: OK", output)
         self.assertIn(f"✅ {INDEX}", output)
-        self.assertIn(f"✅ {ASSET}", output)
-        self.assertIn("1 chipdb assets", output)
+        self.assertIn("schema 8", output)
+        self.assertIn("travel inside the platform packages", output)
+        self.assertNotIn(ASSET, output)
+        self.assertNotIn("chipdb assets", output)
 
-    def test_one_request_per_asset_not_per_part(self):
-        """The speed grades of a base part share a file: ask for it once.
+    def test_one_request_for_the_index_not_per_part(self):
+        """Two parts share a chipdb file: the index is fetched once.
 
-        A release has ~150 parts and ~46 assets; one request per part would
-        be ten times the gate, and ten times the bytes with --full.
+        Schema 8 does not fetch a chipdb asset at all.
         """
         calls = []
         code, output = run(release(), calls=calls)
         self.assertEqual(code, 0, output)
-        self.assertEqual([url for url in calls if url.endswith(ASSET)],
-                         [f"{BASE}/{ASSET}"])
-        self.assertIn(f"{len(PARTS)} parts", output)
+        self.assertEqual(calls.count(f"{BASE}/{INDEX}"), 1)
+        self.assertEqual([url for url in calls if url.endswith(".bin.tgz")], [])
 
-    def test_declared_asset_missing_fails_naming_it(self):
-        """The failure the gate exists for: an FPGA nobody can build for."""
-        code, output = run(release(**{f"{BASE}/{ASSET}": None}))
+    def test_full_names_a_missing_bin(self):
+        """--full opens each package. A bin the index names and the
+        package lacks is the failure, and it is named."""
+        linux = f"apio-openxc7-linux-x86-64-{DATE}.tgz"
+        files = release(**{f"{BASE}/{linux}": _package(payload=None)})
+        code, output = run(resum(files))
+        self.assertEqual(code, 0, output)
+        code, output = run(resum(files), "", "1")
         self.assertEqual(code, 1)
-        self.assertIn(f"❌ {ASSET}: HTTP 404", output)
-        self.assertIn(f"apio WILL 404 for {', '.join(PARTS)}", output)
-        self.assertIn(f"asset-check: FAIL (1: {ASSET})", output)
+        self.assertIn(f"missing ['{CHIPDB}']", output)
+        self.assertIn(linux, output)
 
-    def test_truncated_asset_fails(self):
-        code, output = run(release(**{f"{BASE}/{ASSET}": b"half an upload"}))
+    def test_full_names_an_extra_bin(self):
+        linux = f"apio-openxc7-linux-x86-64-{DATE}.tgz"
+        files = release(**{f"{BASE}/{linux}": _package(
+            extra=[("chipdb/extra.bin", b"no such part")])})
+        code, output = run(resum(files), "", "1")
         self.assertEqual(code, 1)
-        self.assertIn(f"❌ {ASSET}: 14 bytes published, index says", output)
+        self.assertIn("unexpected ['extra.bin']", output)
 
     def test_document_counts_must_add_up(self):
         files = release()
@@ -250,15 +270,15 @@ class AssetCheckTests(unittest.TestCase):
 
         They are still installed from and still promotable, and apio's
         loader accepts that name, so calling them legacy would drop
-        their chipdb assets from the gate that promotes them.
+        their chipdb files from the gate that promotes them.
         """
         files = release()
         files[f"{BASE}/{PREVIOUS_INDEX}"] = files.pop(f"{BASE}/{INDEX}")
         code, output = run(resum(files))
         self.assertEqual(code, 0, output)
         self.assertIn(f"✅ {PREVIOUS_INDEX}", output)
-        self.assertIn(f"✅ {ASSET}", output)
-        self.assertIn("1 chipdb assets", output)
+        self.assertIn("travel inside the platform packages", output)
+        self.assertNotIn(ASSET, output)
 
     def test_the_legacy_dated_index_name_is_still_read(self):
         """Every release up to 2026-08-31 published the index dated.
@@ -271,8 +291,8 @@ class AssetCheckTests(unittest.TestCase):
         code, output = run(resum(files))
         self.assertEqual(code, 0, output)
         self.assertIn(f"✅ {LEGACY_INDEX}", output)
-        self.assertIn(f"✅ {ASSET}", output)
-        self.assertIn("1 chipdb assets", output)
+        self.assertIn("travel inside the platform packages", output)
+        self.assertNotIn(ASSET, output)
 
     def test_older_schema_is_legacy_not_a_failure(self):
         """An index from before this contract is not this gate's business.
@@ -286,75 +306,82 @@ class AssetCheckTests(unittest.TestCase):
              "parts": {}}).encode()
         code, output = run(files)
         self.assertEqual(code, 0, output)
-        self.assertIn("schema 4, not 7", output)
+        self.assertIn("schema 4, not 8", output)
         self.assertIn("legacy release", output)
 
     def test_the_last_schema_5_index_is_legacy_not_a_failure(self):
         """The index the 2026-09-15 release published, byte for byte.
 
-        Schema 7 is the himbaechel engine's index; a release published
-        under schema 5 is what apio 1.6.x installs from, and it is not
-        this gate's contract any more.
+        Schema 8 is what this gate checks; a release published under
+        schema 5 is what apio 1.6.x installs from, and it is not this
+        gate's contract any more.
         """
         files = release()
         files[f"{BASE}/{INDEX}"] = PUBLISHED_SCHEMA_5.read_bytes()
         code, output = run(resum(files))
         self.assertEqual(code, 0, output)
-        self.assertIn(f"— {INDEX}: schema 5, not 7", output)
+        self.assertIn(f"— {INDEX}: schema 5, not 8", output)
         self.assertIn("legacy release", output)
         self.assertIn("asset-check: OK", output)
 
     def test_a_schema_6_index_is_legacy_not_a_failure(self):
-        """Schema 6 is the current engine's index. This gate checks
-        schema 7, so a schema 6 release is legacy, not a failed one."""
+        """Schema 6 is an older engine's index. This gate checks schema 8,
+        so a schema 6 release is legacy, not a failed one."""
         files = release()
         info = json.loads(files[f"{BASE}/{INDEX}"])
         info["schema"] = 6
-        for entry in info["parts"].values():
-            entry["chipdb"] = f"{BASE_PART}.bin"
-            entry["asset"] = f"apio-xilinx-chipdb-{BASE_PART}-{DATE}.bin.tgz"
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
         code, output = run(files)
         self.assertEqual(code, 0, output)
-        self.assertIn(f"— {INDEX}: schema 6, not 7", output)
+        self.assertIn(f"— {INDEX}: schema 6, not 8", output)
         self.assertIn("legacy release", output)
         self.assertNotIn("❌", output)
 
-    def test_full_checks_the_hashes_and_the_chipdb_inside(self):
+    def test_a_schema_7_index_is_legacy_not_a_failure(self):
+        """Schema 7 is the previous on-demand contract. A release published
+        under it (2026-09-25) is what apio main installs until it moves,
+        and this gate reports it legacy rather than failing it."""
         files = release()
-        # Right size, wrong bytes, and both documents of the release still
-        # describing the bytes they were written from: only --full can see
-        # it.
-        payload = _tgz(b"other bytes!", CHIPDB)
         info = json.loads(files[f"{BASE}/{INDEX}"])
-        for part in PARTS:
-            info["parts"][part]["asset-size"] = len(payload)
+        info["schema"] = 7
         files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
-        files[f"{BASE}/{ASSET}"] = payload
-        files = resum(files, promised={ASSET: _tgz(BIN, CHIPDB)})
         code, output = run(files)
-        self.assertEqual(code, 0, output)      # size-only pass
-        code, output = run(files, "", "1")     # --full
-        self.assertEqual(code, 1)
-        self.assertIn("!= index asset-sha256", output)
+        self.assertEqual(code, 0, output)
+        self.assertIn(f"— {INDEX}: schema 7, not 8", output)
+        self.assertIn("legacy release", output)
+        self.assertIn("asset-check: OK", output)
+        self.assertNotIn("❌", output)
 
-    def test_full_rejects_an_asset_without_the_chipdb_at_its_root(self):
+    def test_full_checks_the_downloaded_package_against_sha256sums(self):
+        """The published bytes differ from the manifest. HEAD cannot see
+        it; --full can."""
+        linux = f"apio-openxc7-linux-x86-64-{DATE}.tgz"
         files = release()
-        payload = _tgz(BIN, f"chipdb/{CHIPDB}")
-        info = json.loads(files[f"{BASE}/{INDEX}"])
-        for part in PARTS:
-            info["parts"][part].update({
-                "asset-size": len(payload),
-                "asset-sha256": hashlib.sha256(payload).hexdigest()})
-        files[f"{BASE}/{INDEX}"] = json.dumps(info).encode()
-        files[f"{BASE}/{ASSET}"] = payload
+        original = files[f"{BASE}/{linux}"]
+        files[f"{BASE}/{linux}"] = _package(payload=b"other bytes!")
+        files = resum(files, promised={linux: original})
+        code, output = run(files)
+        self.assertEqual(code, 0, output)
+        code, output = run(files, "", "1")
+        self.assertEqual(code, 1)
+        self.assertIn("!= SHA256SUMS", output)
+
+    def test_full_rejects_a_stamp_that_is_not_the_index(self):
+        linux = f"apio-openxc7-linux-x86-64-{DATE}.tgz"
+        files = release(**{f"{BASE}/{linux}": _package(stamp="other-toolchain")})
         code, output = run(resum(files), "", "1")
         self.assertEqual(code, 1)
-        self.assertIn(f"does not carry {CHIPDB} at its root", output)
+        self.assertIn("chipdb-id.txt", output)
+        self.assertIn("other-toolchain", output)
+
+    def test_full_accepts_the_bins_inside_every_package(self):
+        code, output = run(release(), "", "1")
+        self.assertEqual(code, 0, output)
+        self.assertIn("and match the index", output)
+        self.assertEqual(output.count("chipdb files inside match the index"), 3)
 
     def test_a_dropped_connection_is_retried_not_reported_as_missing(self):
-        """A flaky link must not read as 'the release is broken' — and on
-        an on-demand release this makes about fifty requests, not four."""
+        """A flaky link must not read as 'the release is broken'."""
         code, output = run(release(), flaky=2)
         self.assertEqual(code, 0, output)
         self.assertIn("retrying (1/2)", output)
@@ -364,29 +391,17 @@ class AssetCheckTests(unittest.TestCase):
         with self.assertRaises(urllib.error.URLError):
             run(release(), flaky=99)
 
-    def test_an_asset_missing_from_sha256sums_fails(self):
-        """SHA256SUMS covers the whole release since apio#990: a chipdb
-        asset it does not list is a manifest that stopped describing the
+    def test_the_index_missing_from_sha256sums_fails(self):
+        """SHA256SUMS covers the whole release since apio#990: an index
+        it does not list is a manifest that stopped describing the
         release it travels with."""
         files = release()
         lines = files[f"{BASE}/SHA256SUMS"].decode().splitlines(True)
         files[f"{BASE}/SHA256SUMS"] = "".join(
-            line for line in lines if ASSET not in line).encode()
+            line for line in lines if INDEX not in line).encode()
         code, output = run(files)
         self.assertEqual(code, 1)
-        self.assertIn(f"❌ {ASSET}: named by the index, MISSING from "
-                      "SHA256SUMS", output)
-
-    def test_the_two_documents_of_a_release_must_agree(self):
-        """SHA256SUMS and the index are written in the same job from the
-        same bytes; if they disagree, one of them is not this release."""
-        files = release()
-        files[f"{BASE}/SHA256SUMS"] = files[f"{BASE}/SHA256SUMS"].decode(
-            ).replace(hashlib.sha256(_tgz(BIN, CHIPDB)).hexdigest(),
-                      "0" * 64).encode()
-        code, output = run(files)
-        self.assertEqual(code, 1)
-        self.assertIn("the release's two documents describe different bytes",
+        self.assertIn(f"❌ {INDEX}: published but MISSING from SHA256SUMS",
                       output)
 
     def test_a_tampered_index_line_fails(self):
@@ -415,8 +430,8 @@ class AssetCheckTests(unittest.TestCase):
 
     def test_a_manifest_of_only_the_packages_is_accepted(self):
         """How every release up to 2026-08-31 published it. Requiring the
-        chipdb assets there would fail a release that was complete when it
-        was made."""
+        index and the build info there would fail a release that was
+        complete when it was made."""
         files = release()
         lines = files[f"{BASE}/SHA256SUMS"].decode().splitlines(True)
         files[f"{BASE}/SHA256SUMS"] = "".join(
