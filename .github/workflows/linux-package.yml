@@ -6,11 +6,10 @@
 # per-commit guard is test.yaml, and a validated package of any branch is a
 # dispatch of build-pre-release.yaml on that branch.
 #
-# chipdb.yml owns generation, cache, identity, per-die assets and the
-# XILINX-PARTS-INDEX document. The package itself ships NO chipdb: apio downloads
-# the .bin its board needs (apio#947), so the bins downloaded here are what
-# the L1 and L2 gates validate the package against -- injected into the
-# extracted tarball exactly as apio leaves them.
+# chipdb.yml owns generation, cache, identity and the XILINX-PARTS-INDEX
+# document. This job seeds the package from that job's bins, so the tarball
+# ships them in chipdb/ (schema 8, apio#1070). L1 and L2 validate that
+# tarball as it stands.
 # This platform only packages and validates the artifacts the calling run
 # already produced.
 name: linux-package
@@ -64,16 +63,13 @@ jobs:
           echo "dateid=${DATE//-/}" >> "$GITHUB_OUTPUT"
           echo "Package date: $DATE"
 
-      # Not packaged: this is what the gates check the package against,
-      # and what they inject into it the way apio's loader does.
+      # Seed for the packer: copied into the package's chipdb/ and shipped.
       - name: Download the verified chipdb bins
         uses: actions/download-artifact@v8
         with:
           name: chipdb-bins
           path: chipdb-bins
 
-      # the index alone: the per-die release assets next to it in
-      # chipdb-assets are ~40 MB this job has no use for
       - name: Download the XILINX-PARTS-INDEX document
         uses: actions/download-artifact@v8
         with:
@@ -116,21 +112,19 @@ jobs:
           OPENXC7_PACK_DATE: ${{ steps.d.outputs.date }}
           OPENXC7_PARTS_INDEX: ${{ github.workspace }}/parts-index/${{ inputs.parts_index }}
           OPENXC7_BUILD_INFO: ${{ github.workspace }}/BUILD-INFO.json
+          OPENXC7_CHIPDB_SEED: ${{ github.workspace }}/chipdb-bins
         run: |
           rm -rf dist
-          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py --no-chipdb'
+          nix develop .#pack --command bash -c 'python3.12 openxc7-pack.py'
           TGZ=$(ls apio-openxc7-linux-x86-64-*.tgz)
           echo "tarball=$TGZ" >> "$GITHUB_OUTPUT"
           ls -la "$TGZ"
 
-      # --chipdb-dir: the package ships no bins, so L1 checks the ones the
-      # release publishes against XILINX-PARTS-INDEX.json and injects them into the
-      # extracted tarball before the E2E -- the tree the user ends up with.
+      # The bins are already in the tarball. L1 checks them against the index.
       - name: Validate the package inside the tarball (L1 gate)
         run: |
           export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
           bash scripts/validate-package.sh "${{ steps.pack.outputs.tarball }}" \
-            --chipdb-dir chipdb-bins \
             --expect-date "${{ steps.d.outputs.dateid }}"
 
       # Same environment as L1 (the user env): the baselines carry the tool
@@ -143,7 +137,6 @@ jobs:
         run: |
           export PATH="$HOME/.local/oss-cad-suite/bin:$PATH"
           bash scripts/regress.sh "${{ steps.pack.outputs.tarball }}" \
-            --chipdb-dir chipdb-bins \
             --json regress-report.json --markdown regress-report.md
 
       - name: Publish the regression report in the job summary

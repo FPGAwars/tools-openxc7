@@ -5,19 +5,19 @@
 # on its own native runner (windows is cross-built from linux; nixpkgs cannot
 # cross Linux<->macOS, and Nix does not run on Windows):
 #
-#   chipdb.yml           ubuntu-22.04   bins + per-die assets + XILINX-PARTS-INDEX
-#   linux-package.yml    ubuntu-22.04   native   (consumes chipdb artifacts)
-#   darwin-package.yml   macos-14        native   (consumes chipdb artifacts)
-#   windows-package.yml  ubuntu-22.04   cross    (consumes chipdb artifacts; wine)
+#   chipdb.yml           ubuntu-22.04   bins + XILINX-PARTS-INDEX
+#   linux-package.yml    ubuntu-22.04   native   (seeds the bins into the package)
+#   darwin-package.yml   macos-14        native   (seeds the bins into the package)
+#   windows-package.yml  ubuntu-22.04   cross    (copies the bins into the package; wine)
 #
-# There is ONE chipdb source: the per-die assets published below, built by
-# that single job. No package ships a chipdb any more (apio#947): each one
-# embeds that job's XILINX-PARTS-INDEX.json and its L1/L2 gates validate it
-# with the very bins the assets were made from, injected the way apio's
-# loader does. Each platform carries its own gate. The platform workflows
-# are workflow_call-only, so this is the ONE entry point: a validated
-# package of any branch is a dispatch of this workflow on that branch. It
-# only picks the date, wires the chipdb artifacts, and — if EVERYTHING is
+# There is ONE chipdb source: the bins that job generates. Each package
+# ships them in chipdb/ (schema 8, apio#1070) and embeds that job's
+# XILINX-PARTS-INDEX.json. The release publishes the three tarballs, that
+# index, BUILD-INFO.json and SHA256SUMS — no per-die chipdb asset. Each
+# platform carries its own gate. The platform workflows are
+# workflow_call-only, so this is the ONE entry point: a validated package
+# of any branch is a dispatch of this workflow on that branch. It only
+# picks the date, wires the chipdb artifacts, and — if EVERYTHING is
 # green — publishes.
 #
 # The release is created at the END, as a dated PRERELEASE (never latest),
@@ -112,8 +112,8 @@ jobs:
           just-check: "true"
 
   # The chipdb is generated ONCE (platform-independent bins, revision-keyed
-  # cache). The same job also builds the public per-die assets and the
-  # XILINX-PARTS-INDEX document before any platform starts.
+  # cache). The same job writes the XILINX-PARTS-INDEX document every
+  # package embeds. The bins travel inside the packages.
   chipdb:
     needs: prepare
     uses: ./.github/workflows/chipdb.yml
@@ -162,20 +162,12 @@ jobs:
           pattern: apio-openxc7-*     # the 3 package artifacts (not chipdb-bins)
           merge-multiple: true
 
-      # Built by chipdb.yml from the same verified bins and packaged database.
-      # They are release inputs now, not derived again by the publisher —
-      # and, since no package ships a chipdb, they are how users get one.
-      #
-      # There is no three-way parity check any more: nothing to compare, the
-      # three packages carry no bins. What every user will end up with is
-      # proved where each package is assembled — its L1 gate injects THESE
-      # bins into the extracted tarball and checks them against the size and
-      # sha256 the chipdb job recorded in XILINX-PARTS-INDEX.json. The
-      # per-part `bytes | sha256` table lives in that job's summary.
+      # The same document each package embedded. Published as its own
+      # asset, and checked below against the bins inside every tarball.
       - uses: actions/download-artifact@v8
         with:
-          name: chipdb-assets
-          path: chipdb-assets
+          name: parts-index
+          path: .
 
       # Ecosystem convention (fpgawars/apio-workflows): keep only the newest
       # pre-releases, then replace today's pre-release if it exists — and FAIL
@@ -200,8 +192,8 @@ jobs:
           DATE: ${{ needs.prepare.outputs.date }}
         run: |
           export LC_ALL=C          # one collation for every listing below
-          ls -la apio-openxc7-*.tgz chipdb-assets/
-          # every asset apio resolves by name must carry the tag's date, or
+          ls -la apio-openxc7-*.tgz XILINX-PARTS-INDEX.json
+          # every package apio resolves by name must carry the tag's date, or
           # it 404s at install time
           for f in apio-openxc7-*.tgz; do
             case "$f" in
@@ -209,56 +201,60 @@ jobs:
               *) echo "::error::asset $f is not dated ${DATE//-/}"; exit 1 ;;
             esac
           done
-          for f in chipdb-assets/*.bin.tgz; do
-            case "$f" in
-              *"-${DATE//-/}.bin.tgz") ;;
-              *) echo "::error::asset $f is not dated ${DATE//-/}"; exit 1 ;;
-            esac
-          done
           # The index is NOT dated: it names its own release inside
           # (release-tag), and travels under the same name it has at the
           # root of every package (XILINX-PARTS-INDEX.json since the
           # apio#1002 rename).
-          test -f chipdb-assets/XILINX-PARTS-INDEX.json \
-            || { echo "::error::XILINX-PARTS-INDEX.json missing from the chipdb assets"; exit 1; }
+          test -f XILINX-PARTS-INDEX.json \
+            || { echo "::error::XILINX-PARTS-INDEX.json missing"; exit 1; }
+          # No per-die chipdb asset is published. A leftover from the
+          # previous contract must not ride along.
+          if compgen -G 'apio-xilinx-chipdb-*.bin.tgz' > /dev/null; then
+            echo "::error::chipdb assets are not part of a schema 8 release"
+            exit 1
+          fi
 
-          # The chipdb assets are exactly the ones the index names: one per
-          # chipdb file (one per die today), each with the size and sha256
-          # the index promises, and nothing else. The count comes from the
-          # index, not from a constant, so the manifest can grow without
-          # touching this step. The document is read only after the packer's
-          # own validator (pack/parts_index.py, the one owner of the format)
-          # accepted it for this very tag.
-          python3 - chipdb-assets "$DATE" <<'PYEOF'
-          import hashlib, json, sys
+          # Each tarball carries the bins the index names, the same index
+          # bytes, and the identity stamp. The document is read only after
+          # the packer's own validator (pack/parts_index.py, the one owner
+          # of the format) accepted it for this very tag.
+          python3 - "$DATE" <<'PYEOF'
+          import json, sys, tarfile, tempfile
           from pathlib import Path
-          from pack.parts_index import validate_document
-          root, tag = Path(sys.argv[1]), sys.argv[2]
-          info = json.loads((root / "XILINX-PARTS-INDEX.json").read_text())
-          try:
-              generated = validate_document(info, expect_tag=tag)
-          except ValueError as error:
-              sys.exit(f"::error::{error}")
-          promised = {}
-          for entry in generated.values():
-              promised.setdefault(entry["asset"], entry)
-          present = sorted(path.name for path in root.glob("*.bin.tgz"))
-          missing = sorted(set(promised) - set(present))
-          extra = sorted(set(present) - set(promised))
-          if missing or extra:
-              sys.exit(f"::error::chipdb assets differ from the index: "
-                       f"missing {missing}, not in the index {extra}")
-          for name, entry in sorted(promised.items()):
-              data = (root / name).read_bytes()
-              if len(data) != entry["asset-size"] or \
-                      hashlib.sha256(data).hexdigest() != entry["asset-sha256"]:
-                  sys.exit(f"::error::{name} is not the file the index describes")
-          print(f"chipdb assets: {len(present)} files for {info['chipdb-count']} "
-                f"chipdb files, {info['generated-count']} of {info['part-count']} "
-                f"parts built (schema {info['schema']})")
-          Path("chipdb-asset-count.txt").write_text(f"{len(present)}\n")
+          from pack.parts_index import (PACKAGE_FILE, validate_document,
+                                        validate_package_info)
+          tag = sys.argv[1]
+          published = Path(PACKAGE_FILE)
+          raw = published.read_bytes()
+          tarballs = sorted(Path(".").glob("apio-openxc7-*.tgz"))
+          if len(tarballs) != 3:
+              sys.exit(f"::error::expected 3 platform tarballs, found {[p.name for p in tarballs]}")
+          for tarball in tarballs:
+              with tempfile.TemporaryDirectory() as scratch:
+                  root = Path(scratch)
+                  with tarfile.open(tarball) as archive:
+                      members = []
+                      for member in archive.getmembers():
+                          name = member.name[2:] if member.name.startswith("./") else member.name
+                          if name == PACKAGE_FILE or name.startswith("chipdb/"):
+                              member.name = name
+                              members.append(member)
+                      archive.extractall(root, members=members)
+                  index = root / PACKAGE_FILE
+                  if not index.is_file():
+                      sys.exit(f"::error::{tarball.name} carries no {PACKAGE_FILE}")
+                  if index.read_bytes() != raw:
+                      sys.exit(f"::error::{tarball.name} carries a different {PACKAGE_FILE}")
+                  try:
+                      info = json.loads(raw)
+                      validate_document(info, expect_tag=tag)
+                      counts = validate_package_info(index, root / "chipdb")
+                  except ValueError as error:
+                      sys.exit(f"::error::{tarball.name}: {error}")
+              print(f"{tarball.name}: {counts['chipdb-count']} chipdb files, "
+                    f"{counts['generated-count']} of {counts['part-count']} parts "
+                    f"(schema {info['schema']})")
           PYEOF
-          CHIPDB_ASSETS=$(cat chipdb-asset-count.txt)
 
           # The BUILD-INFO.json of each package, which goes into the
           # release text (ecosystem convention, apio#927) and, composed
@@ -293,42 +289,39 @@ jobs:
           cat BUILD-INFO.json
 
           # SHA256SUMS covers EVERY asset of the release: the three
-          # packages, the build info, the index, and the per-die chipdb
-          # assets that carry what the packages no longer ship (apio#947).
-          # Written HERE, in the job that uploads them, from the very bytes
-          # that the upload below sends — the manifest and the release
-          # cannot describe different bytes. The index promises the same
-          # hashes for the chipdb assets, and asset-check requires the two
-          # to agree.
-          sha256sum apio-openxc7-*.tgz BUILD-INFO.json > SHA256SUMS
-          ( cd chipdb-assets && sha256sum XILINX-PARTS-INDEX.json *.bin.tgz ) >> SHA256SUMS
+          # packages, the index and the build info. Six assets. Written
+          # HERE, in the job that uploads them, from the very bytes that
+          # the upload below sends — the manifest and the release cannot
+          # describe different bytes.
+          sha256sum apio-openxc7-*.tgz XILINX-PARTS-INDEX.json BUILD-INFO.json > SHA256SUMS
           cat SHA256SUMS
+          # The release is six assets; SHA256SUMS lists the other five and not
+          # itself. A sixth line would be a chipdb asset or a stray file,
+          # and asset-check would fail the release on it.
+          LINES=$(wc -l < SHA256SUMS)
+          [ "$LINES" -eq 5 ] || { echo "::error::SHA256SUMS has $LINES lines, expected 5"; exit 1; }
           cat > RELEASE-BODY.md <<EOFBODY
           openXC7 toolchain — $DATE. Validated by CI (package gate and
           regression suite on the three platforms).
 
-          ### On-demand chipdb
-          The three packages ship **no chipdb**: their \`chipdb/\` directory
-          holds a README.txt and apio downloads the device database its board
-          needs from the $CHIPDB_ASSETS per-die assets below, into that same
-          directory: one \`apio-xilinx-chipdb-<die>-${DATE//-/}.bin.tgz\` per
-          chipdb file, shared by every part (package, speed grade) of that die.
-          \`XILINX-PARTS-INDEX.json\`, at the root of every package, lists every
-          part the packaged prjxray database supports, which of them this
-          release built, and for each one the chipdb file it needs
-          (\`chipdb-size\`, \`chipdb-sha256\`) and the asset that carries it
-          (\`asset-size\`, \`asset-sha256\`); it is published here too, under
-          that same name — it says which release it belongs to inside itself.
-          Its schema number is the contract: schema 7 is the himbaechel
-          engine (still installed as \`nextpnr-xilinx\`, run with
+          ### Chipdb
+          The three packages ship the device databases in \`chipdb/\`: one
+          \`chipdb-<die>.bin\` per die, shared by every part (package, speed
+          grade) of that die. \`XILINX-PARTS-INDEX.json\`, at the root of every
+          package and published here under the same name, lists every part
+          the packaged prjxray database supports, which of them this release
+          built, and — for each built part — the chipdb file name in that
+          directory. An entry with \`generated: false\` is supported by the
+          database and not built. Its schema number is the contract: schema 8
+          is the himbaechel engine (installed as \`nextpnr-xilinx\`, run with
           \`--device <part> --chipdb chipdb-<die>.bin -o xdc=… -o fasm=…
           --report …\`), which apio reads from its 1.7 line on.
-          \`SHA256SUMS\` covers every asset above.
-          Those bins and the packages come from the same chipdb job of this run
+          \`SHA256SUMS\` covers the six assets of this release.
+          The bins come from the chipdb job of this run
           (identity \`${{ needs.chipdb.outputs.identity }}\`,
-          ${{ needs.chipdb.outputs.mode }}), and each platform's gates validate
-          its package with them injected the way apio leaves them. A bin only
-          works with the package of the SAME tag.
+          ${{ needs.chipdb.outputs.mode }}), and each platform's gates
+          validate its package with those bins inside it. A bin only works
+          with the package of the SAME tag.
 
           ### Build info
           The \`BUILD-INFO.json\` asset of this release carries what the three
@@ -361,7 +354,7 @@ jobs:
             apio-openxc7-*.tgz
             SHA256SUMS
             BUILD-INFO.json
-            chipdb-assets/*
+            XILINX-PARTS-INDEX.json
 
       # Close the loop: re-resolve every asset by apio's tag->date->name rule
       # against what GitHub actually serves, and require the published

@@ -1,11 +1,11 @@
 """The chipdb cache key of the CI and the identity stamp hash the same files.
 
-chipdb.yml restores the bins (and their assets) from a cache keyed by
-hashFiles(...); the packer seeds from that cache only when the bins carry
-the identity chipdb_identity() computes. If a file moved the identity but
-not the key, every run after that change would restore bins the packer then
-refuses, and regenerate them on each run without anything saying why. If a
-file moved neither, a stale cache would be the only one there is.
+chipdb.yml restores the bins from a cache keyed by hashFiles(...); the
+packer seeds from that cache only when the bins carry the identity
+chipdb_identity() computes. If a file moved the identity but not the key,
+every run after that change would restore bins the packer then refuses,
+and regenerate them on each run without anything saying why. If a file
+moved neither, a stale cache would be the only one there is.
 
 The identity side is measured, not read: each candidate file is changed in
 a fixture tree and the test records whether chipdb_identity() moves. The
@@ -99,11 +99,11 @@ def covered(relative, patterns) -> bool:
 
 class ChipdbCacheKeyTests(unittest.TestCase):
 
-    def test_both_caches_use_the_same_files(self):
+    def test_the_only_cache_is_the_bins(self):
+        """Schema 8 publishes no compressed chipdb assets, so there is no
+        second cache of them."""
         keys = cache_keys()
-        self.assertEqual(sorted(keys), ["chipdb-assets-cache", "chipdb-cache"])
-        self.assertEqual(sorted(keys["chipdb-cache"]),
-                         sorted(keys["chipdb-assets-cache"]))
+        self.assertEqual(sorted(keys), ["chipdb-cache"])
 
     def test_the_key_hashes_what_the_identity_hashes(self):
         patterns = cache_keys()["chipdb-cache"]
