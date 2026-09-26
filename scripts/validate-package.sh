@@ -9,21 +9,21 @@
 #
 # Options:
 #   --wine                 the package is windows-amd64; run it under wine64
-#   --chipdb-dir DIR       directory of chipdb .bin the package does not ship
+#   --chipdb-dir DIR       bins for a local --no-chipdb tree (a release package
+#                          already carries them; the flag is then ignored)
 #   --parts "<p1 p2 ...>"  restrict the E2E to these parts (E2E_PARTS)
 #   --expect-date YYYYMMDD assert the package is dated with this id
 #   --skip-e2e             layout/index/version checks only (fast)
 #   --keep                 keep the scratch directory for inspection
 #
-# A released package ships NO chipdb: chipdb/ holds only the placeholder
-# README.txt and apio downloads the .bin its board needs from the release
-# assets. Validating one therefore needs --chipdb-dir (in CI, the same
-# chipdb-bins artifact the release assets were built from): the bins are
-# checked against XILINX-PARTS-INDEX.json and then INJECTED into the
-# extracted package, exactly where and how apio leaves them, before the
-# E2E runs. A
-# package that does ship its chipdb (the local full pack) is validated as
-# it stands, with no --chipdb-dir.
+# A release package ships its chipdb: chipdb/ holds chipdb-<die>.bin and
+# chipdb-id.txt, and XILINX-PARTS-INDEX.json at the root names those files.
+# L1 checks that the set matches (every named file present, no extra bin,
+# stamp equal to chipdb-id) and then runs the E2E on that tree.
+# --chipdb-dir remains for a local --no-chipdb pack, whose chipdb/ holds
+# only the placeholder: the bins are checked the same way and then copied
+# in, so the E2E still has them. When the package already ships its bins
+# the flag is ignored.
 #
 # Checks: package layout, chipdb completeness vs chipdb-parts.json (the
 # chipdb file of each part is the one XILINX-PARTS-INDEX.json names: one
@@ -89,23 +89,22 @@ else
     else shasum -a 256 "$TARBALL"; fi
 fi
 
-# --- chipdb: shipped with the package, or downloaded on demand? -------------
-# A released package carries only chipdb/README.txt: apio downloads the .bin
-# its board needs from the release assets. Everything that needs a real
-# chipdb -- the E2E below, the regression suite, the user -- gets it from
-# --chipdb-dir, injected here exactly where apio leaves it.
-ON_DEMAND=0
+# --- chipdb: shipped with the package, or a local tools-only tree? ----------
+# A release package carries chipdb-<die>.bin and chipdb-id.txt. A local
+# --no-chipdb pack carries only the placeholder README.txt; --chipdb-dir
+# supplies the bins and they are copied in before the E2E.
+TOOLS_ONLY=0
 if [ -z "$(find "$PKG/chipdb" -maxdepth 1 -name '*.bin' -print -quit 2>/dev/null)" ]; then
-    ON_DEMAND=1
+    TOOLS_ONLY=1
 fi
-if [ "$ON_DEMAND" = 1 ]; then
+if [ "$TOOLS_ONLY" = 1 ]; then
     [ -f "$PKG/chipdb/README.txt" ] \
-        || fail "chipdb/ has neither bins nor the on-demand README.txt placeholder"
+        || fail "chipdb/ has neither bins nor the --no-chipdb README.txt placeholder"
     STRAY=$(cd "$PKG/chipdb" && ls -A | grep -vx 'README.txt' | tr '\n' ' ' || true)
     [ -z "$STRAY" ] || fail "chipdb/ must hold README.txt only, it also has: $STRAY"
     [ -n "$CHIPDB_DIR" ] \
-        || fail "this package ships no chipdb: pass --chipdb-dir <dir with the release bins>"
-    note "on-demand chipdb: chipdb/ holds only README.txt; bins from $CHIPDB_DIR"
+        || fail "this package ships no chipdb: pass --chipdb-dir <dir with the bins>"
+    note "tools-only pack: chipdb/ holds only README.txt; bins from $CHIPDB_DIR"
     if [ -z "$TARBALL" ]; then
         # A directory the caller owns: validate a copy of it, so the
         # injection never leaves 1.1 GB of bins in someone else's tree.
@@ -182,7 +181,7 @@ fi
 
 # --- chipdb completeness vs the manifest ------------------------------------
 # The chipdb file of a part is the one the package's index names for it
-# (several parts share one: one per die under schema 7).
+# (several parts share one: one per die under schema 8).
 PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
     python3 - "$REPO_ROOT/chipdb-parts.json" "$PKG" > "$SCRATCH/parts.txt" <<'PYEOF'
 import json, sys
@@ -199,7 +198,7 @@ NPARTS=0
 while read -r family part chipdb; do
     [ -f "$CHIPDB_SRC/$chipdb" ] || fail "chipdb missing for $part: $CHIPDB_SRC/$chipdb"
     # each family's prjxray-db must travel with its parts (fasm2frames needs
-    # the segbits + part.yaml of that family), on-demand chipdb or not
+    # the segbits + part.yaml of that family), tools-only pack or not
     [ -d "$PKG/share/nextpnr/external/prjxray-db/$family" ]         || fail "prjxray-db missing for family: $family"
     NPARTS=$((NPARTS + 1))
 done < "$SCRATCH/parts.txt"
@@ -216,9 +215,9 @@ then
 else
     fail "XILINX-PARTS-INDEX.json invalid"
 fi
-# The index names the assets by the release date. If it disagreed with
-# the package, apio would fetch chipdb files from another release (a run
-# crossing midnight UTC is how that happens).
+# The index is dated with the release. If it disagreed with the package,
+# it would describe another release's chipdb (a run crossing midnight UTC
+# is how that happens).
 if [ -n "$EXPECT_DATE" ]; then
     INDEX_DATE=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['date'])" "$INDEX")
     [ "$INDEX_DATE" = "$EXPECT_DATE" ] \
@@ -226,12 +225,15 @@ if [ -n "$EXPECT_DATE" ]; then
     ok "XILINX-PARTS-INDEX.json dated $EXPECT_DATE, like the package"
 fi
 
-# --- inject the on-demand bins, the way apio does ---------------------------
-if [ "$ON_DEMAND" = 1 ]; then
+# --- copy the bins into a tools-only tree before the E2E --------------------
+if [ "$TOOLS_ONLY" = 1 ]; then
     cp "$CHIPDB_SRC"/*.bin "$PKG/chipdb/"
+    if [ -f "$CHIPDB_SRC/chipdb-id.txt" ]; then
+        cp "$CHIPDB_SRC/chipdb-id.txt" "$PKG/chipdb/"
+    fi
     INJECTED=$(find "$PKG/chipdb" -maxdepth 1 -name '*.bin' | wc -l | tr -d ' ')
-    [ "$INJECTED" = "$NFILES" ] || fail "injected $INJECTED bins, expected $NFILES"
-    ok "chipdb injected: $INJECTED bins in chipdb/, where apio leaves them"
+    [ "$INJECTED" = "$NFILES" ] || fail "copied $INJECTED bins, expected $NFILES"
+    ok "chipdb copied: $INJECTED bins in chipdb/"
 fi
 
 # --- bundled tools ----------------------------------------------------------

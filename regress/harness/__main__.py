@@ -65,8 +65,8 @@ def main() -> int:
     parser.add_argument("--markdown", type=Path, help="write the report as markdown")
     parser.add_argument("--keep", action="store_true", help="keep the work directory")
     parser.add_argument("--chipdb-dir", type=Path,
-                        help="directory of chipdb .bin for a package that "
-                             "ships none (apio downloads them on demand)")
+                        help="directory of chipdb .bin for a local pack that "
+                             "ships none (a release package already carries them)")
     args = parser.parse_args()
 
     try:

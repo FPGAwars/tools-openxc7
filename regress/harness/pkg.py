@@ -58,11 +58,10 @@ class Package:
                 tar.extractall(tmp.name)
             root = Path(tmp.name)
 
-        # A released package ships no chipdb (chipdb/ is a placeholder and
-        # apio downloads the .bin it needs). Given a directory of bins, the
-        # suite runs against them the way apio arranges things: injected into
-        # the package tree when that tree is our own extraction, read from
-        # where they are when the caller owns the directory (`chipdb()`).
+        # A release package ships its chipdb. A local --no-chipdb tree does
+        # not: given a directory of bins, copy them into an extracted tree
+        # (ours to modify) and otherwise read them from where they are
+        # (`chipdb()`). A package that already has the file keeps it.
         if chipdb_dir is not None:
             chipdb_dir = Path(chipdb_dir).resolve()
             if tmp is not None and not list((root / "chipdb").glob("*.bin")):

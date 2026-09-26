@@ -3,9 +3,10 @@
 The flow is exactly the one apio runs — yosys → nextpnr-xilinx (with the
 `--report` JSON that backs `apio report`) → fasm2frames → xc7frames2bit —
 truncated at whatever stage the test asked for. The place-and-route step speaks
-the command line of the package's schema: schema 7 is the himbaechel xilinx
-uarch (the part in --device, the XDC and FASM as uarch options, one chipdb
-per die); schema 6 and 5 are the current engine.
+the command line of the package's schema: schema 7 and 8 are the himbaechel
+xilinx uarch (the part in --device, the XDC and FASM as uarch options, one
+chipdb per die; schema 8 ships that file in the package); schema 6 and 5
+are the earlier engine.
 
 Nothing here decides whether a test passed: the runner only reports what
 happened (log, artefacts, cells, utilisation, timing). Judgement lives in

@@ -8,8 +8,8 @@
 #   XILINX-PARTS-INDEX.json names for the part, generated XDC, --report)
 #   -> fasm2frames -> xc7frames2bit -> .bit
 # The place-and-route line is the one apio runs for the package's schema
-# number: schema 7 (himbaechel) takes the part in --device, the XDC and
-# the FASM as uarch options and one chipdb per die, and routes with
+# number: schema 7 and 8 (himbaechel) take the part in --device, the XDC
+# and the FASM as uarch options and one chipdb per die, and route with
 # router2 by default; schema 6 and 5 take --xdc/--fasm and one chipdb per
 # base part, and are asked for router2.
 # With `wine`, nextpnr-xilinx.exe / xc7frames2bit.exe run under wine64

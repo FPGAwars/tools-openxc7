@@ -14,9 +14,10 @@
 #   --json <file>        write the report as JSON
 #   --markdown <file>    write the report as markdown (CI job summary)
 #   --keep               keep the work directory for inspection
-#   --chipdb-dir <dir>   chipdb .bin for a package that ships none: released
-#                        packages leave chipdb/ empty and apio downloads what
-#                        the board needs, so the suite is given the same bins
+#   --chipdb-dir <dir>   optional. A release package already carries its
+#                        chipdb/. A local --no-chipdb tree does not: pass the
+#                        bins and the suite reads them. Ignored for the files
+#                        the package already has.
 #
 # A test is a directory under regress/tests/ with a test.json declaration —
 # see regress/README.md. Adding one never requires touching code.
