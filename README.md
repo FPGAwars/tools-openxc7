@@ -17,16 +17,17 @@ using [Nix](https://nixos.org), and publish one Apio package tarball per Apio su
 | `nextpnr-xilinx`, `bbasm`                 | [openXC7 nextpnr](https://github.com/openXC7/nextpnr) (the himbaechel xilinx uarch) | Place & route, and FASM output; `bbasm` assembles chipdb files |
 | `xc7frames2bit`, `bitread`, `xc7patch`    | [Project X-Ray](https://github.com/f4pga/prjxray)    | Frames → bitstream, and bitstream inspection       |
 | `fasm2frames` + the `fasm` Python library | [openXC7 fasm](https://github.com/openxc7/fasm)      | FASM → configuration frames                        |
-| `chipdb/`                                 | built here, downloaded on demand                     | Where apio leaves the device database nextpnr needs: one file per die, `chipdb-<die>.bin` |
-| `XILINX-PARTS-INDEX.json`                 | built here                                           | Which chipdb file each part needs, which of them this release built, the asset, sizes and hashes of each one; its schema number says which place-and-route engine it is built for |
+| `chipdb/`                                 | built here                                           | The device databases nextpnr needs: one file per die, `chipdb-<die>.bin`, plus `chipdb-id.txt` |
+| `XILINX-PARTS-INDEX.json`                 | built here                                           | Which chipdb file each part needs and which of them this release built; its schema number says which place-and-route engine it is built for |
 | `share/nextpnr/external/prjxray-db`       | [Project X-Ray database](https://github.com/openXC7/prjxray-db) | Pin/part data (`part.yaml`, `package_pins.csv`, …) and the segbits `fasm2frames` writes; every chipdb is generated from it |
 
 Synthesis is **not** part of this package: it comes from `yosys`, shipped by
 [oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite).
 
-Without a chipdb inside, a package is 73 to 92 MB (the `2026-09-23` release:
-windows-amd64 73 MB, darwin-arm64 77 MB, linux-x86-64 92 MB), and the chipdb
-of one die adds 2.6 to 6.5 MB the first time a board of that die is built.
+The ten chipdb files travel inside the package. The linux-x86-64 package
+with them is 135 MB (135,265,549 bytes). Release `2026-09-25` (schema 7,
+chipdb downloaded per die) was 92 MB (linux), 77 MB (darwin) and 73 MB
+(windows).
 
 ## Supported Boards and FPGAs
 
@@ -34,11 +35,9 @@ For latest information see [Apio supported boards](https://fpgawars.github.io/ap
 [Apio supported FPGAs](https://fpgawars.github.io/apio/docs/supported-fpgas/). FPGAs that are supported by
 Openxc7 but not by Apio can easily be added in the [Apio Definition Package repo](https://github.com/fpgawars/apio-definitions).
 
-Every package ships the prjxray database of three 7-series families, and the
-release publishes one chipdb asset per die below, 2.6 to 6.5 MB each — apio
-downloads the one your board needs into the package's `chipdb/` directory the
-first time you build. Every device and package of a die shares its chipdb
-(an xc7a35t is an xc7a50t die):
+Every package ships the prjxray database of three 7-series families and one
+chipdb file per die below, in `chipdb/`. Every device and package of a die
+shares that file (an xc7a35t is an xc7a50t die):
 
 | Family         | Die (chipdb) | Devices              | Footprints                                         | Boards (examples)                            |
 | -------------- | ------------ | -------------------- | -------------------------------------------------- | -------------------------------------------- |
@@ -73,14 +72,17 @@ Nix does not run on Windows.
 
 ```bash
 nix develop .#pack                                   # packaging shell
-python3.12 openxc7-pack.py --no-chipdb               # -> apio-openxc7-<platform>-<date>.tgz
-python3.12 openxc7-pack.py                           # the same, carrying every chipdb bin
+python3.12 openxc7-pack.py                           # -> apio-openxc7-<platform>-<date>.tgz
+python3.12 openxc7-pack.py --no-chipdb               # local tools-only tree, no bins
 ```
 
-`--no-chipdb` (or `OPENXC7_NO_CHIPDB=1`) is what the released packages are
-built with: `chipdb/` gets a `README.txt` and nothing else. Without it the
-packer generates the chipdb of every die of the manifest into the package,
-which is what you want for a self-contained local tree.
+The default pack is the release pack: it generates the chipdb of every die
+of the manifest, or copies one already generated (`OPENXC7_CHIPDB_SEED`,
+which must carry this toolchain's `chipdb-id.txt`), and the tarball ships
+those files in `chipdb/`. `--no-chipdb` (or `OPENXC7_NO_CHIPDB=1`) leaves a
+`README.txt` there and no bins. Use it for local iteration. A release
+package is what the default pack produces, with the chipdb files already
+in `chipdb/`.
 
 The first `nix develop` builds the whole toolchain and takes a while (tens of
 minutes); later ones take seconds. `nix develop` (without `.#pack`) gives the
@@ -108,7 +110,7 @@ byte-identical**, so they can be generated once and reused:
 | `OPENXC7_CHIPDB_SEED`   | Directory of prebuilt `.bin` files to reuse (with the `chipdb-id.txt` of this toolchain) |
 | `OPENXC7_CHIPDB_JOBS`   | Dies generated at once (default 1)                      |
 | `OPENXC7_CHIPDB_MEM_GB` | Memory budget of those jobs (default 14: `xc7z045` and `xc7z100` never run together) |
-| `OPENXC7_NO_CHIPDB`     | `1` packs without the chipdb (same as `--no-chipdb`)    |
+| `OPENXC7_NO_CHIPDB`     | `1` packs a local tools-only tree (same as `--no-chipdb`) |
 | `OPENXC7_PARTS_INDEX`   | The document to embed as `XILINX-PARTS-INDEX.json`      |
 | `OPENXC7_BUILD_INFO`    | The `BUILD-INFO.json` to embed (`scripts/build-info.sh`) |
 
@@ -124,16 +126,18 @@ byte-identical**, so they can be generated once and reused:
 nix build .#packages.x86_64-linux.openxc7-windows-amd64-tools
 ```
 
-The result is deliberately a **tools-only tree** without `chipdb/`. CI adds the
-on-demand placeholder and the `XILINX-PARTS-INDEX.json` built by the single `chipdb.yml`
-job, then creates the tarball and validates it against that job's bins — the same
-ones the Linux and macOS gates use. To reproduce that assembly locally:
+The result is deliberately a **tools-only tree** without `chipdb/`. CI copies
+the bins and `chipdb-id.txt` from the single `chipdb.yml` job into `chipdb/`,
+embeds the `XILINX-PARTS-INDEX.json` that job wrote, then creates the tarball.
+Those are the same bins the Linux and macOS packs seed. To reproduce that
+assembly locally:
 
 ```bash
 cp -aL result package-win && chmod -R u+w package-win
-python3 -m pack.chipdb package-win/chipdb          # the placeholder README.txt
+mkdir -p package-win/chipdb
+cp /path/to/chipdb-bins/*.bin /path/to/chipdb-bins/chipdb-id.txt package-win/chipdb/
 cp /path/to/XILINX-PARTS-INDEX.json package-win/XILINX-PARTS-INDEX.json
-CHIPDB_SOURCE=restored-from-cache CHIPDB_ID="$(cat /path/to/chipdb-bins/chipdb-id.txt)" \
+CHIPDB_SOURCE=restored-from-cache CHIPDB_ID="$(cat package-win/chipdb/chipdb-id.txt)" \
   bash scripts/build-info.sh windows-amd64 YYYY-MM-DD \
   apio-openxc7-windows-amd64-YYYYMMDD.tgz package-win/BUILD-INFO.json
 tar czhf apio-openxc7-windows-amd64-YYYYMMDD.tgz --mode=u+w -C package-win .
@@ -152,23 +156,24 @@ Everything the CI gates on is a script you can run locally, which is the point:
 a release is only as trustworthy as the checks you can reproduce.
 
 ```bash
-scripts/validate-package.sh <package.tgz> --chipdb-dir /path/to/chipdb-bins
-scripts/validate-package.sh <package.tgz> --chipdb-dir <dir> --wine
-scripts/validate-package.sh <package.tgz> --chipdb-dir <dir> --parts "xc7a35tcpg236" --keep
+scripts/validate-package.sh <package.tgz>
+scripts/validate-package.sh <package.tgz> --wine
+scripts/validate-package.sh <package.tgz> --parts "xc7a35tcpg236" --keep
+scripts/validate-package.sh <tools-only-tree-or-tarball> --chipdb-dir <bins>
 ```
 
-`--chipdb-dir` is the directory of `.bin` the release publishes as per-die
-assets: the gate checks them against the package's `XILINX-PARTS-INDEX.json` and then
-**injects** them into the extracted tarball, exactly where apio's loader leaves
-them, so what is validated is the tree a user ends up with. A package built
-with the chipdb inside needs no such directory.
+A release package already carries its chipdb. The gate checks that every
+file named by `XILINX-PARTS-INDEX.json` is in `chipdb/`, that no extra `.bin`
+is there, and that `chipdb/chipdb-id.txt` matches the index's `chipdb-id`.
+`--chipdb-dir` is only for a local `--no-chipdb` tree: the same check, then
+the bins are copied in so the end-to-end run has them. When the package
+already ships the files, the flag is ignored.
 
 It validates the package **inside its tarball** (never the freshly built tree)
 and exits non-zero on any failure:
 
-- the layout, that `chipdb/` holds only the placeholder, and that every part
-  of `chipdb-parts.json` is in `XILINX-PARTS-INDEX.json` with the `chipdb-size` and
-  `chipdb-sha256` of the chipdb file the release publishes for it;
+- the layout, and that every part of `chipdb-parts.json` is named by
+  `XILINX-PARTS-INDEX.json` and present in `chipdb/`;
 - `--version` of the *packaged* binary against the revision in
   `nix/nextpnr-xilinx.nix`, so a stale binary cannot sneak into a release;
 - on macOS, the ad-hoc signature and that no Mach-O load command still points
@@ -197,8 +202,9 @@ repository packages:
 
 ```bash
 scripts/fetch-demos.sh                              # locked third-party sources
-scripts/regress.sh <package.tgz> --chipdb-dir <dir> # the whole catalogue
-scripts/regress.sh <pkg> --chipdb-dir <dir> --test srl --json report.json
+scripts/regress.sh <package.tgz>                        # the whole catalogue
+scripts/regress.sh <pkg> --test srl --json report.json
+scripts/regress.sh <tools-only-pkg> --chipdb-dir <bins>
 ```
 
 A third check keeps the installers honest about what is actually published:
@@ -217,7 +223,7 @@ branch is a dispatch of it on that branch:
 | Workflow | What it does |
 |---|---|
 | `test.yaml` | Per-commit compile test: linux, macos and windows-cross jobs (push/PR guard) |
-| `chipdb.yml` | Owns chipdb generation/cache, identity, the per-die release assets (cached too) and `XILINX-PARTS-INDEX.json`: one `chipdb-<die>.bin` per die of the manifest, generated three at a time under a memory budget so the two biggest dies never run together on the 16 GB runner |
+| `chipdb.yml` | Owns chipdb generation/cache, identity and `XILINX-PARTS-INDEX.json`: one `chipdb-<die>.bin` per die of the manifest, generated three at a time under a memory budget so the two biggest dies never run together on the 16 GB runner |
 | `linux-package.yml` | Consumes the chipdb artifacts, then builds + validates `linux-x86-64` |
 | `darwin-package.yml` | Consumes the chipdb artifacts, then builds + validates `darwin-arm64` |
 | `windows-package.yml` | Consumes the chipdb artifacts, then cross-builds + validates `windows-amd64` under wine (an inline E2E with the himbaechel command line and its `--report`, then L1 and L2) |
@@ -225,36 +231,28 @@ branch is a dispatch of it on that branch:
 | `make-pre-release-stable.yaml` | Manual dispatch: re-verifies a candidate and marks it stable + latest (apio's remote-config is then updated by hand) |
 
 `build-pre-release.yaml` creates the release **only after every platform is
-green**, as a dated **prerelease** (never "latest"), with the three tarballs,
-one `apio-xilinx-chipdb-<die>-<YYYYMMDD>.bin.tgz` per chipdb file it built
-(the set is checked against the index before the upload: as many assets as
-the index names, with its sizes and hashes), `XILINX-PARTS-INDEX.json`,
-`BUILD-INFO.json`, and a `SHA256SUMS` covering every one of them
+green**, as a dated **prerelease** (never "latest"), with six assets: the
+three tarballs (each carrying its chipdb), `XILINX-PARTS-INDEX.json`,
+`BUILD-INFO.json`, and a `SHA256SUMS` covering the other five
 (written in the publishing job from the bytes it uploads, so it cannot drift
-from the release).
+from the release). Before the upload, the index is checked against the bins
+inside every tarball. There is no `apio-xilinx-chipdb-*.bin.tgz` asset.
 
 `XILINX-PARTS-INDEX.json` is published under the same name every package carries it
 at its root: which release it belongs to is written inside it (`release-tag`),
 so the file name does not repeat the date. It is keyed by the full part number
 (`xc7a200tfbg484-3`: device, package, speed grade) and says, for each one,
-whether this release built it and — if it did — the chipdb file it needs
-(`chipdb`, `chipdb-size`, `chipdb-sha256`: what must end up on disk) and the
-asset that carries it (`asset`, `asset-size`, `asset-sha256`: what gets
-downloaded). Which parts share a chipdb file is ours to change, so the index
-names one per part: today every part of a die repeats the same file,
-`chipdb-<die>.bin`, and a loader that keeps what is already on disk with the
-right `chipdb-sha256` downloads it once. Parts the packaged prjxray database supports
-but the release did not build are listed with `"generated": false`, so apio can
-tell "not in this release" from "unknown part". A package carries one engine,
-and the schema number is the contract. Schema 6 is the current engine
-(`nextpnr-xilinx --chipdb <file> --xdc …`), one chipdb file per base part,
-the same entry keys as schema 5. Schema 7, which this package emits, is the
-himbaechel engine, still installed as `nextpnr-xilinx`, one chipdb file per
-die (`chipdb-<die>.bin`; the entry names the file its part uses). apio 1.6.x
-reads schema 5 only, so a schema 7 index is for the apio 1.7 line. Since no package ships a
-chipdb, that index and the per-die assets are the whole contract: each
-platform's L1 and L2 gates run with those very bins injected into the extracted
-tarball. Old prereleases are
+whether this release built it and — if it did — the chipdb file in `chipdb/`
+(`chipdb-<die>.bin`; the parts of one die repeat that name). Parts the
+packaged prjxray database supports but the release did not build are listed
+with `"generated": false`: supported, not built, so apio can tell that from
+"unknown part". A package carries one engine, and the schema number is the
+contract. Schema 8, which this package emits, is the himbaechel engine,
+installed as `nextpnr-xilinx`, one chipdb file per die, shipped in the
+package. The command line is `nextpnr-xilinx --device <part> --chipdb
+<file> -o xdc=… -o fasm=… --report …`. apio 1.6.x reads schema 5 only;
+schema 8 is for the apio 1.7 line. Each platform's L1 and L2 gates run on
+the tarball with those bins already inside it. Old prereleases are
 pruned automatically; promoting a candidate to a real release is a deliberate
 one-click human step, and everything after that click is automated.
 
