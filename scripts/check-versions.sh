@@ -9,10 +9,13 @@
 #                  (nightly prereleases are excluded by design: releases
 #                  are published --prerelease --latest=false until a human
 #                  promotes one)
-#   oss-cad-suite  the version our CI VALIDATES the package against
-#                  (scripts/ci-install-oss-cad-suite.sh)  <->  apio's
-#                  remote-config tag -- a drift here means L1/L2 validate
-#                  with different tools than users actually get
+#   oss-cad-suite  the release our CI VALIDATES the package against (the
+#                  single literal OSS_CAD_SUITE_RELEASE of
+#                  .github/workflows/build-pre-release.yaml)  <->  the tag of
+#                  apio 1.7.x's remote-config (the line this branch builds
+#                  for) -- a drift here means L1/L2 validate with different
+#                  tools than users actually get. apio 1.6.x's tag is shown
+#                  as well (frozen legacy line: informational, never drift)
 #
 # Usage:
 #   scripts/check-versions.sh              # exit != 0 if anything drifted
@@ -27,7 +30,7 @@ REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 MODE="check"
 case "${1:-}" in
     --report) MODE="report" ;;
-    -h|--help) sed -n '3,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     "") ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
 esac
@@ -37,10 +40,14 @@ import json, os, re, sys, urllib.error, urllib.request
 
 repo_root, mode = sys.argv[1], sys.argv[2]
 
-REMOTE_CONFIG = os.environ.get(
-    "APIO_REMOTE_CONFIG_URL",
-    "https://raw.githubusercontent.com/FPGAwars/apio/main/remote-config/apio-1.5.x.jsonc",
-)
+RAW = "https://raw.githubusercontent.com/FPGAwars/apio/main/remote-config/"
+# (label, url, gates): only the line this branch builds for can drift
+REMOTE_CONFIGS = [
+    ("apio-1.6.x", RAW + "apio-1.6.x.jsonc", False),
+    ("apio-1.7.x", RAW + "apio-1.7.x.jsonc", True),
+]
+if os.environ.get("APIO_REMOTE_CONFIG_URL"):
+    REMOTE_CONFIGS = [("override", os.environ["APIO_REMOTE_CONFIG_URL"], True)]
 
 
 def get(url):
@@ -53,15 +60,16 @@ def get(url):
 
 
 def ci_oss_cad_suite_version():
-    """The version scripts/ci-install-oss-cad-suite.sh validates against."""
-    text = open(os.path.join(repo_root, "scripts", "ci-install-oss-cad-suite.sh")).read()
-    m = re.search(r'^OSS_CAD_SUITE_DATE=.*?(\d{4}-\d{2}-\d{2})', text, re.M)
+    """OSS_CAD_SUITE_RELEASE, the literal in build-pre-release.yaml."""
+    path = os.path.join(repo_root, ".github", "workflows", "build-pre-release.yaml")
+    text = open(path).read()
+    m = re.search(r'^  OSS_CAD_SUITE_RELEASE:\s*"?(\d{4}-\d{2}-\d{2})"?', text, re.M)
     return m.group(1) if m else "?"
 
 
-def apio_versions():
-    """packages.<key>.release.tag from apio's remote-config (jsonc)."""
-    raw = get(REMOTE_CONFIG)
+def apio_versions(url):
+    """packages.<key>.release.tag from an apio remote-config (jsonc)."""
+    raw = get(url)
     stripped = "\n".join(
         "" if ln.lstrip().startswith("//") else ln for ln in raw.splitlines()
     )
@@ -70,7 +78,7 @@ def apio_versions():
 
 
 try:
-    apio = apio_versions()
+    apio = {label: apio_versions(url) for label, url, _ in REMOTE_CONFIGS}
     promoted_openxc7 = json.loads(
         get("https://api.github.com/repos/FPGAwars/tools-openxc7/releases/latest")
     )["tag_name"]
@@ -79,31 +87,38 @@ except (urllib.error.URLError, urllib.error.HTTPError, KeyError, ValueError) as 
     print(f"could not resolve the published state: {e}", file=sys.stderr)
     sys.exit(0 if mode == "report" else 2)
 
-rows = [
-    # (tool, ours, ours-label, apio's remote-config tag)
-    ("openxc7", promoted_openxc7, "promoted", apio["openxc7"]),
-    ("oss-cad-suite", ci_ocs, "ci-validates", apio["oss-cad-suite"]),
-]
+if ci_ocs == "?":
+    print("could not read OSS_CAD_SUITE_RELEASE from build-pre-release.yaml", file=sys.stderr)
+    sys.exit(0 if mode == "report" else 2)
 
-print(f"{'tool':<16} {'ours':<12} {'(source)':<14} {'apio':<12} status")
+rows = []  # (tool, ours, ours-label, apio's tag, config label, gates)
+for label, _, gates in REMOTE_CONFIGS:
+    if label != "apio-1.7.x":
+        # `latest` is what the 1.6.x line installs; 1.7.x moves to the new
+        # release by hand at apio 1.7.0, so it is not compared with `latest`
+        rows.append(("openxc7", promoted_openxc7, "promoted", apio[label]["openxc7"], label, gates))
+    rows.append(("oss-cad-suite", ci_ocs, "ci-validates", apio[label]["oss-cad-suite"], label, gates))
+
+print(f"{'tool':<16} {'ours':<12} {'(source)':<14} {'apio':<12} {'config':<12} status")
 drift = []
-for tool, ours, label, ap in rows:
+for tool, ours, label, ap, cfg, gates in rows:
     aligned = ours == ap
-    if not aligned:
-        drift.append((tool, ours, label, ap))
-    print(f"{tool:<16} {ours:<12} {label:<14} {ap:<12} {'OK' if aligned else 'DRIFT'}")
+    if not aligned and gates:
+        drift.append((tool, ours, label, ap, cfg))
+    status = "OK" if aligned else ("DRIFT" if gates else "differs (legacy line, informational)")
+    print(f"{tool:<16} {ours:<12} {label:<14} {ap:<12} {cfg:<12} {status}")
 
 if not drift:
     print("\nall versions aligned")
     sys.exit(0)
 
 print("", file=sys.stderr)
-for tool, ours, label, ap in drift:
-    print(f"DRIFT {tool}: {label}={ours} apio-remote-config={ap}", file=sys.stderr)
+for tool, ours, label, ap, cfg in drift:
+    print(f"DRIFT {tool}: {label}={ours} {cfg}={ap}", file=sys.stderr)
 print(
     "\nopenxc7 drift: make-pre-release-stable (or fix remote-config). oss-cad-suite drift: "
-    "bump scripts/ci-install-oss-cad-suite.sh so CI validates with the same "
-    "tools users get.",
+    "change OSS_CAD_SUITE_RELEASE in build-pre-release.yaml so CI validates with the "
+    "same tools users get (see README, Bumping the oss-cad-suite).",
     file=sys.stderr,
 )
 sys.exit(0 if mode == "report" else 1)
