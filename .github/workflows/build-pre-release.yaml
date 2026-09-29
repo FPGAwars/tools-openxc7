@@ -50,7 +50,7 @@ on:
 # not written anywhere: build-info.sh reads it from that package's own
 # BUILD-INFO.json and exports it as "yosys-release-tag" (apio#927).
 env:
-  OSS_CAD_SUITE_RELEASE: "2026-08-07"
+  OSS_CAD_SUITE_RELEASE: "2026-09-15"
 
 permissions:
   contents: write
