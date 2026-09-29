@@ -285,6 +285,30 @@ Never delete `latest`, and never delete a release that apio's remote-config
 already points at: that is an immediate 404 for every installer on that
 channel.
 
+### Bumping the oss-cad-suite
+
+The CI validates every package against the same
+[oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite) an apio user
+gets, and each package declares the yosys of that suite as the
+`yosys-release-tag` of its `BUILD-INFO.json`. The suite is named in exactly
+one place: `OSS_CAD_SUITE_RELEASE` in `.github/workflows/build-pre-release.yaml`
+(a release of `FPGAwars/tools-oss-cad-suite`, `YYYY-MM-DD`). Everything else is
+derived from the installed suite's own `BUILD-INFO.json`, so no yosys date is
+written anywhere else.
+
+1. Change `OSS_CAD_SUITE_RELEASE` to the release to validate against.
+2. Run `test.yaml` on the branch, or dispatch `build-pre-release`.
+3. If the new yosys synthesises differently, the L2 regression gate fails on
+   metric drift. That is the gate working, not a broken bump: review the drift,
+   then record the new numbers with `scripts/regress-baseline-from-report.py`
+   from the `regress-report-<platform>` artifacts of that run (every baseline
+   entry records the yosys it was measured with in `env.yosys`).
+4. Open the PR (workflow change + regrabbed baselines).
+
+`scripts/check-versions.sh` compares the literal with what apio's remote-config
+serves. `scripts/ci-install-oss-cad-suite.sh` has no default version and
+refuses to continue if the suite on disk is not the requested release.
+
 ### Running the workflows on a fork
 
 The workflows run on a fork as they do here and publish the dated

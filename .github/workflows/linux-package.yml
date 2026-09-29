@@ -21,8 +21,8 @@ on:
         description: "Package date YYYY-MM-DD (the release tag; apio derives the asset date from it)"
         required: true
         type: string
-      yosys_release_tag:
-        description: "Upstream YosysHQ oss-cad-suite release this package expects at runtime (BUILD-INFO matching key)"
+      oss_cad_suite_release:
+        description: "FPGAwars/tools-oss-cad-suite release (YYYY-MM-DD) the package is validated against and whose yosys it expects at runtime; the single literal is OSS_CAD_SUITE_RELEASE in build-pre-release.yaml"
         required: true
         type: string
       chipdb_source:
@@ -77,28 +77,26 @@ jobs:
           path: parts-index
 
       # Installed BEFORE composing BUILD-INFO: build-info.sh re-exports the
-      # yosys-release-tag from the installed package's own BUILD-INFO.json
+      # yosys-release-tag from the installed suite's own BUILD-INFO.json
       # (the runtime matching key, apio#927).
       - name: Cache the oss-cad-suite validation env
         uses: actions/cache@v6
         with:
           path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ hashFiles('scripts/ci-install-oss-cad-suite.sh') }}
+          key: oss-cad-suite-${{ runner.os }}-${{ inputs.oss_cad_suite_release }}
 
       - name: Install oss-cad-suite (the user env, via our own installer)
+        env:
+          OSS_CAD_SUITE_DATE: ${{ inputs.oss_cad_suite_release }}
         run: |
-          [ -x "$HOME/.local/oss-cad-suite/bin/yosys" ] || bash scripts/ci-install-oss-cad-suite.sh
-          # the validation env must BE the declared runtime expectation (apio#927)
-          DECLARED="${{ inputs.yosys_release_tag }}"
-          GOT=$(python3 -c "import json;print(json.load(open('$HOME/.local/oss-cad-suite/BUILD-INFO.json')).get('yosys-release-tag','?'))" 2>/dev/null || echo "?")
-          [ "$GOT" = "$DECLARED" ] \
-            || { echo "::error::validation env yosys release ($GOT) != declared yosys_release_tag ($DECLARED)"; exit 1; }
+          # installs when absent; either way verifies the suite on disk IS
+          # the requested release and names its yosys (apio#927)
+          bash scripts/ci-install-oss-cad-suite.sh
 
       # chipdb provenance comes from the chipdb job of the calling run (its
       # outputs are this workflow's inputs).
       - name: Compose BUILD-INFO.json (ecosystem convention)
         env:
-          YOSYS_RELEASE_TAG: ${{ inputs.yosys_release_tag }}
           CHIPDB_SOURCE: ${{ inputs.chipdb_source }}
           CHIPDB_ID: ${{ inputs.chipdb_id }}
         run: |
