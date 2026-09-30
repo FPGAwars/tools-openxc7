@@ -5,7 +5,7 @@
       "brams": 1,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 26,
@@ -20,7 +20,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 7,
@@ -35,7 +35,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 128,
@@ -50,7 +50,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 12288,
@@ -65,7 +65,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 12288,
@@ -80,7 +80,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -93,7 +93,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -106,7 +106,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -119,7 +119,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -132,7 +132,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -145,7 +145,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -158,7 +158,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -171,7 +171,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -184,7 +184,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -197,7 +197,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -210,7 +210,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -223,7 +223,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -236,7 +236,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -249,7 +249,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -262,7 +262,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -275,7 +275,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -288,7 +288,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -301,7 +301,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -314,7 +314,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -327,7 +327,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -340,7 +340,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -353,7 +353,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -366,7 +366,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -379,7 +379,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -392,7 +392,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -405,7 +405,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -418,7 +418,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -431,7 +431,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -444,7 +444,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -457,7 +457,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -470,7 +470,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -483,7 +483,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -496,7 +496,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -509,7 +509,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -522,7 +522,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -535,7 +535,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -548,7 +548,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 1,
@@ -563,7 +563,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 25,
@@ -578,7 +578,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 25,
@@ -593,7 +593,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 25,
@@ -608,7 +608,7 @@
       "brams": 0,
       "dsps": 1,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 36,
@@ -623,7 +623,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 257,
@@ -638,7 +638,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 22,
@@ -653,7 +653,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 28,
@@ -668,7 +668,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 22,
@@ -683,7 +683,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 31,
@@ -698,7 +698,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 24,
@@ -713,7 +713,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 0,
@@ -728,7 +728,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 0,
@@ -743,7 +743,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 0,
@@ -758,7 +758,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 24,
@@ -773,7 +773,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 24,
@@ -788,7 +788,7 @@
       "brams": 0,
       "dsps": 0,
       "env": {
-        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version e860c9c8)",
+        "nextpnr": "\"nextpnr-xilinx\" -- Next Generation Place and Route (Version c68c1358)",
         "yosys": "Yosys 0.63+173 (git sha1 66306a8ca, clang++ 18.1.8 -fPIC -O3)"
       },
       "ffs": 38,
