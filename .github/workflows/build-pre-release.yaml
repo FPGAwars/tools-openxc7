@@ -45,12 +45,14 @@ on:
         default: false
         type: boolean
 
-# THE one place that names the oss-cad-suite: the FPGAwars/tools-oss-cad-suite
-# release apio installs, which every job validates against. Its yosys tag is
-# not written anywhere: build-info.sh reads it from that package's own
-# BUILD-INFO.json and exports it as "yosys-release-tag" (apio#927).
+# THE one place that names the yosys: the YosysHQ/oss-cad-suite-build release
+# every job installs and validates against. apio's `oss-cad-suite` package
+# repackages one such release, and apio checks at run time that both packages
+# name the same tag, so a bump is agreed with its maintainer (README, Bumping
+# yosys). Nothing else states it: build-info.sh derives the package's
+# "yosys-release-tag" (apio#927) from the installed suite.
 env:
-  OSS_CAD_SUITE_RELEASE: "2026-09-15"
+  YOSYS_RELEASE_TAG: "2026-03-24"
 
 permissions:
   contents: write
@@ -66,7 +68,7 @@ jobs:
     runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
     outputs:
       date: ${{ steps.d.outputs.date }}
-      oss_cad_suite_release: ${{ steps.d.outputs.oss_cad_suite_release }}
+      yosys_release_tag: ${{ steps.d.outputs.yosys_release_tag }}
     steps:
       - name: Get release and package tags (ecosystem convention)
         uses: fpgawars/apio-workflows/.github/actions/get-release-and-package-tags@main
@@ -86,8 +88,8 @@ jobs:
           echo "Release date: $DATE"
           # env is not visible to the `with:` of a reusable-workflow call:
           # the literal travels down as this job's output
-          echo "oss_cad_suite_release=$OSS_CAD_SUITE_RELEASE" >> "$GITHUB_OUTPUT"
-          echo "oss-cad-suite release: $OSS_CAD_SUITE_RELEASE"
+          echo "yosys_release_tag=$YOSYS_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "yosys release: $YOSYS_RELEASE_TAG"
       # NOTE: scheduled runs build UNCONDITIONALLY, even with no new commits
       # (ecosystem convention, zapta 2026-08-09: a daily build also catches
       # breakage coming from the github action tools themselves; it is what
@@ -129,7 +131,7 @@ jobs:
     uses: ./.github/workflows/linux-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
-      oss_cad_suite_release: ${{ needs.prepare.outputs.oss_cad_suite_release }}
+      yosys_release_tag: ${{ needs.prepare.outputs.yosys_release_tag }}
       chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
       parts_index: ${{ needs.chipdb.outputs.parts_index }}
@@ -139,7 +141,7 @@ jobs:
     uses: ./.github/workflows/darwin-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
-      oss_cad_suite_release: ${{ needs.prepare.outputs.oss_cad_suite_release }}
+      yosys_release_tag: ${{ needs.prepare.outputs.yosys_release_tag }}
       chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
       parts_index: ${{ needs.chipdb.outputs.parts_index }}
@@ -149,7 +151,7 @@ jobs:
     uses: ./.github/workflows/windows-package.yml
     with:
       date: ${{ needs.prepare.outputs.date }}
-      oss_cad_suite_release: ${{ needs.prepare.outputs.oss_cad_suite_release }}
+      yosys_release_tag: ${{ needs.prepare.outputs.yosys_release_tag }}
       chipdb_source: ${{ needs.chipdb.outputs.mode }}
       chipdb_id: ${{ needs.chipdb.outputs.identity }}
       parts_index: ${{ needs.chipdb.outputs.parts_index }}

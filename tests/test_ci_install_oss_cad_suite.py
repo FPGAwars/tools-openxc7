@@ -1,7 +1,6 @@
 """scripts/ci-install-oss-cad-suite.sh states no version of its own: the
-release comes from OSS_CAD_SUITE_DATE and the suite on disk must be it."""
+release comes from YOSYS_RELEASE_TAG and the suite on disk must be it."""
 
-import json
 import os
 import subprocess
 import tempfile
@@ -11,24 +10,23 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "ci-install-oss-cad-suite.sh"
 
 
-def run(suite, date=None):
+def run(suite, tag=None):
     env = {key: value for key, value in os.environ.items()
-           if key != "OSS_CAD_SUITE_DATE"}
+           if key != "YOSYS_RELEASE_TAG"}
     env["OSS_CAD_SUITE_PATH"] = str(suite)
-    if date is not None:
-        env["OSS_CAD_SUITE_DATE"] = date
+    if tag is not None:
+        env["YOSYS_RELEASE_TAG"] = tag
     return subprocess.run(["bash", str(SCRIPT)], env=env,
                           capture_output=True, text=True)
 
 
-def fake_suite(root, release, yosys="2026-03-24"):
+def fake_suite(root, version=None):
+    """A YosysHQ suite as far as the script looks: bin/yosys and VERSION."""
     (root / "bin").mkdir(parents=True)
     (root / "bin" / "yosys").write_text("#!/bin/sh\n")
     (root / "bin" / "yosys").chmod(0o755)
-    info = {"release-tag": release}
-    if yosys:
-        info["yosys-release-tag"] = yosys
-    (root / "BUILD-INFO.json").write_text(json.dumps(info), encoding="utf-8")
+    if version:
+        (root / "VERSION").write_text(version + "\n", encoding="utf-8")
 
 
 class CiInstallTests(unittest.TestCase):
@@ -37,32 +35,33 @@ class CiInstallTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as scratch:
             done = run(Path(scratch) / "s")
         self.assertNotEqual(done.returncode, 0)
-        self.assertIn("OSS_CAD_SUITE_DATE", done.stderr)
+        self.assertIn("YOSYS_RELEASE_TAG", done.stderr)
 
     def test_a_malformed_release_is_refused(self):
         with tempfile.TemporaryDirectory() as scratch:
-            done = run(Path(scratch) / "s", "20260807")
+            done = run(Path(scratch) / "s", "20260324")
         self.assertEqual(done.returncode, 2)
 
     def test_the_suite_on_disk_is_the_requested_release(self):
         with tempfile.TemporaryDirectory() as scratch:
             suite = Path(scratch) / "s"
-            fake_suite(suite, "2026-08-07")
-            done = run(suite, "2026-08-07")
+            fake_suite(suite, "20260324")
+            done = run(suite, "2026-03-24")
         self.assertEqual(done.returncode, 0, done.stderr)
-        self.assertIn("yosys-release-tag 2026-03-24", done.stdout)
+        self.assertIn("yosys release 2026-03-24", done.stdout)
 
     def test_a_different_release_on_disk_fails(self):
         with tempfile.TemporaryDirectory() as scratch:
             suite = Path(scratch) / "s"
-            fake_suite(suite, "2026-08-07")
-            done = run(suite, "2026-09-29")
+            fake_suite(suite, "20260324")
+            done = run(suite, "2026-09-27")
         self.assertNotEqual(done.returncode, 0)
-        self.assertIn("2026-08-07", done.stderr)
+        self.assertIn("20260324", done.stderr)
 
-    def test_a_suite_without_a_yosys_tag_fails(self):
+    def test_a_suite_without_a_version_file_fails(self):
         with tempfile.TemporaryDirectory() as scratch:
             suite = Path(scratch) / "s"
-            fake_suite(suite, "2026-08-07", yosys=None)
-            done = run(suite, "2026-08-07")
+            fake_suite(suite)
+            done = run(suite, "2026-03-24")
         self.assertNotEqual(done.returncode, 0)
+        self.assertIn("unknown", done.stderr)

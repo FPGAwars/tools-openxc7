@@ -14,8 +14,8 @@ scripts/regress.sh <package> --tier 1 --markdown report.md
 scripts/regress.sh <package> --update-baseline  # record new reference values
 ```
 
-Needs `yosys` on PATH, from the oss-cad-suite the CI installs (`OSS_CAD_SUITE_RELEASE` in
-`build-pre-release.yaml`) — the same one apio installs, so the numbers describe what users
+Needs `yosys` on PATH, from the oss-cad-suite the CI installs (`YOSYS_RELEASE_TAG` in
+`build-pre-release.yaml`) — the same yosys apio installs, so the numbers describe what users
 actually get. The yosys a baseline was recorded with is the `env.yosys` of each of its entries
 (the harness prints it), so a yosys change surfaces as drift, by design.
 
