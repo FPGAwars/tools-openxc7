@@ -21,8 +21,11 @@ using [Nix](https://nixos.org), and publish one Apio package tarball per Apio su
 | `XILINX-PARTS-INDEX.json`                 | built here                                           | Which chipdb file each part needs and which of them this release built; its schema number says which place-and-route engine it is built for |
 | `share/nextpnr/external/prjxray-db`       | [Project X-Ray database](https://github.com/openXC7/prjxray-db) | Pin/part data (`part.yaml`, `package_pins.csv`, …) and the segbits `fasm2frames` writes; every chipdb is generated from it |
 
-Synthesis is **not** part of this package: it comes from `yosys`, shipped by
-[oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite).
+Synthesis is **not** part of this package: it comes from `yosys`. apio users
+get it in the `oss-cad-suite` package
+([tools-oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite)), which
+repackages a release of [YosysHQ's oss-cad-suite](https://github.com/YosysHQ/oss-cad-suite-build);
+the CI validates this package with that same yosys.
 
 The ten chipdb files travel inside the package. The linux-x86-64 package
 with them is 135 MB (135,265,549 bytes). Release `2026-09-25` (schema 7,
@@ -285,18 +288,22 @@ Never delete `latest`, and never delete a release that apio's remote-config
 already points at: that is an immediate 404 for every installer on that
 channel.
 
-### Bumping the oss-cad-suite
+### Bumping yosys
 
-The CI validates every package against the same
-[oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite) an apio user
-gets, and each package declares the yosys of that suite as the
-`yosys-release-tag` of its `BUILD-INFO.json`. The suite is named in exactly
-one place: `OSS_CAD_SUITE_RELEASE` in `.github/workflows/build-pre-release.yaml`
-(a release of `FPGAwars/tools-oss-cad-suite`, `YYYY-MM-DD`). Everything else is
-derived from the installed suite's own `BUILD-INFO.json`, so no yosys date is
-written anywhere else.
+The CI validates every package with the yosys of a
+[YosysHQ oss-cad-suite-build](https://github.com/YosysHQ/oss-cad-suite-build)
+release, and each package declares that release as the `yosys-release-tag` of
+its `BUILD-INFO.json`. It is named in exactly one place: `YOSYS_RELEASE_TAG` in
+`.github/workflows/build-pre-release.yaml` (`YYYY-MM-DD`). The suite is
+downloaded from YosysHQ by that tag; the `yosys-release-tag` of the package is
+derived from the installed suite's `VERSION` file, so no yosys date is written
+anywhere else.
 
-1. Change `OSS_CAD_SUITE_RELEASE` to the release to validate against.
+apio checks at run time that this package and its own `oss-cad-suite` package
+name the same yosys tag, so a bump is coordinated with the apio maintainer:
+`tools-oss-cad-suite` has to repackage the same YosysHQ release.
+
+1. Change `YOSYS_RELEASE_TAG` to the YosysHQ release to validate against.
 2. Run `test.yaml` on the branch, or dispatch `build-pre-release`.
 3. If the new yosys synthesises differently, the L2 regression gate fails on
    metric drift. That is the gate working, not a broken bump: review the drift,
@@ -305,9 +312,12 @@ written anywhere else.
    entry records the yosys it was measured with in `env.yosys`).
 4. Open the PR (workflow change + regrabbed baselines).
 
-`scripts/check-versions.sh` compares the literal with what apio's remote-config
-serves. `scripts/ci-install-oss-cad-suite.sh` has no default version and
-refuses to continue if the suite on disk is not the requested release.
+`scripts/check-versions.sh` compares the literal with the yosys tag of the
+`oss-cad-suite` release apio's remote-config names. The yosys tag of any
+`tools-oss-cad-suite` release is the `YOSYS_RELEASE_TAG` of its workflow at
+that git tag (and the "Underlying Yosys release" link of its release notes).
+`scripts/ci-install-oss-cad-suite.sh` has no default version and refuses to
+continue if the suite on disk is not the requested release.
 
 ### Running the workflows on a fork
 

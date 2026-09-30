@@ -9,13 +9,16 @@
 #                  (nightly prereleases are excluded by design: releases
 #                  are published --prerelease --latest=false until a human
 #                  promotes one)
-#   oss-cad-suite  the release our CI VALIDATES the package against (the
-#                  single literal OSS_CAD_SUITE_RELEASE of
-#                  .github/workflows/build-pre-release.yaml)  <->  the tag of
-#                  apio 1.7.x's remote-config (the line this branch builds
-#                  for) -- a drift here means L1/L2 validate with different
-#                  tools than users actually get. apio 1.6.x's tag is shown
-#                  as well (frozen legacy line: informational, never drift)
+#   yosys          the YosysHQ release our CI VALIDATES the package against
+#                  (the single literal YOSYS_RELEASE_TAG of
+#                  .github/workflows/build-pre-release.yaml)  <->  the yosys
+#                  tag of the oss-cad-suite release that apio 1.7.x's
+#                  remote-config names (the line this branch builds for;
+#                  read from YOSYS_RELEASE_TAG of that release's own
+#                  workflow) -- a drift here means L1/L2 validate with a
+#                  different yosys than users actually get. apio 1.6.x's is
+#                  shown as well (frozen legacy line: informational, never
+#                  drift)
 #
 # Usage:
 #   scripts/check-versions.sh              # exit != 0 if anything drifted
@@ -59,12 +62,27 @@ def get(url):
         return r.read().decode()
 
 
-def ci_oss_cad_suite_version():
-    """OSS_CAD_SUITE_RELEASE, the literal in build-pre-release.yaml."""
+YOSYS_TAG_RE = r'^  YOSYS_RELEASE_TAG:\s*"?(\d{4}-\d{2}-\d{2})"?'
+
+
+def ci_yosys_tag():
+    """YOSYS_RELEASE_TAG, the literal in build-pre-release.yaml."""
     path = os.path.join(repo_root, ".github", "workflows", "build-pre-release.yaml")
-    text = open(path).read()
-    m = re.search(r'^  OSS_CAD_SUITE_RELEASE:\s*"?(\d{4}-\d{2}-\d{2})"?', text, re.M)
+    m = re.search(YOSYS_TAG_RE, open(path).read(), re.M)
     return m.group(1) if m else "?"
+
+
+def suite_yosys_tag(suite_release):
+    """The YosysHQ release a tools-oss-cad-suite release repackages: the
+    YOSYS_RELEASE_TAG of its own workflow, at the git tag of that release."""
+    url = (
+        "https://raw.githubusercontent.com/FPGAwars/tools-oss-cad-suite/"
+        f"{suite_release}/.github/workflows/build-pre-release.yaml"
+    )
+    m = re.search(YOSYS_TAG_RE, get(url), re.M)
+    if not m:
+        raise ValueError(f"no YOSYS_RELEASE_TAG in tools-oss-cad-suite {suite_release}")
+    return m.group(1)
 
 
 def apio_versions(url):
@@ -82,13 +100,14 @@ try:
     promoted_openxc7 = json.loads(
         get("https://api.github.com/repos/FPGAwars/tools-openxc7/releases/latest")
     )["tag_name"]
-    ci_ocs = ci_oss_cad_suite_version()
+    ci_yosys = ci_yosys_tag()
+    suite_yosys = {label: suite_yosys_tag(apio[label]["oss-cad-suite"]) for label, _, _ in REMOTE_CONFIGS}
 except (urllib.error.URLError, urllib.error.HTTPError, KeyError, ValueError) as e:
     print(f"could not resolve the published state: {e}", file=sys.stderr)
     sys.exit(0 if mode == "report" else 2)
 
-if ci_ocs == "?":
-    print("could not read OSS_CAD_SUITE_RELEASE from build-pre-release.yaml", file=sys.stderr)
+if ci_yosys == "?":
+    print("could not read YOSYS_RELEASE_TAG from build-pre-release.yaml", file=sys.stderr)
     sys.exit(0 if mode == "report" else 2)
 
 rows = []  # (tool, ours, ours-label, apio's tag, config label, gates)
@@ -97,7 +116,7 @@ for label, _, gates in REMOTE_CONFIGS:
         # `latest` is what the 1.6.x line installs; 1.7.x moves to the new
         # release by hand at apio 1.7.0, so it is not compared with `latest`
         rows.append(("openxc7", promoted_openxc7, "promoted", apio[label]["openxc7"], label, gates))
-    rows.append(("oss-cad-suite", ci_ocs, "ci-validates", apio[label]["oss-cad-suite"], label, gates))
+    rows.append(("yosys", ci_yosys, "ci-validates", suite_yosys[label], label, gates))
 
 print(f"{'tool':<16} {'ours':<12} {'(source)':<14} {'apio':<12} {'config':<12} status")
 drift = []
@@ -116,9 +135,9 @@ print("", file=sys.stderr)
 for tool, ours, label, ap, cfg in drift:
     print(f"DRIFT {tool}: {label}={ours} {cfg}={ap}", file=sys.stderr)
 print(
-    "\nopenxc7 drift: make-pre-release-stable (or fix remote-config). oss-cad-suite drift: "
-    "change OSS_CAD_SUITE_RELEASE in build-pre-release.yaml so CI validates with the "
-    "same tools users get (see README, Bumping the oss-cad-suite).",
+    "\nopenxc7 drift: make-pre-release-stable (or fix remote-config). yosys drift: "
+    "change YOSYS_RELEASE_TAG in build-pre-release.yaml so CI validates with the "
+    "same yosys users get (see README, Bumping yosys).",
     file=sys.stderr,
 )
 sys.exit(0 if mode == "report" else 1)

@@ -21,8 +21,8 @@ on:
         description: "Package date YYYY-MM-DD (the release tag; apio derives the asset date from it)"
         required: true
         type: string
-      oss_cad_suite_release:
-        description: "FPGAwars/tools-oss-cad-suite release (YYYY-MM-DD) the package is validated against and whose yosys it expects at runtime; the single literal is OSS_CAD_SUITE_RELEASE in build-pre-release.yaml"
+      yosys_release_tag:
+        description: "YosysHQ/oss-cad-suite-build release (YYYY-MM-DD) the package is validated against and whose yosys it expects at runtime; the single literal is YOSYS_RELEASE_TAG in build-pre-release.yaml"
         required: true
         type: string
       chipdb_source:
@@ -83,11 +83,11 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.local/oss-cad-suite
-          key: oss-cad-suite-${{ runner.os }}-${{ inputs.oss_cad_suite_release }}
+          key: oss-cad-suite-${{ runner.os }}-${{ inputs.yosys_release_tag }}
 
       - name: Install oss-cad-suite (the user env, via our own installer)
         env:
-          OSS_CAD_SUITE_DATE: ${{ inputs.oss_cad_suite_release }}
+          YOSYS_RELEASE_TAG: ${{ inputs.yosys_release_tag }}
         run: |
           # installs when absent; either way verifies the suite on disk IS
           # the requested release and names its yosys (apio#927)

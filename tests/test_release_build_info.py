@@ -41,7 +41,6 @@ def package(platform, **overrides):
         "description": "openXC7 toolchain for Xilinx 7-series FPGAs",
         "release-tag": "2026-09-07",
         "yosys-release-tag": "2026-03-24",
-        "oss-cad-suite-release": "2026-08-07",
         "nextpnr-xilinx-revision": "68aeeb39f92e39bfb239c7e4a44dd93451fc1889",
         "prjxray-db-revision": "a90f27c1caefee5276f47440f4c730b50519a86f",
         "eigen-version": "3.4.0",
@@ -186,9 +185,7 @@ class FixtureTests(unittest.TestCase):
                    if not key.startswith("GITHUB_")}
             suite = Path(scratch) / "suite"
             suite.mkdir()
-            (suite / "BUILD-INFO.json").write_text(json.dumps({
-                "release-tag": "2026-08-07",
-                "yosys-release-tag": "2026-03-24"}), encoding="utf-8")
+            (suite / "VERSION").write_text("20260324\n", encoding="utf-8")
             env.update(EIGEN_VERSION="3.4.0", OSS_CAD_SUITE_PATH=str(suite))
             subprocess.run(
                 ["bash", str(REPO / "scripts" / "build-info.sh"),

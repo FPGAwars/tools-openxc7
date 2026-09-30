@@ -8,13 +8,15 @@
 #
 #   scripts/build-info.sh <target-platform> <date YYYY-MM-DD> <file-name> <out-file>
 #
-# The yosys-release-tag (the runtime matching key, apio#927) and the
-# oss-cad-suite-release come from the installed oss-cad-suite's own
-# BUILD-INFO.json (see below). GITHUB_* envs identify the
-# build; local developer builds fall back to git so they get an honest
-# BUILD-INFO too. The eigen-version is evaluated from the flake (see below).
-# When GITHUB_STEP_SUMMARY is set the JSON is also exported to the run
-# summary (same convention).
+# The yosys-release-tag (the runtime matching key, apio#927) is the release
+# of the installed oss-cad-suite the build validated against: the VERSION file
+# of a YosysHQ suite holds its date in digits (ci-install-oss-cad-suite.sh
+# checks it against the single literal YOSYS_RELEASE_TAG of
+# build-pre-release.yaml). GITHUB_* envs identify the build; local developer
+# builds fall back to git so they get an honest BUILD-INFO too. The
+# eigen-version is evaluated from the flake (see below). When
+# GITHUB_STEP_SUMMARY is set the JSON is also exported to the run summary
+# (same convention).
 
 set -euo pipefail
 
@@ -24,28 +26,18 @@ PLAT=$1; DATE=$2; FNAME=$3; OUT=$4
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd "$HERE/.." && pwd)
 
-# The oss-cad-suite this package expects at runtime -- the cross-package
-# matching key apio checks (apio#927). Both values are read from the
-# BUILD-INFO.json of the oss-cad-suite the build validated against (the one
-# ci-install-oss-cad-suite.sh installed, whose release is the single literal
-# OSS_CAD_SUITE_RELEASE of build-pre-release.yaml): its yosys-release-tag and
-# its own release-tag. No version travels in the environment.
+# No version travels in the environment: the tag is derived from the suite
+# that is installed.
 OCS_ROOT="${OSS_CAD_SUITE_PATH:-$HOME/.local/oss-cad-suite}"
-ocs_field() {
-    if [ -f "$OCS_ROOT/BUILD-INFO.json" ]; then
-        python3 -c "
-import json, sys
-try:
-    print(json.load(open(sys.argv[1])).get(sys.argv[2]) or 'unknown')
-except Exception:
-    print('unknown')" "$OCS_ROOT/BUILD-INFO.json" "$1"
-    else
-        echo "warning: $OCS_ROOT/BUILD-INFO.json not found; $1=unknown" >&2
-        echo unknown
-    fi
-}
-YOSYS_TAG=$(ocs_field yosys-release-tag)
-OCS_RELEASE=$(ocs_field release-tag)
+YOSYS_TAG=unknown
+if [ -f "$OCS_ROOT/VERSION" ]; then
+    digits=$(tr -d '[:space:]' < "$OCS_ROOT/VERSION")
+    case "$digits" in
+        [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])
+            YOSYS_TAG="${digits:0:4}-${digits:4:2}-${digits:6:2}" ;;
+    esac
+fi
+[ "$YOSYS_TAG" != unknown ] || echo "warning: no usable $OCS_ROOT/VERSION; yosys-release-tag=unknown" >&2
 
 # Provenance of the chipdb bins inside the package (apio#940 follow-up,
 # asked by zapta): how they were obtained in THIS build and the identity
@@ -110,7 +102,6 @@ cat > "$OUT" <<EOF
   "description"                    : "openXC7 toolchain for Xilinx 7-series FPGAs",
   "release-tag"                    : "$DATE",
   "yosys-release-tag"              : "$YOSYS_TAG",
-  "oss-cad-suite-release"          : "$OCS_RELEASE",
   "nextpnr-xilinx-revision"        : "${NEXTPNR_REV:-unknown}",
   "prjxray-db-revision"            : "${PRJXRAY_DB_REV:-unknown}",
   "eigen-version"                  : "$EIGEN_VERSION",
