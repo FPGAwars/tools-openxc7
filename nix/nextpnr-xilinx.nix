@@ -7,8 +7,8 @@ let
   upstream = fetchFromGitHub {
     owner = "openXC7";
     repo = "nextpnr";
-    rev = "e860c9c8360d8501a1b55df94e58f3dfe7bde958";
-    hash = "sha256-1Xo2T7w8FF2NacKLfDDDOxcw2K2tmLAh30hnySOrOz8=";
+    rev = "c68c13582e972292c86a5025140d52e713384cbc";
+    hash = "sha256-iAgJMDDQtWyIsyzXqzWWEt18/UJztb8p/IIyjbfK2OY=";
     # himbaechel/uarch/xilinx/meta (openXC7/nextpnr-xilinx-meta a4af910c)
     # is what the chipdb generator reads the site and wire metadata from.
     fetchSubmodules = true;
@@ -16,17 +16,19 @@ let
 in
 stdenv.mkDerivation rec {
   pname = "nextpnr-xilinx";
-  version = "1.0.0";
+  version = "1.0.0-unstable-2026-09-30";
 
   # The himbaechel xilinx uarch of openXC7/nextpnr (apio#1070): the engine
   # the package moves to from the nextpnr-xilinx fork. The revision above
-  # is the tag 1.0.0, the repository's first. Over c8a7946f, the tree
-  # measured against nextpnr-xilinx 0.9.5, it changes only the FASM writer
-  # and the hold fix: LVCMOS33/LVTTL at DRIVE 12 writes the I12_I16
-  # pattern (#31), a used BRAM tile gets the ZALMOST offset defaults (#33),
-  # hold-fix detours respect pip availability (#28) and the BUFRCLK
-  # enables are emitted (#38). The chipdb generator and the constids do
-  # not change. ZERO local patches.
+  # is main after the tag 1.0.0 (e860c9c8), which has no newer tag yet.
+  # Over 1.0.0 it brings a shared LUT that drives a CARRY4 S input placed
+  # at the carry site (#52), IFFDELMUXE3.P0 for an IDDR fed by an IDELAYE2
+  # (#58), ISERDES OFB_USED with the OFB pairs kept off the _SING tiles
+  # (#62), the BSCAN site found by JTAG chain (#29) and the -o preplaced /
+  # -o prerouted / -o holdbufs replay options (#30), besides the fixes
+  # merged before them (#45, #46, #47, #49). The chipdb generator and the
+  # constids do not change: the chipdb files are byte-identical to 1.0.0's.
+  # ZERO local patches.
   #
   # It installs as bin/nextpnr-xilinx, the name apio runs (the engine is
   # named in XILINX-PARTS-INDEX.json, not by the executable), and it
