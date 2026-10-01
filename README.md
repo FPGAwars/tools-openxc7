@@ -1,59 +1,70 @@
-# Tools-openxc7
+# tools-openxc7
 
 > **Note:** Please **do not** open issues in this repository.
 > For any questions, discussions, or bug reports, use the [main Apio repository](https://github.com/FPGAwars/apio).
 
-Apio package `openxc7`: the [openXC7](https://github.com/openXC7) toolchain for
-Xilinx 7-series FPGAs (`nextpnr-xilinx`, prjxray, `fasm2frames` and the chipdb).
-
-**This repository builds nothing.** The toolchain is built, validated and
-released by
-[toolchain-openxc7-releases](https://github.com/cavearr/toolchain-openxc7-releases)
-(today under cavearr, on its way to the openXC7 organisation; when it moves,
-only `OPENXC7_REPO` in the workflow changes). This repository downloads one of
-its stable releases, checks it against its `SHA256SUMS` and republishes the
-same binaries under apio's names, the way
+**A packaging repository of the [apio](https://github.com/FPGAwars/apio)
+ecosystem.** It produces the apio package `openxc7`, the way
 [tools-oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite)
-repackages the YosysHQ oss-cad-suite. Until 2026-10-01 it built the toolchain
-itself; that history is in this repository's git log and in
-`README-archived.md`.
+produces the `oss-cad-suite` package: it takes a release made elsewhere and
+republishes it in the form apio installs. It builds no software and runs no
+tests of the toolchain.
 
-## Releases
+The toolchain itself, the [openXC7](https://github.com/openXC7) toolchain for
+Xilinx 7-series FPGAs (`nextpnr-xilinx`, prjxray, `fasm2frames` and the
+chipdb), is built, validated and released by
+**[toolchain-openxc7-releases](https://github.com/cavearr/toolchain-openxc7-releases)**,
+today under cavearr and on its way to the openXC7 organisation. That is the
+repository for anything about the toolchain: what a release contains, which
+parts it supports, how it is validated, how to install it without apio. When
+it moves, this repository changes one literal (`OPENXC7_REPO`).
 
-The `build-pre-release` workflow runs daily (and by hand). It downloads the
-toolchain release named by `OPENXC7_RELEASE_TAG` in
-`.github/workflows/build-pre-release.yaml`, checks it against its
-`SHA256SUMS`, and publishes a pre-release with six assets:
+## What this repository does
+
+Every day (and on demand) `build-pre-release` takes the **stable** toolchain
+release named by `OPENXC7_RELEASE_TAG` in
+`.github/workflows/build-pre-release.yaml`, downloads its three platform
+tarballs, checks them against the release's `SHA256SUMS`, and publishes a
+pre-release with apio's six assets:
 
 | Asset | |
 |---|---|
 | `apio-openxc7-<platform>-<YYYYMMDD>.tgz` | The package for `linux-x86-64`, `darwin-arm64` and `windows-amd64`: the toolchain tarball as is, plus apio's `BUILD-INFO.json` (the toolchain's own is kept as `TOOLCHAIN-BUILD-INFO.json`) |
 | `XILINX-PARTS-INDEX.json` | The parts index of the toolchain release (also at the root of each package) |
-| `BUILD-INFO.json` | The build info of the release |
+| `BUILD-INFO.json` | The build info of the release: apio's fields plus the toolchain release it repackages |
 | `SHA256SUMS` | SHA-256 of the other five assets |
+
+`yosys-release-tag` is copied from the toolchain release: apio checks at run
+time that its `oss-cad-suite` package names the same YosysHQ release.
 
 Pre-releases are deleted after a few days. The `make-pre-release-stable`
 workflow checks a release with `scripts/asset-check.sh` and makes it stable
-(and, optionally, the latest release). apio's remote-config names a stable
-release.
+(and, on request, the latest release). apio's remote-config names a stable
+release of this repository.
 
-## Bumping the toolchain
+## What it does not do
+
+- Build, test or patch the toolchain. toolchain-openxc7-releases does, with
+  its own CI: package gate, multi-part end-to-end and regression suite on
+  the three platforms, before any release is published.
+- Choose versions of the tools. A release of this repository carries exactly
+  what the toolchain release it names carries.
+- Publish anything apio does not install.
+
+## Bumping
 
 Set `OPENXC7_RELEASE_TAG` to a newer **stable** release of
-toolchain-openxc7-releases (the workflow refuses a pre-release). Each
-toolchain release says which YosysHQ oss-cad-suite tag it was validated with
-(`yosys-release-tag` in its `BUILD-INFO.json`); the package carries the same
-value, and apio checks at run time that its oss-cad-suite package has it too.
-
-`scripts/check-versions.sh` compares that yosys tag with the one of the
-oss-cad-suite release apio's remote-config installs, and says when the
-toolchain repo has a newer latest release.
+toolchain-openxc7-releases (the workflow refuses a pre-release). The
+toolchain release says which YosysHQ oss-cad-suite it was validated with, and
+apio's `oss-cad-suite` package has to name the same one.
+`scripts/check-versions.sh` compares the two and says when the toolchain
+repository has a newer latest release.
 
 ## Development
 
 * `python -m pytest tests` tests `.github/workflows/build.py`.
-* `README-archived.md` is the original documentation of this repo, from
-  when it built the toolchain itself.
+* Until 2026-10-01 this repository built the toolchain itself; that history
+  is in the git log, and `README-archived.md` is its original documentation.
 
 ## License
 
