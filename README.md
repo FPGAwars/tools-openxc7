@@ -4,11 +4,19 @@
 > For any questions, discussions, or bug reports, use the [main Apio repository](https://github.com/FPGAwars/apio).
 
 Apio package `openxc7`: the [openXC7](https://github.com/openXC7) toolchain for
-Xilinx 7-series FPGAs (`nextpnr-xilinx`, prjxray, `fasm2frames` and the chipdb),
-repackaged from the releases of
-[toolchain-openxc7-releases](https://github.com/cavearr/toolchain-openxc7-releases),
-the way [tools-oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite)
-repackages the YosysHQ oss-cad-suite.
+Xilinx 7-series FPGAs (`nextpnr-xilinx`, prjxray, `fasm2frames` and the chipdb).
+
+**This repository builds nothing.** The toolchain is built, validated and
+released by
+[toolchain-openxc7-releases](https://github.com/cavearr/toolchain-openxc7-releases)
+(today under cavearr, on its way to the openXC7 organisation; when it moves,
+only `OPENXC7_REPO` in the workflow changes). This repository downloads one of
+its stable releases, checks it against its `SHA256SUMS` and republishes the
+same binaries under apio's names, the way
+[tools-oss-cad-suite](https://github.com/FPGAwars/tools-oss-cad-suite)
+repackages the YosysHQ oss-cad-suite. Until 2026-10-01 it built the toolchain
+itself; that history is in this repository's git log and in
+`README-archived.md`.
 
 ## Releases
 
