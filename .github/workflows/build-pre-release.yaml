@@ -1,398 +1,253 @@
-# Release pipeline v2 — thin orchestrator.
+# Daily build and release workflow.
 #
-# The chipdb is generated ONCE (it is platform-independent), then every
-# platform is built and validated by its OWN reusable workflow, in parallel,
-# on its own native runner (windows is cross-built from linux; nixpkgs cannot
-# cross Linux<->macOS, and Nix does not run on Windows):
-#
-#   chipdb.yml           ubuntu-22.04   bins + XILINX-PARTS-INDEX
-#   linux-package.yml    ubuntu-22.04   native   (seeds the bins into the package)
-#   darwin-package.yml   macos-14        native   (seeds the bins into the package)
-#   windows-package.yml  ubuntu-22.04   cross    (copies the bins into the package; wine)
-#
-# There is ONE chipdb source: the bins that job generates. Each package
-# ships them in chipdb/ (schema 8, apio#1070) and embeds that job's
-# XILINX-PARTS-INDEX.json. The release publishes the three tarballs, that
-# index, BUILD-INFO.json and SHA256SUMS — no per-die chipdb asset. Each
-# platform carries its own gate. The platform workflows are
-# workflow_call-only, so this is the ONE entry point: a validated package
-# of any branch is a dispatch of this workflow on that branch. It only
-# picks the date, wires the chipdb artifacts, and — if EVERYTHING is
-# green — publishes.
-#
-# The release is created at the END, as a dated PRERELEASE (never latest),
-# following the FPGAwars ecosystem convention (fpgawars/apio-workflows):
-# daily cron, the tag resolved at the very beginning, an existing same-tag
-# pre-release is replaced, a same-tag STABLE release fails the run, and only
-# the newest N pre-releases are kept. Any red aborts with no release; the
-# build artifacts stay downloadable for debugging. Promotion to a real
-# (latest) release is a manual, human step (see the release note).
+# The apio openxc7 package is the openXC7 toolchain as released by
+# OPENXC7_REPO, repackaged for apio, the way tools-oss-cad-suite repackages
+# the YosysHQ oss-cad-suite. To bump it, set OPENXC7_RELEASE_TAG to a newer
+# stable release of that repo. The yosys it was validated with comes with
+# it (yosys-release-tag in its BUILD-INFO.json).
+
 name: build-pre-release
 
 on:
+  # Runs daily at UTC midnight to minimize risk of overstepping
+  # manual builds of same date.
   schedule:
-    - cron: "0 0 * * *"      # daily, like the other FPGAwars libraries
-  workflow_dispatch:
-    # To rebuild an existing tag: mark it pre-release first, never
-    # delete it — see README, Rebuilding today's tag.
-    inputs:
-      date:
-        description: "Release date YYYY-MM-DD (default: today, UTC). To rebuild an existing tag: mark it pre-release first, never delete it — see README, Rebuilding today's tag"
-        required: false
-      regenerate_chipdb:
-        description: "Ignore the chipdb cache and generate every part from scratch (tests the generation path)"
-        required: false
-        default: false
-        type: boolean
+    - cron: "0 0 * * *"
 
-# THE one place that names the yosys: the YosysHQ/oss-cad-suite-build release
-# every job installs and validates against. apio's `oss-cad-suite` package
-# repackages one such release, and apio checks at run time that both packages
-# name the same tag, so a bump is agreed with its maintainer (README, Bumping
-# yosys). Nothing else states it: build-info.sh derives the package's
-# "yosys-release-tag" (apio#927) from the installed suite.
-env:
-  YOSYS_RELEASE_TAG: "2026-03-24"
+  # Allow manual activations.
+  workflow_dispatch:
 
 permissions:
+  # Allow release creation
   contents: write
 
-concurrency:
-  group: release
-  cancel-in-progress: false
+env:
+  # The openXC7 toolchain release to repackage. yyyy-mm-dd, a stable release.
+  # See https://github.com/cavearr/toolchain-openxc7-releases/releases
+  #
+  OPENXC7_RELEASE_TAG: "2026-09-30"
+  OPENXC7_REPO: "cavearr/toolchain-openxc7-releases"
+
+  # These are set later
+  RELEASE_TAG: ""
+  PACKAGE_TAG: ""
+  YOSYS_RELEASE_TAG: ""
 
 jobs:
-  # The date is resolved ONCE here and passed down: apio derives the asset
-  # date from the release TAG, so tag and every asset name must match.
-  prepare:
-    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
-    outputs:
-      date: ${{ steps.d.outputs.date }}
-      yosys_release_tag: ${{ steps.d.outputs.yosys_release_tag }}
+  # -- Build packages for all supported architectures and
+  # -- export them in a release.
+  build-pre-release:
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Get release and package tags (ecosystem convention)
+      - name: Get release and package tags
         uses: fpgawars/apio-workflows/.github/actions/get-release-and-package-tags@main
         with:
           release-tag-var: RELEASE_TAG
           package-tag-var: PACKAGE_TAG
-      - id: d
+
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Get repository commit
+        uses: fpgawars/apio-workflows/.github/actions/get-repo-info@main
+        with:
+          repo-dir: .
+          repo-var: REPO
+          commit-var: RELEASE_COMMIT
+
+      - name: Check that the toolchain release is stable
+        uses: fpgawars/apio-workflows/.github/actions/check-release-is-stable@main
+        with:
+          release-repo: ${{ env.OPENXC7_REPO }}
+          release-tag: ${{ env.OPENXC7_RELEASE_TAG }}
+
+      # SHA256SUMS lets build.py check each tarball it downloads. The parts
+      # index is published as is, and the toolchain's BUILD-INFO.json says
+      # which yosys it was validated with.
+      - name: Download the toolchain release info
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -n "${{ github.event.inputs.date }}" ]; then
-            DATE="${{ github.event.inputs.date }}"
-          else
-            DATE="$RELEASE_TAG"
-          fi
-          echo "date=$DATE" >> "$GITHUB_OUTPUT"
-          echo "Release date: $DATE"
-          # env is not visible to the `with:` of a reusable-workflow call:
-          # the literal travels down as this job's output
-          echo "yosys_release_tag=$YOSYS_RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          echo "yosys release: $YOSYS_RELEASE_TAG"
-      # NOTE: scheduled runs build UNCONDITIONALLY, even with no new commits
-      # (ecosystem convention, zapta 2026-08-09: a daily build also catches
-      # breakage coming from the github action tools themselves; it is what
-      # every other apio package does).  The former no-change guard lived
-      # here; cleanup-old-prereleases (keep-5) absorbs the extra releases.
+          mkdir _upstream
+          gh release download "$OPENXC7_RELEASE_TAG" --repo "$OPENXC7_REPO" \
+              --dir _upstream \
+              --pattern SHA256SUMS \
+              --pattern BUILD-INFO.json \
+              --pattern XILINX-PARTS-INDEX.json
+          cd _upstream
+          sha256sum --check --ignore-missing SHA256SUMS
+          cat -n BUILD-INFO.json
+          echo "YOSYS_RELEASE_TAG=$(jq -er '."yosys-release-tag"' BUILD-INFO.json)" >> $GITHUB_ENV
 
-      # Fail FAST if today's tag already exists as a stable release — before
-      # spending 3 platform builds on a run that must not publish.
-      # just-check does not delete; a same-tag pre-release is replaced later,
-      # in the pre-release job, after every platform is green (~50 s window).
-      # To rebuild a stable tag: mark it pre-release first, never delete it
-      # — see README, Rebuilding today's tag. The existence messages come
-      # from fpgawars/apio-workflows (ensure-no-conflicting-release).
-      - name: Ensure no conflicting release (early, just-check)
-        uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
-        env:
-          GH_TOKEN: ${{ github.token }}   # the action drives `gh`, which requires it in Actions
-          # prepare has NO checkout (it is deliberately light), and gh needs
-          # a repo context: without a git dir it dies on its first command.
-          # The ecosystem repos run this action after checkout; GH_REPO is
-          # the checkout-free way to give gh its target.
-          GH_REPO: ${{ github.repository }}
-        with:
-          release-tag: ${{ steps.d.outputs.date }}
-          just-check: "true"
-
-  # The chipdb is generated ONCE (platform-independent bins, revision-keyed
-  # cache). The same job writes the XILINX-PARTS-INDEX document every
-  # package embeds. The bins travel inside the packages.
-  chipdb:
-    needs: prepare
-    uses: ./.github/workflows/chipdb.yml
-    with:
-      date: ${{ needs.prepare.outputs.date }}
-      regenerate: ${{ github.event.inputs.regenerate_chipdb == 'true' }}
-
-  linux:
-    needs: [prepare, chipdb]
-    uses: ./.github/workflows/linux-package.yml
-    with:
-      date: ${{ needs.prepare.outputs.date }}
-      yosys_release_tag: ${{ needs.prepare.outputs.yosys_release_tag }}
-      chipdb_source: ${{ needs.chipdb.outputs.mode }}
-      chipdb_id: ${{ needs.chipdb.outputs.identity }}
-      parts_index: ${{ needs.chipdb.outputs.parts_index }}
-
-  darwin:
-    needs: [prepare, chipdb]
-    uses: ./.github/workflows/darwin-package.yml
-    with:
-      date: ${{ needs.prepare.outputs.date }}
-      yosys_release_tag: ${{ needs.prepare.outputs.yosys_release_tag }}
-      chipdb_source: ${{ needs.chipdb.outputs.mode }}
-      chipdb_id: ${{ needs.chipdb.outputs.identity }}
-      parts_index: ${{ needs.chipdb.outputs.parts_index }}
-
-  windows:
-    needs: [prepare, chipdb]
-    uses: ./.github/workflows/windows-package.yml
-    with:
-      date: ${{ needs.prepare.outputs.date }}
-      yosys_release_tag: ${{ needs.prepare.outputs.yosys_release_tag }}
-      chipdb_source: ${{ needs.chipdb.outputs.mode }}
-      chipdb_id: ${{ needs.chipdb.outputs.identity }}
-      parts_index: ${{ needs.chipdb.outputs.parts_index }}
-
-  pre-release:
-    needs: [prepare, chipdb, linux, darwin, windows]
-    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
-    steps:
-      - uses: actions/checkout@v7    # scripts/asset-check.sh
-
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: apio-openxc7-*     # the 3 package artifacts (not chipdb-bins)
-          merge-multiple: true
-
-      # The same document each package embedded. Published as its own
-      # asset, and checked below against the bins inside every tarball.
-      - uses: actions/download-artifact@v8
-        with:
-          name: parts-index
-          path: .
-
-      # Ecosystem convention (fpgawars/apio-workflows): keep only the newest
-      # pre-releases, then replace today's pre-release if it exists — and FAIL
-      # if the tag was already promoted to a stable release (never clobber it).
-      - name: Cleanup old pre-releases (keep the newest 5)
-        uses: fpgawars/apio-workflows/.github/actions/cleanup-old-prereleases@main
-        with:
-          pre-release-keep-count: "5"
-
-      # This delete is the start of the ~50 s publish window; do not delete
-      # the release by hand before dispatching — see README, Rebuilding
-      # today's tag.
-      - name: Ensure no conflicting release (delete same-tag pre-release, fail on stable)
-        uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        with:
-          release-tag: ${{ needs.prepare.outputs.date }}
-
-      - name: Check the assets and compose the release body
-        env:
-          DATE: ${{ needs.prepare.outputs.date }}
+      - name: Create the build-info.json file
         run: |
-          export LC_ALL=C          # one collation for every listing below
-          ls -la apio-openxc7-*.tgz XILINX-PARTS-INDEX.json
-          # every package apio resolves by name must carry the tag's date, or
-          # it 404s at install time
-          for f in apio-openxc7-*.tgz; do
-            case "$f" in
-              *"-${DATE//-/}.tgz") ;;
-              *) echo "::error::asset $f is not dated ${DATE//-/}"; exit 1 ;;
-            esac
-          done
-          # The index is NOT dated: it names its own release inside
-          # (release-tag), and travels under the same name it has at the
-          # root of every package (XILINX-PARTS-INDEX.json since the
-          # apio#1002 rename).
-          test -f XILINX-PARTS-INDEX.json \
-            || { echo "::error::XILINX-PARTS-INDEX.json missing"; exit 1; }
-          # No per-die chipdb asset is published. A leftover from the
-          # previous contract must not ride along.
-          if compgen -G 'apio-xilinx-chipdb-*.bin.tgz' > /dev/null; then
-            echo "::error::chipdb assets are not part of a schema 8 release"
-            exit 1
-          fi
+          cat > build-info.json <<EOF
+          {
+            "package-name":  "openxc7",
+            "description" : "openXC7 tools for Apio (Xilinx 7-series)",
+            "release-tag":  "$RELEASE_TAG",
+            "yosys-release-tag": "$YOSYS_RELEASE_TAG",
+            "openxc7-toolchain-release-tag": "$OPENXC7_RELEASE_TAG",
+            "openxc7-toolchain-repo": "$OPENXC7_REPO",
+            "build-repo":  "$REPO",
+            "build-workflow":  "${{ github.workflow }}",
+            "workflow-run-id":  "${{github.run_id}}",
+            "workflow-run-number": "${{github.run_number}}",
+            "build-time":  "$(date +'%Y-%m-%d %H:%M:%S %Z')",
+            "commit":  "$RELEASE_COMMIT"
+          }
+          EOF
 
-          # Each tarball carries the bins the index names, the same index
-          # bytes, and the identity stamp. The document is read only after
-          # the packer's own validator (pack/parts_index.py, the one owner
-          # of the format) accepted it for this very tag.
-          python3 - "$DATE" <<'PYEOF'
-          import json, sys, tarfile, tempfile
-          from pathlib import Path
-          from pack.parts_index import (PACKAGE_FILE, validate_document,
-                                        validate_package_info)
-          tag = sys.argv[1]
-          published = Path(PACKAGE_FILE)
-          raw = published.read_bytes()
-          tarballs = sorted(Path(".").glob("apio-openxc7-*.tgz"))
-          if len(tarballs) != 3:
-              sys.exit(f"::error::expected 3 platform tarballs, found {[p.name for p in tarballs]}")
-          for tarball in tarballs:
-              with tempfile.TemporaryDirectory() as scratch:
-                  root = Path(scratch)
-                  with tarfile.open(tarball) as archive:
-                      members = []
-                      for member in archive.getmembers():
-                          name = member.name[2:] if member.name.startswith("./") else member.name
-                          if name == PACKAGE_FILE or name.startswith("chipdb/"):
-                              member.name = name
-                              members.append(member)
-                      archive.extractall(root, members=members)
-                  index = root / PACKAGE_FILE
-                  if not index.is_file():
-                      sys.exit(f"::error::{tarball.name} carries no {PACKAGE_FILE}")
-                  if index.read_bytes() != raw:
-                      sys.exit(f"::error::{tarball.name} carries a different {PACKAGE_FILE}")
-                  try:
-                      info = json.loads(raw)
-                      validate_document(info, expect_tag=tag)
-                      counts = validate_package_info(index, root / "chipdb")
-                  except ValueError as error:
-                      sys.exit(f"::error::{tarball.name}: {error}")
-              print(f"{tarball.name}: {counts['chipdb-count']} chipdb files, "
-                    f"{counts['generated-count']} of {counts['part-count']} parts "
-                    f"(schema {info['schema']})")
-          PYEOF
+          cat -n build-info.json
 
-          # The BUILD-INFO.json of each package, which goes into the
-          # release text (ecosystem convention, apio#927) and, composed
-          # into one release-level document, travels as an asset of its
-          # own (apio#1009, asked by the apio maintainer so a crawler can
-          # read the build identity without downloading a package).
-          # Member naming differs per platform (the linux/darwin packer tars
-          # "-C dist ." -> "./BUILD-INFO.json"; the windows job appends the
-          # bare "BUILD-INFO.json"), so resolve the actual member name from
-          # the listing instead of hardcoding one form (2026-08-13 body
-          # showed '{ "missing": true }' for two of the three packages).
-          mkdir -p build-infos
-          : > BUILD-INFOS.md
-          for f in apio-openxc7-*.tgz; do
-            M=$(tar tzf "$f" | grep -Ex '(\./)?BUILD-INFO\.json' | head -1 || true)
-            [ -n "$M" ] \
-              || { echo "::error::$f carries no BUILD-INFO.json"; exit 1; }
-            tar xzf "$f" -O "$M" > "build-infos/$f.json"
-            {
-              echo "**\`$f\`**"
-              echo '```json'
-              cat "build-infos/$f.json"
-              echo '```'
-              echo
-            } >> BUILD-INFOS.md
-          done
-          # The release-level document: the fields the three packages agree
-          # on, plus a row per package for the ones that are properly
-          # per-package. Composing it IS the agreement check — three
-          # packages built from different sources stop the release here.
-          python3 scripts/release-build-info.py build-infos/*.json > BUILD-INFO.json
-          cat BUILD-INFO.json
+      - name: Format build info json file in-place
+        uses: fpgawars/apio-workflows/.github/actions/format-json-file@main
+        with:
+          json-file: build-info.json
 
-          # SHA256SUMS covers EVERY asset of the release: the three
-          # packages, the index and the build info. Six assets. Written
-          # HERE, in the job that uploads them, from the very bytes that
-          # the upload below sends — the manifest and the release cannot
-          # describe different bytes.
+      - name: Make the build info file read only
+        run: |
+          chmod 444 build-info.json
+
+      - name: Build package [darwin-arm64]
+        run: |
+          python .github/workflows/build.py \
+              --platform_id darwin-arm64 \
+              --build-info-json build-info.json
+
+      - name: Build package [linux-x86-64]
+        run: |
+          python .github/workflows/build.py \
+              --platform_id linux-x86-64 \
+              --build-info-json build-info.json
+
+      - name: Build package [windows-amd64]
+        run: |
+          python .github/workflows/build.py \
+              --platform_id windows-amd64 \
+              --build-info-json build-info.json
+
+      # The runner can run the linux package, and the windows one under
+      # wine. Both must report the nextpnr revision the toolchain release
+      # was built from (nextpnr prints it to stderr).
+      - name: Run nextpnr-xilinx --version [linux-x86-64, windows-amd64]
+        run: |
+          revision=$(jq -er '."nextpnr-xilinx-revision"' _upstream/BUILD-INFO.json | cut -c1-8)
+          mkdir -p _smoke/linux _smoke/windows
+          tar xzf _packages/apio-openxc7-linux-x86-64-$PACKAGE_TAG.tgz -C _smoke/linux
+          tar xzf _packages/apio-openxc7-windows-amd64-$PACKAGE_TAG.tgz -C _smoke/windows
+
+          _smoke/linux/bin/nextpnr-xilinx --version 2>&1 | tee version-linux.txt
+          grep -q "$revision" version-linux.txt
+
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wine64
+          WINEDEBUG=-all /usr/lib/wine/wine64 _smoke/windows/bin/nextpnr-xilinx.exe --version 2>&1 | tee version-windows.txt
+          grep -q "$revision" version-windows.txt
+
+          rm -rf _smoke
+
+      # The release carries six assets, as apio and scripts/asset-check.sh
+      # expect: the three packages, the parts index, the build info and
+      # SHA256SUMS of the other five.
+      - name: Add the release-level files
+        run: |
+          cp _upstream/XILINX-PARTS-INDEX.json _packages/
+          cp build-info.json _packages/BUILD-INFO.json
+          cd _packages
           sha256sum apio-openxc7-*.tgz XILINX-PARTS-INDEX.json BUILD-INFO.json > SHA256SUMS
           cat SHA256SUMS
-          # The release is six assets; SHA256SUMS lists the other five and not
-          # itself. A sixth line would be a chipdb asset or a stray file,
-          # and asset-check would fail the release on it.
-          LINES=$(wc -l < SHA256SUMS)
-          [ "$LINES" -eq 5 ] || { echo "::error::SHA256SUMS has $LINES lines, expected 5"; exit 1; }
-          cat > RELEASE-BODY.md <<EOFBODY
-          openXC7 toolchain — $DATE. Validated by CI (package gate and
-          regression suite on the three platforms).
 
-          ### Chipdb
-          The three packages ship the device databases in \`chipdb/\`: one
-          \`chipdb-<die>.bin\` per die, shared by every part (package, speed
-          grade) of that die. \`XILINX-PARTS-INDEX.json\`, at the root of every
-          package and published here under the same name, lists every part
-          the packaged prjxray database supports, which of them this release
-          built, and — for each built part — the chipdb file name in that
-          directory. An entry with \`generated: false\` is supported by the
-          database and not built. Its schema number is the contract: schema 8
-          is the himbaechel engine (installed as \`nextpnr-xilinx\`, run with
-          \`--device <part> --chipdb chipdb-<die>.bin -o xdc=… -o fasm=…
-          --report …\`), which apio reads from its 1.7 line on.
-          \`SHA256SUMS\` covers the six assets of this release.
-          The bins come from the chipdb job of this run
-          (identity \`${{ needs.chipdb.outputs.identity }}\`,
-          ${{ needs.chipdb.outputs.mode }}), and each platform's gates
-          validate its package with those bins inside it. A bin only works
-          with the package of the SAME tag.
+      - name: List packages
+        run: |
+          ls -al _packages/*
+
+      - name: Scan the package for viruses
+        uses: fpgawars/apio-workflows/.github/actions/scan-files-for-viruses@main
+        with:
+          file-patterns: |
+            _packages/apio-openxc7-*.tgz
+
+      - name: Convert json build info to text
+        uses: fpgawars/apio-workflows/.github/actions/json-to-text@main
+        with:
+          input-json: build-info.json
+          output-text: build-info.txt
+
+      # Summary for the workflow run page.
+      - name: Prepare workflow run summary
+        run: |
+          cat  > RUN-SUMMARY.txt <<EOF
+
+          Build info:
+          \`\`\`
+          $(cat build-info.txt)
+          \`\`\`
+
+          - [Cutoff commit](https://github.com/${REPO}/commit/${RELEASE_COMMIT})
+
+          - [Underlying openXC7 toolchain release](https://github.com/${OPENXC7_REPO}/releases/tag/${OPENXC7_RELEASE_TAG})
+
+          - [Generated pre-release](https://github.com/${REPO}/releases/tag/${RELEASE_TAG})
+
+          EOF
+
+          ls -al
+          cat -n RUN-SUMMARY.txt
+
+      - name: Post workflow run summary
+        run: |
+          cat RUN-SUMMARY.txt >> $GITHUB_STEP_SUMMARY
+
+      - name: Prepare release text
+        run: |
+          cat  > RELEASE-BODY.txt <<EOF
+          The openXC7 toolchain release [\`${OPENXC7_RELEASE_TAG}\`](https://github.com/${OPENXC7_REPO}/releases/tag/${OPENXC7_RELEASE_TAG})
+          of [${OPENXC7_REPO}](https://github.com/${OPENXC7_REPO}), repackaged as the apio
+          \`openxc7\` package.
+
+          **Requires yosys from YosysHQ oss-cad-suite [\`${YOSYS_RELEASE_TAG}\`](https://github.com/YosysHQ/oss-cad-suite-build/releases/tag/${YOSYS_RELEASE_TAG})**
+          (\`yosys-release-tag\` in \`BUILD-INFO.json\`; apio checks it).
+
+          Assets: the three platform packages, \`XILINX-PARTS-INDEX.json\` (the
+          parts index, also at the root of each package), \`BUILD-INFO.json\` and
+          \`SHA256SUMS\`.
 
           ### Build info
-          The \`BUILD-INFO.json\` asset of this release carries what the three
-          packages agree on — toolchain revisions, oss-cad-suite tag, chipdb
-          identity, the commit and the run that built them — plus the file
-          name and build time of each one, so a crawler can read the identity
-          of this build without downloading a package (apio#1009). Each
-          package's own document, as it travels at its root:
 
-          $(cat BUILD-INFOS.md)
+          \`\`\`
+          $(cat build-info.txt)
+          \`\`\`
 
           ### Pre-release note
-          This daily release was created as a pre-release and will be deleted
-          after a few days.
-          * To KEEP it around for longer testing: uncheck \`Set as a
-            pre-release\` (no side effects — it just survives the cleanup).
-          * To PUBLISH it (after testing it for real): run the
-            \`make-pre-release-stable\` workflow with this tag (verifies the assets,
-            marks the release stable + latest), then update apio's
-            remote-config by hand (apio#927).
-          EOFBODY
 
-      # The same shared action the other Apio packages use.
-      - name: Create the dated prerelease (never latest) and upload assets
+          This daily release was created as a pre-release and will be deleted
+          after 5 days unless it's marked as a stable release. To make it a
+          stable release, run the \`make-pre-release-stable\` workflow with this
+          tag (it also removes this note).
+          EOF
+
+          cat -n RELEASE-BODY.txt
+
+      - name: Cleanup old pre-releases
+        uses: fpgawars/apio-workflows/.github/actions/cleanup-old-prereleases@main
+
+      - name: Ensure no conflicting release
+        uses: fpgawars/apio-workflows/.github/actions/ensure-no-conflicting-release@main
+        with:
+          release-tag: ${{ env.RELEASE_TAG }}
+
+      - name: Create GitHub pre-release
         uses: fpgawars/apio-workflows/.github/actions/create-pre-release@main
         with:
-          release_tag: ${{ needs.prepare.outputs.date }}
-          body_path: RELEASE-BODY.md
+          release_tag: ${{ env.RELEASE_TAG }}
+          body_path: RELEASE-BODY.txt
+          # We intensionally list explicitly all the expected files.
           files: |
-            apio-openxc7-*.tgz
-            SHA256SUMS
-            BUILD-INFO.json
-            XILINX-PARTS-INDEX.json
-
-      # Close the loop: re-resolve every asset by apio's tag->date->name rule
-      # against what GitHub actually serves, and require the published
-      # SHA256SUMS to match the tarballs validated above (the 2026-07-24
-      # class of failure -- a tag apio resolves to nothing -- dies here).
-      - name: Verify the published assets the way apio will fetch them
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ASSET_CHECK_REPO: ${{ github.repository }}
-          DATE: ${{ needs.prepare.outputs.date }}
-        run: |
-          # The release-asset CDN is eventually consistent: seconds after
-          # upload a HEAD can still 404 (the first full run failed here while
-          # the very same check passed minutes later). Retry before failing.
-          for attempt in 1 2 3 4; do
-            bash scripts/asset-check.sh "$DATE" --expect-dir . && exit 0
-            echo "asset-check attempt $attempt: assets may still be propagating; retrying"
-            sleep 45
-          done
-          exit 1
-
-      # Promotion stays a human decision; these are the steps it involves,
-      # including the version bumps that keep apio aligned with
-      # what is actually published (scripts/check-versions.sh asserts it).
-      - name: Promotion checklist
-        env:
-          DATE: ${{ needs.prepare.outputs.date }}
-        run: |
-          {
-            echo "## Release candidate \`$DATE\` published (prerelease, not latest)"
-            echo
-            echo "1. Try it for real (\`apio\` install from the tag, board test if it applies)."
-            echo "2. (optional) Uncheck \`pre-release\` to keep it beyond the cleanup window while testing."
-            echo "3. To PUBLISH: run the \`make-pre-release-stable\` workflow with tag \`$DATE\` (verifies, marks stable+latest), then update apio's remote-config by hand (scripts/bump-remote-config.sh helps)."
-            echo "4. \`scripts/check-versions.sh\` must come back green afterwards."
-          } >> "$GITHUB_STEP_SUMMARY"
+            _packages/apio-openxc7-darwin-arm64-${{env.PACKAGE_TAG}}.tgz
+            _packages/apio-openxc7-linux-x86-64-${{env.PACKAGE_TAG}}.tgz
+            _packages/apio-openxc7-windows-amd64-${{env.PACKAGE_TAG}}.tgz
+            _packages/XILINX-PARTS-INDEX.json
+            _packages/BUILD-INFO.json
+            _packages/SHA256SUMS
