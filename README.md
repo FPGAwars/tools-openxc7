@@ -21,8 +21,8 @@ it moves, this repository changes one literal (`OPENXC7_REPO`).
 
 ## What this repository does
 
-Every day (and on demand) `build-pre-release` takes the **stable** toolchain
-release named by `OPENXC7_RELEASE_TAG` in
+Every day (and on demand) `build-pre-release` takes the toolchain release
+named by `OPENXC7_RELEASE_TAG` in
 `.github/workflows/build-pre-release.yaml`, downloads its three platform
 tarballs, checks them against the release's `SHA256SUMS`, and publishes a
 pre-release with apio's six assets:
@@ -37,9 +37,8 @@ pre-release with apio's six assets:
 `yosys-release-tag` is copied from the toolchain release: apio checks at run
 time that its `oss-cad-suite` package names the same YosysHQ release.
 
-Pre-releases are deleted after a few days. The `make-pre-release-stable`
-workflow checks a release with `scripts/asset-check.sh` and makes it stable
-(and, on request, the latest release). apio's remote-config names a stable
+Pre-releases are deleted after a few days; a release is kept by marking it
+stable, as with the other apio packages. apio's remote-config names a stable
 release of this repository.
 
 ## What it does not do
@@ -53,18 +52,15 @@ release of this repository.
 
 ## Bumping
 
-Set `OPENXC7_RELEASE_TAG` to a newer **stable** release of
-toolchain-openxc7-releases (the workflow refuses a pre-release). The
-toolchain release says which YosysHQ oss-cad-suite it was validated with, and
-apio's `oss-cad-suite` package has to name the same one.
-`scripts/check-versions.sh` compares the two and says when the toolchain
-repository has a newer latest release.
+Set `OPENXC7_RELEASE_TAG` to a newer stable release of
+toolchain-openxc7-releases. The toolchain release says which YosysHQ
+oss-cad-suite it was validated with, and apio's `oss-cad-suite` package has
+to name the same one: apio checks it at run time.
 
-## Development
+## History
 
-* `python -m pytest tests` tests `.github/workflows/build.py`.
-* Until 2026-10-01 this repository built the toolchain itself; that history
-  is in the git log, and `README-archived.md` is its original documentation.
+Until 2026-10-01 this repository built the toolchain itself; that history is
+in the git log, and `README-archived.md` is its original documentation.
 
 ## License
 

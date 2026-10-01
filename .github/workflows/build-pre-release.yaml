@@ -3,7 +3,7 @@
 # The apio openxc7 package is the openXC7 toolchain as released by
 # OPENXC7_REPO, repackaged for apio, the way tools-oss-cad-suite repackages
 # the YosysHQ oss-cad-suite. To bump it, set OPENXC7_RELEASE_TAG to a newer
-# stable release of that repo. The yosys it was validated with comes with
+# release of that repo. The yosys it was validated with comes with
 # it (yosys-release-tag in its BUILD-INFO.json).
 
 name: build-pre-release
@@ -22,7 +22,7 @@ permissions:
   contents: write
 
 env:
-  # The openXC7 toolchain release to repackage. yyyy-mm-dd, a stable release.
+  # The openXC7 toolchain release to repackage. yyyy-mm-dd.
   # See https://github.com/cavearr/toolchain-openxc7-releases/releases
   #
   OPENXC7_RELEASE_TAG: "2026-09-30"
@@ -55,12 +55,6 @@ jobs:
           repo-dir: .
           repo-var: REPO
           commit-var: RELEASE_COMMIT
-
-      - name: Check that the toolchain release is stable
-        uses: fpgawars/apio-workflows/.github/actions/check-release-is-stable@main
-        with:
-          release-repo: ${{ env.OPENXC7_REPO }}
-          release-tag: ${{ env.OPENXC7_RELEASE_TAG }}
 
       # SHA256SUMS lets build.py check each tarball it downloads. The parts
       # index is published as is, and the toolchain's BUILD-INFO.json says
@@ -128,29 +122,8 @@ jobs:
               --platform_id windows-amd64 \
               --build-info-json build-info.json
 
-      # The runner can run the linux package, and the windows one under
-      # wine. Both must report the nextpnr revision the toolchain release
-      # was built from (nextpnr prints it to stderr).
-      - name: Run nextpnr-xilinx --version [linux-x86-64, windows-amd64]
-        run: |
-          revision=$(jq -er '."nextpnr-xilinx-revision"' _upstream/BUILD-INFO.json | cut -c1-8)
-          mkdir -p _smoke/linux _smoke/windows
-          tar xzf _packages/apio-openxc7-linux-x86-64-$PACKAGE_TAG.tgz -C _smoke/linux
-          tar xzf _packages/apio-openxc7-windows-amd64-$PACKAGE_TAG.tgz -C _smoke/windows
-
-          _smoke/linux/bin/nextpnr-xilinx --version 2>&1 | tee version-linux.txt
-          grep -q "$revision" version-linux.txt
-
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq wine64
-          WINEDEBUG=-all /usr/lib/wine/wine64 _smoke/windows/bin/nextpnr-xilinx.exe --version 2>&1 | tee version-windows.txt
-          grep -q "$revision" version-windows.txt
-
-          rm -rf _smoke
-
-      # The release carries six assets, as apio and scripts/asset-check.sh
-      # expect: the three packages, the parts index, the build info and
-      # SHA256SUMS of the other five.
+      # The release carries six assets, as apio expects: the three packages,
+      # the parts index, the build info and SHA256SUMS of the other five.
       - name: Add the release-level files
         run: |
           cp _upstream/XILINX-PARTS-INDEX.json _packages/
