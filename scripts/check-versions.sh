@@ -1,144 +1,61 @@
 #!/usr/bin/env bash
 #
-# check-versions.sh -- assert the published versions are aligned.
+# check-versions.sh -- is the openxc7 package aligned with the rest of apio?
 #
-# Sources compared (this repo is an apio package; apio's remote-config is
-# the single authority on what users install):
-#
-#   openxc7        latest PROMOTED release  <->  apio's remote-config tag
-#                  (nightly prereleases are excluded by design: releases
-#                  are published --prerelease --latest=false until a human
-#                  promotes one)
-#   yosys          the YosysHQ release our CI VALIDATES the package against
-#                  (the single literal YOSYS_RELEASE_TAG of
-#                  .github/workflows/build-pre-release.yaml)  <->  the yosys
-#                  tag of the oss-cad-suite release that apio 1.7.x's
-#                  remote-config names (the line this branch builds for;
-#                  read from YOSYS_RELEASE_TAG of that release's own
-#                  workflow) -- a drift here means L1/L2 validate with a
-#                  different yosys than users actually get. apio 1.6.x's is
-#                  shown as well (frozen legacy line: informational, never
-#                  drift)
+# (a) yosys: the toolchain release this repo repackages (OPENXC7_RELEASE_TAG
+#     in build-pre-release.yaml) was validated with one YosysHQ oss-cad-suite
+#     tag, its yosys-release-tag. apio requires the oss-cad-suite package
+#     it installs to carry the same one. A mismatch fails.
+# (b) toolchain: OPENXC7_RELEASE_TAG against the latest release of the
+#     toolchain repo. Informational: a newer one means a bump is due.
 #
 # Usage:
-#   scripts/check-versions.sh              # exit != 0 if anything drifted
-#   scripts/check-versions.sh --report     # print the table, always exit 0
+#   scripts/check-versions.sh
 #
-# Env: APIO_REMOTE_CONFIG_URL to point at another remote-config;
-#      GH_TOKEN / GITHUB_TOKEN are used if set (API rate limits).
+# Env: APIO_REMOTE_CONFIG_URL to use another apio remote-config
+#      (default: apio-1.7.x.jsonc on apio's main).
 
 set -euo pipefail
 
-REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-MODE="check"
-case "${1:-}" in
-    --report) MODE="report" ;;
-    -h|--help) sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    "") ;;
-    *) echo "unknown option: $1" >&2; exit 2 ;;
-esac
+WORKFLOW="$(dirname "$0")/../.github/workflows/build-pre-release.yaml"
+REMOTE_CONFIG=${APIO_REMOTE_CONFIG_URL:-https://raw.githubusercontent.com/FPGAwars/apio/main/remote-config/apio-1.7.x.jsonc}
 
-python3 - "$REPO_ROOT" "$MODE" <<'PYEOF'
-import json, os, re, sys, urllib.error, urllib.request
+# The value of a "  NAME: value" line of a workflow, without quotes.
+workflow_value() {
+    sed -n "s/^  $1: *\"\{0,1\}\([^\"]*\)\"\{0,1\} *$/\1/p" | head -n 1
+}
 
-repo_root, mode = sys.argv[1], sys.argv[2]
+openxc7_tag=$(workflow_value OPENXC7_RELEASE_TAG < "$WORKFLOW")
+openxc7_repo=$(workflow_value OPENXC7_REPO < "$WORKFLOW")
 
-RAW = "https://raw.githubusercontent.com/FPGAwars/apio/main/remote-config/"
-# (label, url, gates): only the line this branch builds for can drift
-REMOTE_CONFIGS = [
-    ("apio-1.6.x", RAW + "apio-1.6.x.jsonc", False),
-    ("apio-1.7.x", RAW + "apio-1.7.x.jsonc", True),
-]
-if os.environ.get("APIO_REMOTE_CONFIG_URL"):
-    REMOTE_CONFIGS = [("override", os.environ["APIO_REMOTE_CONFIG_URL"], True)]
+# (a) The yosys of the toolchain release...
+toolchain_yosys=$(curl -fsSL "https://github.com/$openxc7_repo/releases/download/$openxc7_tag/BUILD-INFO.json" |
+    python3 -c 'import json, sys; print(json.load(sys.stdin)["yosys-release-tag"])')
 
+# ... and the one of the oss-cad-suite release apio installs: the
+# YOSYS_RELEASE_TAG of tools-oss-cad-suite's workflow at that release's tag.
+suite_tag=$(curl -fsSL "$REMOTE_CONFIG" | python3 -c '
+import json, sys
+lines = [line for line in sys.stdin if not line.lstrip().startswith("//")]
+print(json.loads("".join(lines))["packages"]["oss-cad-suite"]["release"]["tag"])')
+suite_yosys=$(curl -fsSL "https://raw.githubusercontent.com/FPGAwars/tools-oss-cad-suite/$suite_tag/.github/workflows/build-pre-release.yaml" |
+    workflow_value YOSYS_RELEASE_TAG)
 
-def get(url):
-    req = urllib.request.Request(url, headers={"User-Agent": "tools-openxc7-check-versions"})
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token and "api.github.com" in url:
-        req.add_header("Authorization", f"Bearer {token}")
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode()
+# (b) The latest release of the toolchain repo.
+latest_url=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$openxc7_repo/releases/latest")
+latest_tag=${latest_url##*/}
 
+echo "openXC7 toolchain release:  $openxc7_repo $openxc7_tag (latest: $latest_tag)"
+echo "  its yosys-release-tag:    $toolchain_yosys"
+echo "apio oss-cad-suite release: $suite_tag ($REMOTE_CONFIG)"
+echo "  its yosys-release-tag:    $suite_yosys"
 
-YOSYS_TAG_RE = r'^  YOSYS_RELEASE_TAG:\s*"?(\d{4}-\d{2}-\d{2})"?'
+if [ "$openxc7_tag" != "$latest_tag" ]; then
+    echo "note: $openxc7_repo has a newer latest release, $latest_tag: bump OPENXC7_RELEASE_TAG?"
+fi
 
-
-def ci_yosys_tag():
-    """YOSYS_RELEASE_TAG, the literal in build-pre-release.yaml."""
-    path = os.path.join(repo_root, ".github", "workflows", "build-pre-release.yaml")
-    m = re.search(YOSYS_TAG_RE, open(path).read(), re.M)
-    return m.group(1) if m else "?"
-
-
-def suite_yosys_tag(suite_release):
-    """The YosysHQ release a tools-oss-cad-suite release repackages: the
-    YOSYS_RELEASE_TAG of its own workflow, at the git tag of that release."""
-    url = (
-        "https://raw.githubusercontent.com/FPGAwars/tools-oss-cad-suite/"
-        f"{suite_release}/.github/workflows/build-pre-release.yaml"
-    )
-    m = re.search(YOSYS_TAG_RE, get(url), re.M)
-    if not m:
-        raise ValueError(f"no YOSYS_RELEASE_TAG in tools-oss-cad-suite {suite_release}")
-    return m.group(1)
-
-
-def apio_versions(url):
-    """packages.<key>.release.tag from an apio remote-config (jsonc)."""
-    raw = get(url)
-    stripped = "\n".join(
-        "" if ln.lstrip().startswith("//") else ln for ln in raw.splitlines()
-    )
-    data = json.loads(stripped)["packages"]
-    return {key: data[key]["release"]["tag"] for key in ("openxc7", "oss-cad-suite")}
-
-
-try:
-    apio = {label: apio_versions(url) for label, url, _ in REMOTE_CONFIGS}
-    promoted_openxc7 = json.loads(
-        get("https://api.github.com/repos/FPGAwars/tools-openxc7/releases/latest")
-    )["tag_name"]
-    ci_yosys = ci_yosys_tag()
-    suite_yosys = {label: suite_yosys_tag(apio[label]["oss-cad-suite"]) for label, _, _ in REMOTE_CONFIGS}
-except (urllib.error.URLError, urllib.error.HTTPError, KeyError, ValueError) as e:
-    print(f"could not resolve the published state: {e}", file=sys.stderr)
-    sys.exit(0 if mode == "report" else 2)
-
-if ci_yosys == "?":
-    print("could not read YOSYS_RELEASE_TAG from build-pre-release.yaml", file=sys.stderr)
-    sys.exit(0 if mode == "report" else 2)
-
-rows = []  # (tool, ours, ours-label, apio's tag, config label, gates)
-for label, _, gates in REMOTE_CONFIGS:
-    if label != "apio-1.7.x":
-        # `latest` is what the 1.6.x line installs; 1.7.x moves to the new
-        # release by hand at apio 1.7.0, so it is not compared with `latest`
-        rows.append(("openxc7", promoted_openxc7, "promoted", apio[label]["openxc7"], label, gates))
-    rows.append(("yosys", ci_yosys, "ci-validates", suite_yosys[label], label, gates))
-
-print(f"{'tool':<16} {'ours':<12} {'(source)':<14} {'apio':<12} {'config':<12} status")
-drift = []
-for tool, ours, label, ap, cfg, gates in rows:
-    aligned = ours == ap
-    if not aligned and gates:
-        drift.append((tool, ours, label, ap, cfg))
-    status = "OK" if aligned else ("DRIFT" if gates else "differs (legacy line, informational)")
-    print(f"{tool:<16} {ours:<12} {label:<14} {ap:<12} {cfg:<12} {status}")
-
-if not drift:
-    print("\nall versions aligned")
-    sys.exit(0)
-
-print("", file=sys.stderr)
-for tool, ours, label, ap, cfg in drift:
-    print(f"DRIFT {tool}: {label}={ours} {cfg}={ap}", file=sys.stderr)
-print(
-    "\nopenxc7 drift: make-pre-release-stable (or fix remote-config). yosys drift: "
-    "change YOSYS_RELEASE_TAG in build-pre-release.yaml so CI validates with the "
-    "same yosys users get (see README, Bumping yosys).",
-    file=sys.stderr,
-)
-sys.exit(0 if mode == "report" else 1)
-PYEOF
+if [ "$toolchain_yosys" != "$suite_yosys" ]; then
+    echo "DRIFT: the toolchain was validated with yosys $toolchain_yosys, apio installs $suite_yosys" >&2
+    exit 1
+fi
+echo "yosys aligned"

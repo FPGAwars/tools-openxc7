@@ -1,62 +1,24 @@
-# Publishing a release — an EXPLICIT human action, never a side effect.
-# Formerly publish-release (renamed 2026-08-24, apio#940).
-#
-# Ecosystem release states (FPGAwars convention):
-#   1. pre-release          nightly, garbage-collected after a few days
-#   2. stable (uncheck box) "keep this one around" — for longer testing.
-#                           Marking stable has NO side effects here.
-#   3. published            fully tested AND set as the tag in apio's remote-config
-#   4. was-published        replaced by a newer published release
-#
-# This workflow is the 2→3 transition, run BY HAND when a release is
-# deemed production-ready (Actions → make-pre-release-stable → Run workflow,
-# tag input):
-#
-#   1. re-verify the release the way apio will fetch it
-#      (scripts/asset-check.sh) — a broken candidate stops HERE. By
-#      default that is `--full`: each platform package is downloaded and
-#      hashed against SHA256SUMS, and the chipdb files inside it are
-#      checked against the parts index. A schema 8 release is six assets
-#      (three packages, the index, the build info, SHA256SUMS). This is
-#      the last gate before users install it, so it pays them;
-#   2. mark it stable on GitHub (idempotent if already done);
-#   3. drop the "Pre-release note" section from the release body, which
-#      stops being true the moment the release is published.
-#
-# The repository's LATEST release is a SEPARATE decision, and off by
-# default (`latest` input). Latest is what a browser, a crawler and a
-# plain `gh release download` land on, so it should name the release
-# apio's remote-config actually points clients at — which is not always
-# the one being published here, and was not on 2026-09-08 when apio's
-# repository crawler flagged this repository for exactly that mismatch
-# (apio#1009). Publishing a release and telling the world it is THE
-# release are two different acts; this workflow separates them.
-#
-# Updating apio's remote-config is deliberately NOT automated here: the
-# apio maintainer prefers editing it by hand, often bumping several
-# packages at once, and any future automation belongs in the apio repo
-# itself (apio#927). For the manual bump, scripts/bump-remote-config.sh
-# edits the jsonc safely and scripts/create-signed-commit.sh creates
-# the commit through the GitHub API so it carries the Verified badge —
-# both runnable locally. scripts/check-versions.sh remains the
-# local/manual drift check; the standing enforcement lives in apio's
-# own tests, which fail on a yosys-release-tag mismatch between the
-# installed packages.
+# Makes a pre-release stable, by hand (Actions -> make-pre-release-stable ->
+# Run workflow): checks its assets the way apio fetches them
+# (scripts/asset-check.sh), marks it stable and removes the pre-release
+# note from its text. The `latest` input also makes it the repo's latest
+# release. apio's remote-config is updated by hand in the apio repo.
+
 name: make-pre-release-stable
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Dated release tag to publish (YYYY-MM-DD)"
+        description: "Release tag to make stable (YYYY-MM-DD)"
         required: true
       full:
-        description: "Download each platform package and check the chipdb files inside it"
+        description: "Download the three packages and check their sha256"
         required: false
         default: true
         type: boolean
       latest:
-        description: "Also make it the repository's latest release (what crawlers and plain download links follow)"
+        description: "Also make it the repo's latest release"
         required: false
         default: false
         type: boolean
@@ -65,118 +27,31 @@ permissions:
   contents: write
 
 jobs:
-  publish:
-    runs-on: ubuntu-22.04            # ecosystem runner version (apio hit issues on 24.04; see apio build-linux-x86-64.yaml)
+  make-stable:
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Guard — only dated release tags
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Check the release assets
         run: |
-          TAG="${{ inputs.tag }}"
-          case "$TAG" in
-            20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]) echo "tag OK: $TAG" ;;
-            *) echo "::error::'$TAG' is not a dated release tag (YYYY-MM-DD)"; exit 1 ;;
-          esac
+          bash scripts/asset-check.sh "${{ inputs.tag }}" ${{ inputs.full && '--full' || '' }}
 
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-
-      - name: Verify the release (asset-check)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ASSET_CHECK_REPO: ${{ github.repository }}
-        run: |
-          bash scripts/asset-check.sh "${{ inputs.tag }}" \
-            ${{ inputs.full && '--full' || '' }}
-
-      # --latest is always passed explicitly, in one direction or the
-      # other: the update endpoint's default is to make the release it
-      # edits the latest one, so staying silent about it would move the
-      # badge as a side effect — the very thing this input exists to
-      # prevent. The one case where "do not move latest" means keeping
-      # the flag on is a release that already IS latest (a re-run, or a
-      # release published by hand): demoting it would move the badge too.
+      # --latest is always passed: without it, gh makes the edited release
+      # the latest one.
       - name: Mark the release stable
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
-          WANT_LATEST: ${{ inputs.latest }}
+          LATEST: ${{ inputs.latest }}
         run: |
-          CURRENT=$(gh release view --repo "$GITHUB_REPOSITORY" \
-            --json tagName --jq .tagName 2>/dev/null || echo "")
-          if [ "$WANT_LATEST" = "true" ] || [ "$CURRENT" = "$TAG" ]; then
-            LATEST=--latest=true
-          else
-            LATEST=--latest=false
-          fi
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --prerelease=false "$LATEST"
-          echo "release $TAG is now stable ($LATEST; latest was ${CURRENT:-none})"
+          gh release edit "$TAG" --prerelease=false --latest="$LATEST"
 
-      # build-pre-release writes the body for a PRE-release, so it ends
-      # with a note saying this one will be deleted in a few days and how
-      # to publish it. Once published that paragraph is simply false, and
-      # it is the first thing a user reads about the release they are
-      # installing (it survived the 2026-08-31 promotion and was deleted
-      # by hand). Promotion drops that section, and only it. Idempotent:
-      # a body without it is left exactly as it is, so promoting twice --
-      # or promoting a release published by hand -- changes nothing.
-      - name: Drop the pre-release note from the body
+      - name: Remove the pre-release note
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
         run: |
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --json body --jq .body > body.md
-          python3 - body.md notes.md <<'PYTRIM'
-          """Write notes.md without the "Pre-release note" section.
-
-          Only when there is one: no file is written otherwise, which is
-          how the caller tells that the body is already what it should be.
-          """
-          import re
-          import sys
-
-          SECTION = re.compile(r"^\s{0,3}#{1,6}\s+Pre-release note\s*$")
-          HEADING = re.compile(r"^\s{0,3}#{1,6}\s")
-
-          with open(sys.argv[1], encoding="utf-8", newline="") as source:
-              body = source.read()
-          # A body edited in the browser comes back with CRLF: keep
-          # whatever it has, so nothing outside the section changes.
-          newline = "\r\n" if "\r\n" in body else "\n"
-          kept, dropping, found = [], False, False
-          for line in body.splitlines():
-              if SECTION.match(line):
-                  dropping = found = True
-                  continue
-              if dropping:
-                  if not HEADING.match(line):
-                      continue
-                  dropping = False
-              kept.append(line)
-          if found:
-              while kept and not kept[-1].strip():
-                  kept.pop()
-              with open(sys.argv[2], "w", encoding="utf-8", newline="") as out:
-                  out.write(newline.join(kept) + newline)
-          PYTRIM
-          if [ -f notes.md ]; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-              --notes-file notes.md
-            echo "pre-release note dropped from the body of $TAG"
-          else
-            echo "no pre-release note in the body of $TAG: left untouched"
-          fi
-
-      - name: Remote-config reminder (manual step)
-        run: |
-          {
-            echo "## Release ${{ inputs.tag }} published"
-            echo
-            echo "Remote-config is updated BY HAND in the apio repo (apio#927)."
-            echo "Suggested local sequence:"
-            echo '```'
-            echo "bash scripts/bump-remote-config.sh <apio>/remote-config/apio-1.6.x.jsonc openxc7=${{ inputs.tag }} [definitions=<tag>]"
-            echo "# commit + push in the apio clone (or use scripts/create-signed-commit.sh for a Verified commit)"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          gh release view "$TAG" --json body --jq .body | sed '/^### Pre-release note/,$d' > notes.md
+          gh release edit "$TAG" --notes-file notes.md
