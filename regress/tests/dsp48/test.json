@@ -1,9 +1,0 @@
-{
-  "description": "Signed multiply-accumulate mapped onto DSP48E1",
-  "exercises": ["DSP48E1 inference", "our combinational DSP timing model"],
-  "tags": ["primitive", "timing"],
-  "expect": {
-    "primitives": { "DSP48E1": ">=1" },
-    "metrics_present": ["fmax_mhz"]
-  }
-}

@@ -1,15 +1,4 @@
-ledon.json
-*.fasm
-*.frames
-*.bit
+_upstream/
+_packages/
 __pycache__/
-dist/
-*.tgz
-
-bundles/
 .DS_Store
-
-# Third-party trees at their locked revision, fetched by scripts/fetch-demos.sh (see regress/lock.json)
-regress/external/
-vivado.jou
-vivado.log
