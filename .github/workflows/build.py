@@ -32,6 +32,9 @@ REQUIRED_FILES = {
 # -- The parts index schema apio reads.
 EXPECTED_INDEX_SCHEMA = 8
 
+# -- Where nextpnr-xilinx finds its chipdb files.
+CHIPDB_DIR = "share/nextpnr/himbaechel/xilinx"
+
 
 def run(cmd_args: List[str]) -> None:
     """Run a command and check that it succeeded."""
@@ -79,19 +82,20 @@ def check_package_files(package_dir: Path, platform_id: str) -> None:
 
 def check_parts_index(package_dir: Path, index_file: Path) -> None:
     """Check that the package's parts index is the release's one, that it
-    is the schema apio reads, and that chipdb/ holds exactly the files it
-    names."""
+    is the schema apio reads, and that the chipdb files are in the
+    directory where nextpnr-xilinx looks for them."""
     package_index = package_dir / "XILINX-PARTS-INDEX.json"
     assert package_index.read_bytes() == index_file.read_bytes(), package_index
 
     index = json.loads(index_file.read_text(encoding="utf-8"))
     assert index["schema"] == EXPECTED_INDEX_SCHEMA, index["schema"]
 
-    named = {part["chipdb"] for part in index["parts"].values() if part["generated"]}
-    present = {f.name for f in (package_dir / "chipdb").glob("*.bin")}
-    assert named == present, f"index names {sorted(named)}, chipdb/ has {sorted(present)}"
-    assert len(named) == index["chipdb-count"], len(named)
-    print(f"Parts index: schema {index['schema']}, {len(named)} chipdb files")
+    # -- The chipdb files are in the engine's default directory, so apio
+    # -- runs nextpnr-xilinx without --chipdb.
+    assert not (package_dir / "chipdb").exists(), f"chipdb/ found, expected {CHIPDB_DIR}"
+    chipdb_files = list((package_dir / CHIPDB_DIR).glob("chipdb-*.bin"))
+    assert chipdb_files, f"no chipdb files in {CHIPDB_DIR}"
+    print(f"Parts index: schema {index['schema']}, {len(chipdb_files)} chipdb files")
 
 
 def build_package(

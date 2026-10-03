@@ -25,7 +25,7 @@ env:
   # The openXC7 toolchain release to repackage. yyyy-mm-dd.
   # See https://github.com/cavearr/toolchain-openxc7-releases/releases
   #
-  OPENXC7_RELEASE_TAG: "2026-09-30"
+  OPENXC7_RELEASE_TAG: "2026-10-03"
   OPENXC7_REPO: "cavearr/toolchain-openxc7-releases"
 
   # These are set later
