@@ -4,6 +4,8 @@ build-pre-release.yaml workflow which does the unpacking of the upstream
 package and the packing of the downstream package.
 """
 
+# TODO: Fix "size" field in fpga entries.
+
 import os
 from typing import Any
 import json
@@ -69,24 +71,27 @@ def write_build_info_file(
         f.write("\n")
 
 
-def write_parts_index(build_info_json: Path, package_dir: Path) -> None:
-    """Replace the upstream XILINX-PARTS-INVENTORY.json with Apio file
-    XILINX-PART-INDEX.json to the package."""
+def write_parts_index(
+    build_info_json: Path, package_dir: Path, upstream_inventory_json: Path
+) -> None:
+    """Write a XILINX-PARTS-INDEX.json in the package, based on the upstream
+    XILINX-PARTS-INVENTORY.json."""
+
+    # pylint: disable=too-many-locals
+
     print("*** In write_parts_index()")
 
     # -- Read the upstream parts inventory file.
-    upstream_inventory_path = package_dir / "XILINX-PARTS-INVENTORY.json"
-    print(f"Reading file {str(upstream_inventory_path)}")
+    print(f"Reading file {str(upstream_inventory_json)}")
     upstream_inventory: dict[str, Any] = json.loads(
-        upstream_inventory_path.read_text(encoding="utf-8")
+        upstream_inventory_json.read_text(encoding="utf-8")
     )
 
-    # -- Delete the upstream parts inventory file
-    print(f"Deleting file {str(upstream_inventory_path)}")
-    upstream_inventory_path.unlink()
-
+    # -- Extract information from the build info
     print(f"Reading file {str(build_info_json)}")
     build_info = json.loads(build_info_json.read_text(encoding="utf-8"))
+    release_tag = (build_info["release-tag"],)
+    yosys_release_tag = (build_info["yosys-release-tag"],)
 
     # -- Check that we understand the schema
     assert upstream_inventory["schema"] == EXPECTED_UPSTREAM_SCHEMA, upstream_inventory[
@@ -113,9 +118,9 @@ def write_parts_index(build_info_json: Path, package_dir: Path) -> None:
             "generated": is_generated,
             # --
             "definition": {
-                "part-num": "???",
+                "part-num": part_info["part-num"],
                 "arch": "xilinx",
-                "size": "???",
+                "size": "???",  # MISSING VALUE
                 "xilinx-params": {
                     "yosys-family": part_info["family"],
                     "yosys-arch": "xc7",
@@ -126,12 +131,16 @@ def write_parts_index(build_info_json: Path, package_dir: Path) -> None:
         }
         parts_dict[part_id.lower()] = part_entry
 
+    # -- Sanity check that we generate a sufficient number of parts.
+    print(f"Generated: {generated_count} of {len(parts_dict)} parts.")
+    assert generated_count > 100, generated_count
+
     # -- Construct the parts index dict.
     parts_index = {
         "schema": 10,
         "arch": "xilinx",
-        "release-tag": build_info["release-tag"],
-        "yosys-release-tag": build_info["yosys-release-tag"],
+        "release-tag": release_tag,
+        "yosys-release-tag": yosys_release_tag,
         "total": len(parts_dict),
         "generated": generated_count,
         "non-generated": non_generated_count,
@@ -153,16 +162,28 @@ def main():
     parser.add_argument("--platform-id", choices=REQUIRED_FILES.keys(), required=True)
     parser.add_argument("--build-info-json", type=Path, required=True)
     parser.add_argument("--package-dir", type=Path, required=True)
+    parser.add_argument("--upstream-inventory-json", type=Path, required=True)
     args = parser.parse_args()
 
     # -- Sanity check the upstream package.
-    check_package_files(args.platform_id, args.package_dir)
+    check_package_files(
+        args.platform_id,
+        args.package_dir,
+    )
 
     # -- Write BUILD-INFO.json in the package.
-    write_build_info_file(args.platform_id, args.build_info_json, args.package_dir)
+    write_build_info_file(
+        args.platform_id,
+        args.build_info_json,
+        args.package_dir,
+    )
 
     # -- Write XILINX-PARTS-INDEX.json to the package.
-    write_parts_index(args.build_info_json, args.package_dir)
+    write_parts_index(
+        args.build_info_json,
+        args.package_dir,
+        args.upstream_inventory_json,
+    )
 
     # -- All done.
     print("All done OK")
