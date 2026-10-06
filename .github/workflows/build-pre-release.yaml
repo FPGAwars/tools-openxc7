@@ -1,10 +1,4 @@
 # Daily build and release workflow.
-#
-# The apio openxc7 package is the openXC7 toolchain as released by
-# OPENXC7_REPO, repackaged for apio, the way tools-oss-cad-suite repackages
-# the YosysHQ oss-cad-suite. To bump it, set OPENXC7_RELEASE_TAG to a newer
-# release of that repo. The yosys it was validated with comes with
-# it (yosys-release-tag in its BUILD-INFO.json).
 
 name: build-pre-release
 
@@ -25,10 +19,11 @@ env:
   # The openXC7 toolchain release to repackage. yyyy-mm-dd.
   # See https://github.com/cavearr/toolchain-openxc7-releases/releases
   #
-  OPENXC7_RELEASE_TAG: "2026-10-03"
-  OPENXC7_REPO: "cavearr/toolchain-openxc7-releases"
+  UPSTREAM_REPO: "cavearr/toolchain-openxc7-releases"
+  UPSTREAM_RELEASE_TAG: "2026-10-03"
 
   # These are set later
+  UPSTREAM_PACKAGE_TAG: ""
   RELEASE_TAG: ""
   PACKAGE_TAG: ""
   YOSYS_RELEASE_TAG: ""
@@ -56,34 +51,119 @@ jobs:
           repo-var: REPO
           commit-var: RELEASE_COMMIT
 
-      # SHA256SUMS lets build.py check each tarball it downloads. The parts
-      # index is published as is, and the toolchain's BUILD-INFO.json says
-      # which yosys it was validated with.
-      - name: Download the toolchain release info
+      - name: Compute env var UPSTREAM_PACKAGE_TAG
+        run: |
+          upstream_package_tag="${UPSTREAM_RELEASE_TAG//-/}"
+          echo "UPSTREAM_PACKAGE_TAG=$upstream_package_tag"
+          echo "UPSTREAM_PACKAGE_TAG=$upstream_package_tag" >> "$GITHUB_ENV"
+
+      - name: Download upstream packages to _packages
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir _upstream
-          gh release download "$OPENXC7_RELEASE_TAG" --repo "$OPENXC7_REPO" \
-              --dir _upstream \
-              --pattern SHA256SUMS \
-              --pattern BUILD-INFO.json \
-              --pattern XILINX-PARTS-INDEX.json
-          cd _upstream
-          sha256sum --check --ignore-missing SHA256SUMS
-          cat -n BUILD-INFO.json
-          echo "YOSYS_RELEASE_TAG=$(jq -er '."yosys-release-tag"' BUILD-INFO.json)" >> $GITHUB_ENV
+          set -x
+          mkdir _packages
+          gh release download "$UPSTREAM_RELEASE_TAG" \
+              --repo "$UPSTREAM_REPO" \
+              --dir _packages \
+              --pattern openxc7-toolchain-darwin-arm64-${UPSTREAM_PACKAGE_TAG}.tgz \
+              --pattern openxc7-toolchain-linux-x86-64-${UPSTREAM_PACKAGE_TAG}.tgz \
+              --pattern openxc7-toolchain-windows-amd64-${UPSTREAM_PACKAGE_TAG}.tgz
+          ls -al _packages
 
-      - name: Create the build-info.json file
+      - name: List _packages
         run: |
-          cat > build-info.json <<EOF
+          set -x
+          ls -al _packages
+
+      - name: Uncompress upstream package darwin-arm64
+        run: |
+          set -x
+          mkdir -p _packages/darwin-arm64
+          tar \
+            -xzf \
+            _packages/openxc7-toolchain-darwin-arm64-${UPSTREAM_PACKAGE_TAG}.tgz \
+            -C _packages/darwin-arm64
+          ls -al _packages/darwin-arm64
+
+      - name: Uncompress upstream package linux-x86-64
+        run: |
+          set -x
+          mkdir -p _packages/linux-x86-64
+          tar \
+            -xzf \
+            _packages/openxc7-toolchain-linux-x86-64-${UPSTREAM_PACKAGE_TAG}.tgz \
+            -C _packages/linux-x86-64
+          ls -al _packages/linux-x86-64
+
+      - name: Uncompress upstream package windows-amd64
+        run: |
+          set -x
+          mkdir -p _packages/windows-amd64
+          tar \
+            -xzf \
+            _packages/openxc7-toolchain-windows-amd64-${UPSTREAM_PACKAGE_TAG}.tgz \
+            -C _packages/windows-amd64
+          ls -al _packages/windows-amd64
+
+      - name: Rename upstreams to XILINX-PARTS-INVENTORY.json
+        run: |
+          set -x
+
+          mv _packages/darwin-arm64/XILINX-PARTS-INDEX.json \
+             _packages/darwin-arm64/XILINX-PARTS-INVENTORY.json
+
+          mv _packages/linux-x86-64/XILINX-PARTS-INDEX.json \
+             _packages/linux-x86-64/XILINX-PARTS-INVENTORY.json
+
+          mv _packages/windows-amd64/XILINX-PARTS-INDEX.json  \
+             _packages/windows-amd64/XILINX-PARTS-INVENTORY.json
+
+          ls -al _packages/darwin-arm64
+          ls -al _packages/linux-x86-64
+          ls -al _packages/windows-amd64
+
+      - name: Verify that upstream XILINX-PARTS-INVENTORY.json match
+        run: |
+          set -x
+          diff _packages/darwin-arm64/XILINX-PARTS-INVENTORY.json \
+               _packages/linux-x86-64/XILINX-PARTS-INVENTORY.json
+
+          diff _packages/darwin-arm64/XILINX-PARTS-INVENTORY.json \
+               _packages/windows-amd64/XILINX-PARTS-INVENTORY.json
+
+      - name: Verify upstream BUILD-INFO.json match
+        run: |
+          set -x
+          cat -n _packages/darwin-arm64/BUILD-INFO.json
+          cat -n _packages/linux-x86-64/BUILD-INFO.json
+          cat -n _packages/windows-amd64/BUILD-INFO.json
+
+          # We ignore the fields target-platform and file-name.
+          diff -u \
+            <(jq -S 'del(.target-platform, .file-name)' _packages/darwin-arm64/BUILD-INFO.json) \
+            <(jq -S 'del(.target-platform, .file-name)' _packages/linux-x86-64/BUILD-INFO.json)
+
+          diff -u \
+            <(jq -S 'del(.target-platform, .file-name)' _packages/darwin-arm64/BUILD-INFO.json) \
+            <(jq -S 'del(.target-platform, .file-name)' _packages/windows-amd64/BUILD-INFO.json)
+
+      - name: Extract YOSYS_RELEASE_TAG from upstream package
+        run: |
+          yosys_release_tag=$(jq -r '.["yosys-release-tag"]' _packages/darwin-arm64/BUILD-INFO.json)
+          echo "YOSYS_RELEASE_TAG=$yosys_release_tag"
+          echo "YOSYS_RELEASE_TAG=$yosys_release_tag" >> "$GITHUB_ENV"
+
+      - name: Create the base BUILD-INFO.json file
+        run: |
+          cat > BUILD-INFO.json <<EOF
           {
             "package-name":  "openxc7",
             "description" : "openXC7 tools for Apio (Xilinx 7-series)",
             "release-tag":  "$RELEASE_TAG",
             "yosys-release-tag": "$YOSYS_RELEASE_TAG",
-            "openxc7-toolchain-release-tag": "$OPENXC7_RELEASE_TAG",
-            "openxc7-toolchain-repo": "$OPENXC7_REPO",
+            "upstream-repo": "$UPSTREAM_REPO",
+            "upstream-release-tag": "$UPSTREAM_RELEASE_TAG",
             "build-repo":  "$REPO",
             "build-workflow":  "${{ github.workflow }}",
             "workflow-run-id":  "${{github.run_id}}",
@@ -93,59 +173,81 @@ jobs:
           }
           EOF
 
-          cat -n build-info.json
+          cat -n BUILD-INFO.json
 
-      - name: Format build info json file in-place
+      - name: Format the base build info json file in-place
         uses: fpgawars/apio-workflows/.github/actions/format-json-file@main
         with:
-          json-file: build-info.json
+          json-file: BUILD-INFO.json
 
-      - name: Make the build info file read only
+      - name: Make the base build info file read only
         run: |
-          chmod 444 build-info.json
+          chmod 444 BUILD-INFO.json
 
-      - name: Build package [darwin-arm64]
+      - name: Update package darwin-arm64 in-place
+        run: |
+          set -x
+          python .github/workflows/build.py \
+              --platform-id darwin-arm64 \
+              --build-info-json BUILD-INFO.json \
+              --package-dir _packages/darwin-arm64
+
+      - name: Archive the darwin-arm64 package dir
+        run: |
+          set -x
+          tar czf  _packages/apio-openxc7-darwin-arm64-${PACKAGE_TAG}.tgz -C _packages/darwin-arm64 .
+          ls -al _packages
+
+      - name: Update package linux-x86-64 in-place
         run: |
           python .github/workflows/build.py \
-              --platform_id darwin-arm64 \
-              --build-info-json build-info.json
+              --platform-id linux-x86-64 \
+              --build-info-json BUILD-INFO.json \
+              --package-dir _packages/linux-x86-64
 
-      - name: Build package [linux-x86-64]
+      - name: Archive the linux-x86-64 package dir
+        run: |
+          set -x
+          tar czf  _packages/apio-openxc7-linux-x86-64-${PACKAGE_TAG}.tgz -C _packages/linux-x86-64 .
+          ls -al _packages
+
+      - name: Update package windows-amd64 in-place
         run: |
           python .github/workflows/build.py \
-              --platform_id linux-x86-64 \
-              --build-info-json build-info.json
+              --platform-id windows-amd64 \
+              --build-info-json BUILD-INFO.json \
+              --package-dir _packages/windows-amd64
 
-      - name: Build package [windows-amd64]
+      - name: Archive the windows-amd64 package dir
         run: |
-          python .github/workflows/build.py \
-              --platform_id windows-amd64 \
-              --build-info-json build-info.json
+          set -x
+          tar czf  _packages/apio-openxc7-windows-amd64-${PACKAGE_TAG}.tgz -C _packages/windows-amd64 .
+          ls -al _packages
 
-      # The release carries six assets, as apio expects: the three packages,
-      # the parts index, the build info and SHA256SUMS of the other five.
-      - name: Add the release-level files
+      - name: Verify that the XILINX-PARTS-INDEX.json match
         run: |
-          cp _upstream/XILINX-PARTS-INDEX.json _packages/
-          cp build-info.json _packages/BUILD-INFO.json
-          cd _packages
-          sha256sum apio-openxc7-*.tgz XILINX-PARTS-INDEX.json BUILD-INFO.json > SHA256SUMS
-          cat SHA256SUMS
+          set -x
+          diff _packages/darwin-arm64/XILINX-PARTS-INDEX.json \
+               _packages/linux-x86-64/XILINX-PARTS-INDEX.json
+
+          diff _packages/darwin-arm64/XILINX-PARTS-INDEX.json \
+               _packages/windows-amd64/XILINX-PARTS-INDEX.json
 
       - name: List packages
         run: |
           ls -al _packages/*
 
+
+      # We scan both the pre and post archive packages.
       - name: Scan the package for viruses
         uses: fpgawars/apio-workflows/.github/actions/scan-files-for-viruses@main
         with:
-          file-patterns: |
-            _packages/apio-openxc7-*.tgz
+          file-patterns: _packages
 
-      - name: Convert json build info to text
+      - name: Convert base json build info to text
         uses: fpgawars/apio-workflows/.github/actions/json-to-text@main
         with:
-          input-json: build-info.json
+          input-json: BUILD-INFO.json
           output-text: build-info.txt
 
       # Summary for the workflow run page.
@@ -160,7 +262,7 @@ jobs:
 
           - [Cutoff commit](https://github.com/${REPO}/commit/${RELEASE_COMMIT})
 
-          - [Underlying openXC7 toolchain release](https://github.com/${OPENXC7_REPO}/releases/tag/${OPENXC7_RELEASE_TAG})
+          - [Underlying openXC7 toolchain release](https://github.com/${UPSTREAM_REPO}/releases/tag/${UPSTREAM_RELEASE_TAG})
 
           - [Generated pre-release](https://github.com/${REPO}/releases/tag/${RELEASE_TAG})
 
@@ -176,8 +278,8 @@ jobs:
       - name: Prepare release text
         run: |
           cat  > RELEASE-BODY.txt <<EOF
-          The openXC7 toolchain release [\`${OPENXC7_RELEASE_TAG}\`](https://github.com/${OPENXC7_REPO}/releases/tag/${OPENXC7_RELEASE_TAG})
-          of [${OPENXC7_REPO}](https://github.com/${OPENXC7_REPO}), repackaged as the apio
+          The openXC7 toolchain release [\`${UPSTREAM_RELEASE_TAG}\`](https://github.com/${UPSTREAM_REPO}/releases/tag/${UPSTREAM_RELEASE_TAG})
+          of [${UPSTREAM_REPO}](https://github.com/${UPSTREAM_REPO}), repackaged as the apio
           \`openxc7\` package.
 
           **Requires yosys from YosysHQ oss-cad-suite [\`${YOSYS_RELEASE_TAG}\`](https://github.com/YosysHQ/oss-cad-suite-build/releases/tag/${YOSYS_RELEASE_TAG})**
@@ -221,6 +323,5 @@ jobs:
             _packages/apio-openxc7-darwin-arm64-${{env.PACKAGE_TAG}}.tgz
             _packages/apio-openxc7-linux-x86-64-${{env.PACKAGE_TAG}}.tgz
             _packages/apio-openxc7-windows-amd64-${{env.PACKAGE_TAG}}.tgz
-            _packages/XILINX-PARTS-INDEX.json
-            _packages/BUILD-INFO.json
-            _packages/SHA256SUMS
+            _packages/linux-x86-64/XILINX-PARTS-INDEX.json
+            BUILD-INFO.json
