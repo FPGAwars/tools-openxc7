@@ -21,7 +21,7 @@ env:
   #
   UPSTREAM_REPO: "cavearr/toolchain-openxc7-releases"
 
-  UPSTREAM_RELEASE_TAG: "2026-10-05"
+  UPSTREAM_RELEASE_TAG: "2026-10-06"
 
   # These are set later
   UPSTREAM_PACKAGE_TAG: ""
@@ -46,7 +46,7 @@ jobs:
           package-tag-var: PACKAGE_TAG
 
       - name: Checkout this repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Get repository commit
         uses: fpgawars/apio-workflows/.github/actions/get-repo-info@main
