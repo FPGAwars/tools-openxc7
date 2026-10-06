@@ -20,13 +20,17 @@ env:
   # See https://github.com/cavearr/toolchain-openxc7-releases/releases
   #
   UPSTREAM_REPO: "cavearr/toolchain-openxc7-releases"
-  UPSTREAM_RELEASE_TAG: "2026-10-03"
+
+  UPSTREAM_RELEASE_TAG: "2026-10-05"
 
   # These are set later
   UPSTREAM_PACKAGE_TAG: ""
   RELEASE_TAG: ""
   PACKAGE_TAG: ""
   YOSYS_RELEASE_TAG: ""
+
+  # The path to the parts inventory file within the upstream package.
+  UPSTREAM_INVENTORY_JSON: "share/nextpnr/himbaechel/xilinx/XILINX-PARTS-INVENTORY.json"
 
 jobs:
   # -- Build packages for all supported architectures and
@@ -106,31 +110,15 @@ jobs:
             -C _packages/windows-amd64
           ls -al _packages/windows-amd64
 
-      - name: Rename upstreams to XILINX-PARTS-INVENTORY.json
-        run: |
-          set -x
-
-          mv _packages/darwin-arm64/XILINX-PARTS-INDEX.json \
-             _packages/darwin-arm64/XILINX-PARTS-INVENTORY.json
-
-          mv _packages/linux-x86-64/XILINX-PARTS-INDEX.json \
-             _packages/linux-x86-64/XILINX-PARTS-INVENTORY.json
-
-          mv _packages/windows-amd64/XILINX-PARTS-INDEX.json  \
-             _packages/windows-amd64/XILINX-PARTS-INVENTORY.json
-
-          ls -al _packages/darwin-arm64
-          ls -al _packages/linux-x86-64
-          ls -al _packages/windows-amd64
-
       - name: Verify that upstream XILINX-PARTS-INVENTORY.json match
         run: |
           set -x
-          diff _packages/darwin-arm64/XILINX-PARTS-INVENTORY.json \
-               _packages/linux-x86-64/XILINX-PARTS-INVENTORY.json
 
-          diff _packages/darwin-arm64/XILINX-PARTS-INVENTORY.json \
-               _packages/windows-amd64/XILINX-PARTS-INVENTORY.json
+          diff _packages/darwin-arm64/$UPSTREAM_INVENTORY_JSON \
+               _packages/linux-x86-64/$UPSTREAM_INVENTORY_JSON
+
+          diff _packages/darwin-arm64/$UPSTREAM_INVENTORY_JSON \
+               _packages/windows-amd64/$UPSTREAM_INVENTORY_JSON
 
       - name: Verify upstream BUILD-INFO.json match
         run: |
@@ -184,13 +172,14 @@ jobs:
         run: |
           chmod 444 BUILD-INFO.json
 
-      - name: Update package darwin-arm64 in-place
+      - name: Build darwin-arm64 package in-place
         run: |
           set -x
           python .github/workflows/build.py \
               --platform-id darwin-arm64 \
               --build-info-json BUILD-INFO.json \
-              --package-dir _packages/darwin-arm64
+              --package-dir _packages/darwin-arm64 \
+              --upstream-inventory-json _packages/darwin-arm64/$UPSTREAM_INVENTORY_JSON
 
       - name: Archive the darwin-arm64 package dir
         run: |
@@ -198,12 +187,13 @@ jobs:
           tar czf  _packages/apio-openxc7-darwin-arm64-${PACKAGE_TAG}.tgz -C _packages/darwin-arm64 .
           ls -al _packages
 
-      - name: Update package linux-x86-64 in-place
+      - name: Build linux-x86-64 package in-place
         run: |
           python .github/workflows/build.py \
               --platform-id linux-x86-64 \
               --build-info-json BUILD-INFO.json \
-              --package-dir _packages/linux-x86-64
+              --package-dir _packages/linux-x86-64 \
+              --upstream-inventory-json _packages/linux-x86-64/$UPSTREAM_INVENTORY_JSON
 
       - name: Archive the linux-x86-64 package dir
         run: |
@@ -211,12 +201,13 @@ jobs:
           tar czf  _packages/apio-openxc7-linux-x86-64-${PACKAGE_TAG}.tgz -C _packages/linux-x86-64 .
           ls -al _packages
 
-      - name: Update package windows-amd64 in-place
+      - name: Build windows-amd64 package in-place
         run: |
           python .github/workflows/build.py \
               --platform-id windows-amd64 \
               --build-info-json BUILD-INFO.json \
-              --package-dir _packages/windows-amd64
+              --package-dir _packages/windows-amd64 \
+              --upstream-inventory-json _packages/windows-amd64/$UPSTREAM_INVENTORY_JSON
 
       - name: Archive the windows-amd64 package dir
         run: |
@@ -236,13 +227,6 @@ jobs:
       - name: List packages
         run: |
           ls -al _packages/*
-
-
-      # We scan both the pre and post archive packages.
-      - name: Scan the package for viruses
-        uses: fpgawars/apio-workflows/.github/actions/scan-files-for-viruses@main
-        with:
-          file-patterns: _packages
 
       - name: Convert base json build info to text
         uses: fpgawars/apio-workflows/.github/actions/json-to-text@main
@@ -304,6 +288,12 @@ jobs:
           EOF
 
           cat -n RELEASE-BODY.txt
+
+      # We scan both the pre and post archive packages.
+      - name: Scan the package for viruses
+        uses: fpgawars/apio-workflows/.github/actions/scan-files-for-viruses@main
+        with:
+          file-patterns: _packages
 
       - name: Cleanup old pre-releases
         uses: fpgawars/apio-workflows/.github/actions/cleanup-old-prereleases@main
