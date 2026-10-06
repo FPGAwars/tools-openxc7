@@ -90,8 +90,8 @@ def write_parts_index(
     # -- Extract information from the build info
     print(f"Reading file {str(build_info_json)}")
     build_info = json.loads(build_info_json.read_text(encoding="utf-8"))
-    release_tag = (build_info["release-tag"],)
-    yosys_release_tag = (build_info["yosys-release-tag"],)
+    release_tag = build_info["release-tag"]
+    yosys_release_tag = build_info["yosys-release-tag"]
 
     # -- Check that we understand the schema
     assert upstream_inventory["schema"] == EXPECTED_UPSTREAM_SCHEMA, upstream_inventory[
@@ -120,7 +120,7 @@ def write_parts_index(
             "definition": {
                 "part-num": part_info["part-num"],
                 "arch": "xilinx",
-                "size": "???",  # MISSING VALUE
+                "size": part_info["size"],
                 "xilinx-params": {
                     "yosys-family": part_info["family"],
                     "yosys-arch": "xc7",
