@@ -4,8 +4,6 @@ build-pre-release.yaml workflow which does the unpacking of the upstream
 package and the packing of the downstream package.
 """
 
-# TODO: Fix "size" field in fpga entries.
-
 import os
 from typing import Any
 import json
@@ -71,9 +69,7 @@ def write_build_info_file(
         f.write("\n")
 
 
-def write_parts_index(
-    build_info_json: Path, package_dir: Path, upstream_inventory_json: Path
-) -> None:
+def write_parts_index(package_dir: Path, upstream_inventory_json: Path) -> None:
     """Write a XILINX-PARTS-INDEX.json in the package, based on the upstream
     XILINX-PARTS-INVENTORY.json."""
 
@@ -88,10 +84,10 @@ def write_parts_index(
     )
 
     # -- Extract information from the build info
-    print(f"Reading file {str(build_info_json)}")
-    build_info = json.loads(build_info_json.read_text(encoding="utf-8"))
-    release_tag = build_info["release-tag"]
-    yosys_release_tag = build_info["yosys-release-tag"]
+    # print(f"Reading file {str(build_info_json)}")
+    # build_info = json.loads(build_info_json.read_text(encoding="utf-8"))
+    # release_tag = build_info["release-tag"]
+    # yosys_release_tag = build_info["yosys-release-tag"]
 
     # -- Check that we understand the schema
     assert upstream_inventory["schema"] == EXPECTED_UPSTREAM_SCHEMA, upstream_inventory[
@@ -135,15 +131,19 @@ def write_parts_index(
     print(f"Generated: {generated_count} of {len(parts_dict)} parts.")
     assert generated_count > 100, generated_count
 
+    # -- Construct metadata section.
+    info_dict = {
+        "arch": "xilinx",
+        "stats": {
+            "total": len(parts_dict),
+            "generated": generated_count,
+            "non-generated": non_generated_count,
+        },
+    }
+
     # -- Construct the parts index dict.
     parts_index = {
-        "schema": 10,
-        "arch": "xilinx",
-        "release-tag": release_tag,
-        "yosys-release-tag": yosys_release_tag,
-        "total": len(parts_dict),
-        "generated": generated_count,
-        "non-generated": non_generated_count,
+        "info": info_dict,
         "parts": parts_dict,
     }
 
@@ -180,7 +180,6 @@ def main():
 
     # -- Write XILINX-PARTS-INDEX.json to the package.
     write_parts_index(
-        args.build_info_json,
         args.package_dir,
         args.upstream_inventory_json,
     )
