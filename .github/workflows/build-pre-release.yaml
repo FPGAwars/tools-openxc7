@@ -21,7 +21,7 @@ env:
   #
   UPSTREAM_REPO: "cavearr/toolchain-openxc7-releases"
 
-  UPSTREAM_RELEASE_TAG: "2026-10-07"
+  UPSTREAM_RELEASE_TAG: "2026-10-09"
 
   # These are set later
   UPSTREAM_PACKAGE_TAG: ""
