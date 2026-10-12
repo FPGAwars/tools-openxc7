@@ -114,14 +114,13 @@ def write_parts_index(package_dir: Path, upstream_inventory_json: Path) -> None:
             "generated": is_generated,
             # --
             "definition": {
-                "part-num": part_info["part-num"],
                 "arch": "xilinx",
+                "vendor-part": part_info["part-num"],
                 "size": part_info["size"],
                 "xilinx-params": {
-                    "yosys-family": part_info["family"],
                     "yosys-arch": "xc7",
-                    "yosys-part": part_id,
-                    "speed": part_info["speed"],
+                    "yosys-family": part_info["family"],
+                    "nextpnr-device": part_id,
                 },
             },
         }
