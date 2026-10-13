@@ -95,63 +95,72 @@ def write_parts_index(package_dir: Path, upstream_inventory_json: Path) -> None:
     ]
 
     # -- Construct the parts entries based on the upstream repository.
-    generated_count = 0
-    non_generated_count = 0
-    parts_dict: dict[str, dict] = {}
+    skipped = []
+    fpgas_dict: dict[str, dict] = {}
     for part_id, part_info in upstream_inventory["parts"].items():
         assert isinstance(part_id, str)
+        fpga_id = part_id.lower()
 
-        # -- Determine if this part is generated.
+        # -- Skip non generated parts, we can't use them.
         is_generated: bool = part_info["generated"]
         assert isinstance(is_generated, bool)
-        if is_generated:
-            generated_count += 1
-        else:
-            non_generated_count += 1
+        if not is_generated:
+            print(f"skipping non generated fpga: {fpga_id}")
+            skipped.append(fpga_id)
 
-        # -- Add entry
-        part_entry = {
-            "generated": is_generated,
-            # --
-            "definition": {
-                "arch": "xilinx",
-                "vendor-part": part_info["part-num"],
-                "size": part_info["size"],
-                "xilinx-params": {
-                    "yosys-arch": "xc7",
-                    "yosys-family": part_info["family"],
-                    "nextpnr-device": part_id,
-                },
+        # -- Add fpga definition
+        fpga_definition = {
+            "arch": "xilinx",
+            "vendor-part": part_info["part-num"],
+            "size": part_info["size"],
+            "xilinx-params": {
+                "yosys-arch": "xc7",
+                "yosys-family": part_info["family"],
+                "nextpnr-device": part_id,
             },
         }
-        parts_dict[part_id.lower()] = part_entry
+        fpgas_dict[fpga_id] = fpga_definition
 
     # -- Sanity check that we generate a sufficient number of parts.
-    print(f"Generated: {generated_count} of {len(parts_dict)} parts.")
-    assert generated_count > 100, generated_count
+    print(f"Generated: {len(fpgas_dict)}, skipped {len(skipped)} parts.")
+    assert len(fpgas_dict) > 100, len(fpgas_dict)
 
     # -- Construct metadata section.
-    info_dict = {
-        "arch": "xilinx",
-        "stats": {
-            "total": len(parts_dict),
-            "generated": generated_count,
-            "non-generated": non_generated_count,
-        },
-    }
+    # info_dict = {
+    #     "arch": "xilinx",
+    #     "stats": {
+    #         "total": len(parts_dict),
+    #         "generated": generated_count,
+    #         "non-generated": non_generated_count,
+    #     },
+    # }
 
     # -- Construct the parts index dict.
-    parts_index = {
-        "info": info_dict,
-        "parts": parts_dict,
-    }
+    # parts_index = {
+    #     "info": info_dict,
+    #     "parts": parts_dict,
+    # }
 
-    # -- Write the parts index to the package.
-    index_path = package_dir / "XILINX-PARTS-INDEX.json"
-    print(f"Writing file {str(index_path)}")
-    with index_path.open("w") as f:
-        json.dump(parts_index, f, indent=2)
-        f.write("\n")
+    prefix_lines = [
+        "// Automatically generated, do not edit!",
+        "// Base FPGAs definitions for the Apio's 'xilinx' architecture.",
+        "//",
+        "// xilinx:",
+        f"//   Generated :  {len(fpgas_dict)}",
+        f"//   Skipped   :  {len(skipped)}",
+    ]
+
+    for fpga_id in skipped:
+            prefix_lines.append(f"//     - {fpga_id}")
+
+    file_text = "\n".join(prefix_lines) + "\n//\n" + json.dumps(fpgas_dict, indent=2) + "\n"
+
+    # -- Write the fpga index to the package.
+    file_path = package_dir / "FPGAS.jsonc"
+    print(f"Writing file {str(file_path)}")
+    # file_path.parent.mkdir()
+    with file_path.open("w") as f:
+        f.write(file_text)
 
 
 def main():
