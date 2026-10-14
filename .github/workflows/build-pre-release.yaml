@@ -215,14 +215,14 @@ jobs:
           tar czf  _packages/apio-openxc7-windows-amd64-${PACKAGE_TAG}.tgz -C _packages/windows-amd64 .
           ls -al _packages
 
-      - name: Verify that the XILINX-PARTS-INDEX.json match
+      - name: Verify that the FPGAS.jsonc files match
         run: |
           set -x
-          diff _packages/darwin-arm64/XILINX-PARTS-INDEX.json \
-               _packages/linux-x86-64/XILINX-PARTS-INDEX.json
+          diff _packages/darwin-arm64/FPGAS.jsonc \
+               _packages/linux-x86-64/FPGAS.jsonc
 
-          diff _packages/darwin-arm64/XILINX-PARTS-INDEX.json \
-               _packages/windows-amd64/XILINX-PARTS-INDEX.json
+          diff _packages/darwin-arm64/FPGAS.jsonc \
+               _packages/windows-amd64/FPGAS.jsonc
 
       - name: List packages
         run: |
@@ -269,10 +269,6 @@ jobs:
           **Requires yosys from YosysHQ oss-cad-suite [\`${YOSYS_RELEASE_TAG}\`](https://github.com/YosysHQ/oss-cad-suite-build/releases/tag/${YOSYS_RELEASE_TAG})**
           (\`yosys-release-tag\` in \`BUILD-INFO.json\`; apio checks it).
 
-          Assets: the three platform packages, \`XILINX-PARTS-INDEX.json\` (the
-          parts index, also at the root of each package), \`BUILD-INFO.json\` and
-          \`SHA256SUMS\`.
-
           ### Build info
 
           \`\`\`
@@ -309,9 +305,11 @@ jobs:
           release_tag: ${{ env.RELEASE_TAG }}
           body_path: RELEASE-BODY.txt
           # We intensionally list explicitly all the expected files.
+          # Since we already checked that the fpgas definitions match for all
+          # the platforms, we use the linux one as a representative.
           files: |
             _packages/apio-openxc7-darwin-arm64-${{env.PACKAGE_TAG}}.tgz
             _packages/apio-openxc7-linux-x86-64-${{env.PACKAGE_TAG}}.tgz
             _packages/apio-openxc7-windows-amd64-${{env.PACKAGE_TAG}}.tgz
-            _packages/linux-x86-64/XILINX-PARTS-INDEX.json
+            _packages/linux-x86-64/FPGAS.jsonc
             BUILD-INFO.json
