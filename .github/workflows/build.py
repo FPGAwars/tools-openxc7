@@ -83,12 +83,6 @@ def write_parts_index(package_dir: Path, upstream_inventory_json: Path) -> None:
         upstream_inventory_json.read_text(encoding="utf-8")
     )
 
-    # -- Extract information from the build info
-    # print(f"Reading file {str(build_info_json)}")
-    # build_info = json.loads(build_info_json.read_text(encoding="utf-8"))
-    # release_tag = build_info["release-tag"]
-    # yosys_release_tag = build_info["yosys-release-tag"]
-
     # -- Check that we understand the schema
     assert upstream_inventory["schema"] == EXPECTED_UPSTREAM_SCHEMA, upstream_inventory[
         "schema"
@@ -125,22 +119,6 @@ def write_parts_index(package_dir: Path, upstream_inventory_json: Path) -> None:
     print(f"Generated: {len(fpgas_dict)}, skipped {len(skipped)} parts.")
     assert len(fpgas_dict) > 100, len(fpgas_dict)
 
-    # -- Construct metadata section.
-    # info_dict = {
-    #     "arch": "xilinx",
-    #     "stats": {
-    #         "total": len(parts_dict),
-    #         "generated": generated_count,
-    #         "non-generated": non_generated_count,
-    #     },
-    # }
-
-    # -- Construct the parts index dict.
-    # parts_index = {
-    #     "info": info_dict,
-    #     "parts": parts_dict,
-    # }
-
     prefix_lines = [
         "// Automatically generated, do not edit!",
         "// Base FPGAs definitions for the Apio's 'xilinx' architecture.",
@@ -151,14 +129,15 @@ def write_parts_index(package_dir: Path, upstream_inventory_json: Path) -> None:
     ]
 
     for fpga_id in skipped:
-            prefix_lines.append(f"//     - {fpga_id}")
+        prefix_lines.append(f"//     - {fpga_id}")
 
-    file_text = "\n".join(prefix_lines) + "\n//\n" + json.dumps(fpgas_dict, indent=2) + "\n"
+    file_text = (
+        "\n".join(prefix_lines) + "\n//\n" + json.dumps(fpgas_dict, indent=2) + "\n"
+    )
 
     # -- Write the fpga index to the package.
     file_path = package_dir / "FPGAS.jsonc"
     print(f"Writing file {str(file_path)}")
-    # file_path.parent.mkdir()
     with file_path.open("w") as f:
         f.write(file_text)
 
