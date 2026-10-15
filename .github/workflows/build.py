@@ -69,9 +69,12 @@ def write_build_info_file(
         f.write("\n")
 
 
-def write_parts_index(package_dir: Path, upstream_inventory_json: Path) -> None:
-    """Write a XILINX-PARTS-INDEX.json in the package, based on the upstream
-    XILINX-PARTS-INVENTORY.json."""
+def write_fpgas_definitions_file(
+    package_dir: Path, upstream_inventory_json: Path
+) -> None:
+    """Write a FPGAS.json in the package, based on the upstream
+    XILINX-PARTS-INVENTORY.json.
+    """
 
     # pylint: disable=too-many-locals
 
@@ -101,6 +104,7 @@ def write_parts_index(package_dir: Path, upstream_inventory_json: Path) -> None:
         if not is_generated:
             print(f"skipping non generated fpga: {fpga_id}")
             skipped.append(fpga_id)
+            continue
 
         # -- Add fpga definition
         fpga_definition = {
@@ -166,7 +170,7 @@ def main():
     )
 
     # -- Write XILINX-PARTS-INDEX.json to the package.
-    write_parts_index(
+    write_fpgas_definitions_file(
         args.package_dir,
         args.upstream_inventory_json,
     )
