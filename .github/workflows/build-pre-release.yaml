@@ -275,15 +275,14 @@ jobs:
           $(cat build-info.txt)
           \`\`\`
 
-          ### Pre-release note
-
-          This daily release was created as a pre-release and will be deleted
-          after 5 days unless it's marked as a stable release. To make it a
-          stable release, run the \`make-pre-release-stable\` workflow with this
-          tag (it also removes this note).
           EOF
 
           cat -n RELEASE-BODY.txt
+
+      - name: Append standard release text
+        uses: fpgawars/apio-workflows/.github/actions/append-std-release-text@main
+        with:
+          output-file: RELEASE-BODY.txt
 
       # We scan both the pre and post archive packages.
       - name: Scan the package for viruses
