@@ -5,7 +5,7 @@ package and the packing of the downstream package.
 """
 
 import os
-from typing import Any
+import re
 import json
 import argparse
 from pathlib import Path
@@ -30,8 +30,33 @@ REQUIRED_FILES = {
     ],
 }
 
-# -- The parts index schema apio reads.
-EXPECTED_UPSTREAM_SCHEMA = 8
+# -- The prjxray database and the chipdb files, within the package.
+DATABASE_DIR = "share/nextpnr/external/prjxray-db"
+CHIPDB_DIR = "share/nextpnr/himbaechel/xilinx"
+
+# -- The --device pattern of nextpnr-xilinx, verbatim from
+# -- XilinxImpl::init_database() in himbaechel/uarch/xilinx/xilinx.cc
+# -- (openXC7/nextpnr 62eff1cd). Groups: device, package, speed grade.
+NEXTPNR_DEVICE = re.compile(
+    r"(xc7z007s|xc7z012s|xc7z014s|xc7[azks]\d+t?|xc7vx\d+t?)"
+    r"([a-z0-9]*)(?:-(1IL|1Q|2L|[123]))?"
+)
+
+# -- Size label of the Zynq devices: their Programmable Logic Cells in
+# -- DS190 (v1.11.1) "Zynq-7000 SoC Data Sheet: Overview", Table 1. The
+# -- other devices name their size (xc7a35t -> 35k).
+ZYNQ_SIZE = {
+    "xc7z007s": "23k",
+    "xc7z012s": "55k",
+    "xc7z014s": "65k",
+    "xc7z010": "28k",
+    "xc7z015": "74k",
+    "xc7z020": "85k",
+    "xc7z030": "125k",
+    "xc7z035": "275k",
+    "xc7z045": "350k",
+    "xc7z100": "444k",
+}
 
 
 def check_package_files(platform_id: str, package_dir: Path) -> None:
@@ -69,55 +94,85 @@ def write_build_info_file(
         f.write("\n")
 
 
-def write_fpgas_definitions_file(
-    package_dir: Path, upstream_inventory_json: Path
-) -> None:
-    """Write a FPGAS.json in the package, based on the upstream
-    XILINX-PARTS-INVENTORY.json.
+def read_devices_yaml(devices_yaml: Path) -> dict[str, str]:
+    """Read a prjxray-db mapping/devices.yaml, a flat list of '"<device>":'
+    lines, each followed by a '  fabric: "<die>"' line. Returns {device: die}.
+    """
+    fabrics = {}
+    device = ""
+    for line in devices_yaml.read_text(encoding="utf-8").splitlines():
+        if line.startswith('"'):
+            device = line.strip('":')
+        elif line.strip().startswith("fabric:"):
+            assert device, line
+            fabrics[device] = line.split(":")[1].strip(' "')
+    return fabrics
+
+
+def fpga_size(device: str) -> str:
+    """The size label of a device, e.g. 35k for xc7a35t."""
+    if device.startswith("xc7z"):
+        return ZYNQ_SIZE[device]
+    match = re.fullmatch(r"xc7[a-z]+(\d+)t?", device)
+    assert match, device
+    return f"{match[1]}k"
+
+
+def xilinx_parts(package_dir: Path) -> tuple[dict[str, dict], list[str]]:
+    """Generate the xilinx fpga definitions from the prjxray database and
+    the chipdb files in the package. A part is listed if the database has
+    its directory, the package has the chipdb file of its die, and nextpnr
+    accepts its name.
     """
 
     # pylint: disable=too-many-locals
 
+    chipdbs = (package_dir / CHIPDB_DIR).glob("chipdb-*.bin")
+    dies = {p.stem.removeprefix("chipdb-") for p in chipdbs}
+
+    skipped = []
+    parts = {}
+    database_dir = package_dir / DATABASE_DIR
+    for devices_yaml in sorted(database_dir.glob("*/mapping/devices.yaml")):
+        family_dir = devices_yaml.parent.parent
+        fabrics = read_devices_yaml(devices_yaml)
+
+        # -- Each part has a <base-part>-<speed> directory with a part.yaml.
+        for part_yaml in sorted(family_dir.glob("*-*/part.yaml")):
+            part_id = part_yaml.parent.name
+            fpga_id = part_id.lower()
+
+            # -- Skip the parts we can't build.
+            match = NEXTPNR_DEVICE.fullmatch(part_id)
+            if not match or fabrics.get(match[1]) not in dies:
+                print(f"skipping non buildable fpga: {fpga_id}")
+                skipped.append(fpga_id)
+                continue
+
+            # -- Add fpga definition
+            device, package, speed = match.groups()
+            parts[fpga_id] = {
+                "arch": "xilinx",
+                "vendor-part": f"{device}-{speed}{package}".upper(),
+                "size": fpga_size(device),
+                "xilinx-params": {
+                    "yosys-arch": "xc7",
+                    "yosys-family": family_dir.name,
+                    "nextpnr-device": part_id,
+                },
+            }
+    return (parts, skipped)
+
+
+def write_fpgas_definitions_file(package_dir: Path) -> None:
+    """Write a FPGAS.jsonc in the package, based on the prjxray database
+    and the chipdb files the package carries.
+    """
+
     print("*** In write_parts_index()")
 
-    # -- Read the upstream parts inventory file.
-    print(f"Reading file {str(upstream_inventory_json)}")
-    upstream_inventory: dict[str, Any] = json.loads(
-        upstream_inventory_json.read_text(encoding="utf-8")
-    )
-
-    # -- Check that we understand the schema
-    assert upstream_inventory["schema"] == EXPECTED_UPSTREAM_SCHEMA, upstream_inventory[
-        "schema"
-    ]
-
-    # -- Construct the parts entries based on the upstream repository.
-    skipped = []
-    fpgas_dict: dict[str, dict] = {}
-    for part_id, part_info in upstream_inventory["parts"].items():
-        assert isinstance(part_id, str)
-        fpga_id = part_id.lower()
-
-        # -- Skip non generated parts, we can't use them.
-        is_generated: bool = part_info["generated"]
-        assert isinstance(is_generated, bool)
-        if not is_generated:
-            print(f"skipping non generated fpga: {fpga_id}")
-            skipped.append(fpga_id)
-            continue
-
-        # -- Add fpga definition
-        fpga_definition = {
-            "arch": "xilinx",
-            "vendor-part": part_info["part-num"],
-            "size": part_info["size"],
-            "xilinx-params": {
-                "yosys-arch": "xc7",
-                "yosys-family": part_info["family"],
-                "nextpnr-device": part_id,
-            },
-        }
-        fpgas_dict[fpga_id] = fpga_definition
+    # -- Construct the parts entries based on the package files.
+    fpgas_dict, skipped = xilinx_parts(package_dir)
 
     # -- Sanity check that we generate a sufficient number of parts.
     print(f"Generated: {len(fpgas_dict)}, skipped {len(skipped)} parts.")
@@ -153,7 +208,6 @@ def main():
     parser.add_argument("--platform-id", choices=REQUIRED_FILES.keys(), required=True)
     parser.add_argument("--build-info-json", type=Path, required=True)
     parser.add_argument("--package-dir", type=Path, required=True)
-    parser.add_argument("--upstream-inventory-json", type=Path, required=True)
     args = parser.parse_args()
 
     # -- Sanity check the upstream package.
@@ -169,11 +223,8 @@ def main():
         args.package_dir,
     )
 
-    # -- Write XILINX-PARTS-INDEX.json to the package.
-    write_fpgas_definitions_file(
-        args.package_dir,
-        args.upstream_inventory_json,
-    )
+    # -- Write FPGAS.jsonc to the package.
+    write_fpgas_definitions_file(args.package_dir)
 
     # -- All done.
     print("All done OK")
