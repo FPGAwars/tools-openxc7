@@ -13,16 +13,15 @@ tests of the toolchain.
 The toolchain itself, the [openXC7](https://github.com/openXC7) toolchain for
 Xilinx 7-series FPGAs (`nextpnr-xilinx`, prjxray, `fasm2frames` and the
 chipdb), is built, validated and released by
-**[toolchain-openxc7-releases](https://github.com/cavearr/toolchain-openxc7-releases)**,
-today under cavearr and on its way to the openXC7 organisation. That is the
-repository for anything about the toolchain: what a release contains, which
-parts it supports, how it is validated, how to install it without apio. When
-it moves, this repository changes one literal (`OPENXC7_REPO`).
+**[openXC7/distribution](https://github.com/openXC7/distribution)**. That is
+the repository for anything about the toolchain: what a release contains,
+which parts it supports, how it is validated, how to install it without
+apio. `UPSTREAM_REPO` names it.
 
 ## What this repository does
 
 Every day (and on demand) `build-pre-release` takes the toolchain release
-named by `OPENXC7_RELEASE_TAG` in
+named by `UPSTREAM_RELEASE_TAG` in
 `.github/workflows/build-pre-release.yaml`, downloads its three platform
 tarballs, checks them against the release's `SHA256SUMS`, and publishes a
 pre-release with apio's six assets:
@@ -43,7 +42,7 @@ release of this repository.
 
 ## What it does not do
 
-- Build, test or patch the toolchain. toolchain-openxc7-releases does, with
+- Build, test or patch the toolchain. openXC7/distribution does, with
   its own CI: package gate, multi-part end-to-end and regression suite on
   the three platforms, before any release is published.
 - Choose versions of the tools. A release of this repository carries exactly
@@ -52,8 +51,8 @@ release of this repository.
 
 ## Bumping
 
-Set `OPENXC7_RELEASE_TAG` to a newer stable release of
-toolchain-openxc7-releases. The toolchain release says which YosysHQ
+Set `UPSTREAM_RELEASE_TAG` to a newer stable release of
+openXC7/distribution. The toolchain release says which YosysHQ
 oss-cad-suite it was validated with, and apio's `oss-cad-suite` package has
 to name the same one: apio checks it at run time.
 

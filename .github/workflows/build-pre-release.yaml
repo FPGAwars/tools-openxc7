@@ -17,11 +17,11 @@ permissions:
 
 env:
   # The openXC7 toolchain release to repackage. yyyy-mm-dd.
-  # See https://github.com/cavearr/toolchain-openxc7-releases/releases
+  # See https://github.com/openXC7/distribution/releases
   #
-  UPSTREAM_REPO: "cavearr/toolchain-openxc7-releases"
+  UPSTREAM_REPO: "openXC7/distribution"
 
-  UPSTREAM_RELEASE_TAG: "2026-11-17"
+  UPSTREAM_RELEASE_TAG: "2026-11-27"
 
   # These are set later
   UPSTREAM_PACKAGE_TAG: ""
